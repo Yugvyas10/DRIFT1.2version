@@ -226,7 +226,7 @@ Owners: P4 (CI, tooling), P3 (docker-compose), P2 (env validation, secrets hygie
   - CLAUDE.md "Commands" is updated to the real scripts.
 
 - **Status: complete, awaiting review (2026-09-26),** on branch `rebuild/m0-foundations`. Deviations from the text above, all deliberate:
-  - `packages/db`, `github-action` and `bench` contain only a manifest and a README stating their milestone. There is no real code to scaffold yet, and an empty stub would be noise.
+  - `packages/db`, `github-action` and `bench` are README-only directories stating their milestone. There is no real code to scaffold yet. They also have no `package.json`: pnpm 12.6 never writes a lockfile entry for a dependency-free workspace package, yet `--frozen-lockfile` requires one, so an empty package breaks CI installs.
   - Vitest uses per-package configs and thresholds instead of root projects mode. This keeps Turborepo's per-package caching, and per-package ≥ 80% implies overall ≥ 80% (see `docs/modules/tooling.md`).
   - "Fresh clone" needs one extra step: `cp apps/web/.env.example apps/web/.env.local`. That is the fail-fast env validation working as intended; CI sets `APP_URL` itself.
   - The Groq key was removed before any commit, but **rotating it is an owner action still open** (SECURITY.md incident log).

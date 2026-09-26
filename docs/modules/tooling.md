@@ -35,6 +35,11 @@ Runs on pushes to `master` and on every pull request, with read-only permissions
 2. **secrets:** gitleaks over the full history.
 3. **services:** docker compose up with `--wait`, all healthchecks pass, then the built worker must connect to Redis and exit 0.
 
+## Known pitfalls
+
+- **No empty workspace packages.** pnpm 12.6 never writes a lockfile entry for a workspace package without dependencies, yet `pnpm install --frozen-lockfile` (CI) fails without one. Create a package's `package.json` together with its first real dependency.
+- **Web needs `APP_URL`.** `apps/web` typecheck and build load `next.config.ts`, which validates the environment. Locally, copy `apps/web/.env.example` to `.env.local`; CI sets the variable itself.
+
 ## Questions an examiner might ask
 
 - **How is "overall coverage ≥ 80%" enforced if thresholds are per package?** Overall coverage is a weighted average of the packages' coverage. If every package is at least 80%, the average is too, and core and rules are held to 90%.

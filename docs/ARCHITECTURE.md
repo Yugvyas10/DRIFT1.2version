@@ -29,9 +29,9 @@ One engine, many callers: the CLI, the Action, the worker and the tests all call
 | `@drift/rules`         | zod                                         | Rules format id and rule id grammar                            |
 | `@drift/core`          | report-schema, rules (from M1), node:crypto | Canonical JSON (RFC 8785) and content hashing                  |
 | `@drift/cli`           | core, report-schema, commander              | `drift --version`, `--help`, exit-code mapping                 |
-| `@drift/github-action` | cli _(planned, M4)_                         | Reserved, no code                                              |
-| `@drift/db`            | Prisma _(planned, M5)_                      | Reserved, no code                                              |
-| `@drift/bench`         | core, cli _(planned, M1/M3/M8)_             | Reserved, no code                                              |
+| `@drift/github-action` | cli _(planned, M4)_                         | Directory reserved (README only)                               |
+| `@drift/db`            | Prisma _(planned, M5)_                      | Directory reserved (README only)                               |
+| `@drift/bench`         | core, cli _(planned, M1/M3/M8)_             | Directory reserved (README only)                               |
 | `@drift/web`           | Next.js, React, zod                         | Landing page, env validation, security headers                 |
 | `@drift/worker`        | ioredis, pino, zod                          | Env validation, Redis readiness check                          |
 
