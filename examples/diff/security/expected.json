@@ -1,0 +1,61 @@
+[
+  {
+    "id": "e33d8ca19822c096",
+    "kind": "security.requirement.removed",
+    "direction": "request",
+    "operation": "GET /keyed",
+    "location": "#/paths/~1keyed/get/security",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Security requirements were relaxed",
+    "before": [
+      {
+        "apiKey": []
+      }
+    ],
+    "after": [
+      {
+        "apiKey": []
+      },
+      {
+        "oauth": ["read"]
+      }
+    ]
+  },
+  {
+    "id": "d8b88f5a77326b50",
+    "kind": "security.requirement.added",
+    "direction": "request",
+    "operation": "GET /public",
+    "location": "#/paths/~1public/get/security",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Security requirements were tightened",
+    "before": [],
+    "after": [
+      {
+        "apiKey": []
+      }
+    ]
+  },
+  {
+    "id": "a2865c17b1cd632e",
+    "kind": "security.requirement.added",
+    "direction": "request",
+    "operation": "GET /scoped",
+    "location": "#/paths/~1scoped/get/security",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Security requirements were tightened",
+    "before": [
+      {
+        "oauth": ["read"]
+      }
+    ],
+    "after": [
+      {
+        "oauth": ["read", "write"]
+      }
+    ]
+  }
+]

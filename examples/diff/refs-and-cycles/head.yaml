@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info: { title: References and cycles, version: "2" }
+paths:
+  /trees:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TreeNode" }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TreeNode" }
+components:
+  schemas:
+    TreeNode:
+      type: object
+      required: [label]
+      properties:
+        label: { type: string }
+        color: { type: string, enum: [red, black, blue] }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/TreeNode" }

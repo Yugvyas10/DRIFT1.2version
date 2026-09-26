@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info: { title: Variants, version: "2" }
+paths:
+  /payments:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/Card"
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - { type: string }
+                  - { type: integer }
+                  - { type: boolean }
+                  - { type: array, items: { type: string } }
+components:
+  schemas:
+    Card: { type: object, required: [number], properties: { number: { type: string } } }
+    Bank: { type: object, required: [iban], properties: { iban: { type: string } } }
+    Wallet: { type: object, required: [provider], properties: { provider: { type: string } } }

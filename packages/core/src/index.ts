@@ -13,3 +13,4 @@ export type {
   SecurityRequirementIR,
   SpecIR,
 } from "./ingest/ir.ts";
+export { changeId, diffSpecs, type DiffResult } from "./diff/diff.ts";

@@ -1,0 +1,9 @@
+Line:
+  type: object
+  required: [sku, quantity]
+  properties:
+    sku:
+      type: string
+    quantity:
+      type: integer
+      minimum: 1

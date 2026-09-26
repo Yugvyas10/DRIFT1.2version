@@ -1,0 +1,62 @@
+[
+  {
+    "id": "f30b43f47e24e992",
+    "kind": "schema.property.made_required",
+    "direction": "request",
+    "operation": "POST /events",
+    "location": "#/components/schemas/Event/properties/actor/required",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Property \"id\" is now required",
+    "subject": "id"
+  },
+  {
+    "id": "e93b9915cf094053",
+    "kind": "schema.enum.value_added",
+    "direction": "request",
+    "operation": "POST /events",
+    "location": "#/components/schemas/Event/properties/kind/const",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): Enum value \"tap\" was added",
+    "subject": "\"tap\"",
+    "after": "tap"
+  },
+  {
+    "id": "ad7b5c3f65ad5c11",
+    "kind": "schema.enum.value_removed",
+    "direction": "request",
+    "operation": "POST /events",
+    "location": "#/components/schemas/Event/properties/kind/const",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Enum value \"click\" was removed",
+    "subject": "\"click\"",
+    "before": "click"
+  },
+  {
+    "id": "a1deaf93fd48f5dd",
+    "kind": "schema.type.narrowed",
+    "direction": "request",
+    "operation": "POST /events",
+    "location": "#/components/schemas/Event/properties/note/type",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Type changed from null | string to string",
+    "before": ["null", "string"],
+    "after": ["string"]
+  },
+  {
+    "id": "178c859dd2187cb0",
+    "kind": "schema.bound.tightened",
+    "direction": "request",
+    "operation": "POST /events",
+    "location": "#/components/schemas/Event/properties/severity/exclusiveMinimum",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): \"exclusiveMinimum\" tightened: 0 → 1",
+    "subject": "exclusiveMinimum",
+    "before": 0,
+    "after": 1
+  }
+]

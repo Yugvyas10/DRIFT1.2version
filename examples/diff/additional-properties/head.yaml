@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info: { title: Additional properties, version: "2" }
+paths:
+  /settings:
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, properties: { theme: { type: string } } }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: object, properties: { theme: { type: string } } }

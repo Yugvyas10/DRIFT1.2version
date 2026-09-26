@@ -1,0 +1,2 @@
+examples/invalid/remote-ref.yaml:14:23  error  REF_REMOTE_DISALLOWED  Remote $ref "https://example.com/schemas/pet.json" is not fetched: remote references are disabled (docs/SECURITY.md T7)
+✖ 1 error, 0 warnings

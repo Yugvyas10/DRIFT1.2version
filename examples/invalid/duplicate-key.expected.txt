@@ -1,0 +1,2 @@
+examples/invalid/duplicate-key.yaml:11:9  error  DUPLICATE_KEY  Map keys must be unique
+✖ 1 error, 0 warnings
