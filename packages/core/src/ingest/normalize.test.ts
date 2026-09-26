@@ -192,5 +192,5 @@ describe("schema normalisation", () => {
       }),
       { numRuns: 40 }
     );
-  });
+  }, 120_000);
 });

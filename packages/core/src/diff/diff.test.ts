@@ -222,52 +222,67 @@ describe("diffSpecs", () => {
   });
 });
 
+/** Each run ingests two random specs, so these take seconds; give them room on slow or busy CI runners. */
+const PROPERTY_TIMEOUT_MS = 120_000;
+
 describe("diffSpecs — properties over random specs", () => {
-  it("finds no changes between a spec and itself, or a key-reordered copy, and hashes them equally", async () => {
-    await fc.assert(
-      fc.asyncProperty(openApiDocument, async (document) => {
-        const [a, b] = await Promise.all([ingestObject(document), ingestObject(reverseKeys(document))]);
-        expect(a.specHash).toBe(b.specHash);
-        expect(diffSpecs(a.ir, a.ir).changes).toEqual([]);
-        expect(diffSpecs(a.ir, b.ir).changes).toEqual([]);
-      }),
-      { numRuns: 60 }
-    );
-  });
+  it(
+    "finds no changes between a spec and itself, or a key-reordered copy, and hashes them equally",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(openApiDocument, async (document) => {
+          const [a, b] = await Promise.all([ingestObject(document), ingestObject(reverseKeys(document))]);
+          expect(a.specHash).toBe(b.specHash);
+          expect(diffSpecs(a.ir, a.ir).changes).toEqual([]);
+          expect(diffSpecs(a.ir, b.ir).changes).toEqual([]);
+        }),
+        { numRuns: 60 }
+      );
+    },
+    PROPERTY_TIMEOUT_MS
+  );
 
-  it("is deterministic, with unique ids and a consistent impact index", async () => {
-    await fc.assert(
-      fc.asyncProperty(openApiDocument, openApiDocument, async (x, y) => {
-        const [a, b] = await Promise.all([ingestObject(x), ingestObject(y)]);
-        const first = diffSpecs(a.ir, b.ir);
-        expect(diffSpecs(a.ir, b.ir)).toEqual(first);
-        const ids = first.changes.map((c) => c.id);
-        expect(new Set(ids).size).toBe(ids.length);
-        expect(Object.values(first.impact).flat().sort()).toEqual([...ids].sort());
-      }),
-      { numRuns: 60 }
-    );
-  });
+  it(
+    "is deterministic, with unique ids and a consistent impact index",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(openApiDocument, openApiDocument, async (x, y) => {
+          const [a, b] = await Promise.all([ingestObject(x), ingestObject(y)]);
+          const first = diffSpecs(a.ir, b.ir);
+          expect(diffSpecs(a.ir, b.ir)).toEqual(first);
+          const ids = first.changes.map((c) => c.id);
+          expect(new Set(ids).size).toBe(ids.length);
+          expect(Object.values(first.impact).flat().sort()).toEqual([...ids].sort());
+        }),
+        { numRuns: 60 }
+      );
+    },
+    PROPERTY_TIMEOUT_MS
+  );
 
-  it("always reports an added required query parameter as RISKY", async () => {
-    await fc.assert(
-      fc.asyncProperty(openApiDocument, async (document) => {
-        const mutated = structuredClone(document) as {
-          paths: Record<string, Record<string, { parameters?: unknown[] }>>;
-        };
-        const [path, item] = Object.entries(mutated.paths)[0] ?? [];
-        const [method, op] = Object.entries(item ?? {}).find(([key]) => key !== "parameters") ?? [];
-        if (!path || !method || !op) return;
-        op.parameters = [
-          ...(op.parameters ?? []),
-          { name: "mandatory", in: "query", required: true, schema: { type: "string" } },
-        ];
-        const { changes } = await diff(document, mutated);
-        expect(changes).toContainEqual(
-          expect.objectContaining({ kind: "param.added.required", candidateSeverity: "RISKY" })
-        );
-      }),
-      { numRuns: 40 }
-    );
-  });
+  it(
+    "always reports an added required query parameter as RISKY",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(openApiDocument, async (document) => {
+          const mutated = structuredClone(document) as {
+            paths: Record<string, Record<string, { parameters?: unknown[] }>>;
+          };
+          const [path, item] = Object.entries(mutated.paths)[0] ?? [];
+          const [method, op] = Object.entries(item ?? {}).find(([key]) => key !== "parameters") ?? [];
+          if (!path || !method || !op) return;
+          op.parameters = [
+            ...(op.parameters ?? []),
+            { name: "mandatory", in: "query", required: true, schema: { type: "string" } },
+          ];
+          const { changes } = await diff(document, mutated);
+          expect(changes).toContainEqual(
+            expect.objectContaining({ kind: "param.added.required", candidateSeverity: "RISKY" })
+          );
+        }),
+        { numRuns: 40 }
+      );
+    },
+    PROPERTY_TIMEOUT_MS
+  );
 });
