@@ -2,7 +2,7 @@
 
 **Status: APPROVED 2026-09-26** (roles assigned; all other recommendations in §10 accepted as written). This file wins over `MASTER_PROMPT.md` wherever they differ. Decisions are recorded in §10.
 
-**Current milestone: M0 — Foundations: complete, awaiting review (2026-09-26). Next: M1.**
+**Current milestone: M1 — Ingest + IR + Diff: complete, awaiting review (2026-09-26), with one acceptance check pending CI (see M1 status). M0: complete.**
 
 Related: [`INVENTORY.md`](INVENTORY.md) (current state) · [`adr/`](adr/) (decisions) · [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (full specification).
 
@@ -83,12 +83,13 @@ The six stages are pure functions, `(typed inputs, adapters) → typed output`. 
   - params by (location, name);
   - request body and responses per status code **and** media type;
   - schemas: 3.0 `nullable` → type arrays, boolean `exclusiveMinimum/Maximum` → numeric form, safe `allOf` merge (only when there are no conflicting keywords, otherwise left as `allOf`), `oneOf`/`anyOf`/`discriminator` preserved.
-- The IR also holds a pointer → source-position map, used for located errors and for SARIF.
+- Every IR schema node carries `$source`, its location in the spec; line/column positions are recomputed lazily from the source text when a diagnostic or report needs them (ADR-0003).
 - Content hash of the normalised spec (JCS canonical JSON + SHA-256). This hash keys every downstream cache.
 
 ### 4.2 Stage 2 — Diff (owner P4)
 
 - Output: `Change { id = sha256(kind + location), kind, direction: request|response|n/a, location (JSON pointer in head, or base if removed), operationKey, before, after, candidateSeverity }`.
+- **As built (M1):** the change id is the first 16 hex digits of SHA-256 over `{kind, direction, operation, location, subject}`; `location` is a URI reference relative to the root spec (`#/pointer` or `file.yaml#/pointer`) and `side` says which contract it points into. The catalogue has 46 kinds: `CHANGE_KINDS` in `@drift/report-schema` is authoritative, and `STRUCTURAL_DEFAULTS` in `@drift/rules` holds the direction table as data. Beyond the rows below it adds `schema.type.changed` (neither narrowed nor widened), `response.error_status.added` (4xx/5xx: safe), `schema.variant.added/removed` (oneOf/anyOf branches), `schema.composition.changed`, `schema.discriminator.changed` and `schema.additional_properties.relaxed`. Every kind has a golden example in `examples/diff/`.
 - Recursive schema diff with a visited set of `(baseRef, headRef)` pairs, so recursive schemas terminate.
 - Impact index: `operationKey → Change[]`. Corpus and Verify only touch operations in this index.
 - Change catalogue and default direction semantics. This table becomes the M2 default ruleset. "Dangerous" means RISKY by default, and BREAKING only with failing evidence.
@@ -249,6 +250,12 @@ Owners: P3 (Ingest), P4 (Diff, report-schema change types).
   - `drift diff` on every golden pair matches the golden change set;
   - both large fixtures ingest, and self-diff yields zero changes;
   - core coverage ≥ 90%.
+
+- **Status: complete, awaiting review (2026-09-26),** on branch `rebuild/m1-ingest-diff` (stacked on `rebuild/m0-foundations`).
+  - Done: Ingest and Diff as above; `drift validate` and `drift diff`; 18 golden pairs covering all 46 change kinds; golden `drift validate` output for every invalid example (`file:line:col`, exit 2); property tests (self-diff empty, key-order independence of hash and diff, determinism, unique ids, mutation detection); security tests (remote ref, other schemes, `../` and symlink escapes, oversize, too many files, alias bomb, deep nesting); core coverage above the 90% threshold.
+  - ADR-0003 is Accepted, with a different outcome than proposed: our own resolver instead of a bundler library (positions across files, no network code path).
+  - Real-world fixtures: all three pinned fixtures (GitHub 3.0 and 3.1, Stripe) were ingested successfully during the spike. The acceptance check "self-diff yields zero changes" on them is automated in the new CI job `fixtures` (`fixtures:fetch` + `fixtures:check`) but **has not run yet**, because the branch cannot be pushed (no write access to the remote). It can also be run locally on request (downloads about 26 MB).
+  - Deviations: OpenAPI 3.1 `webhooks`, callbacks, response headers, links and `servers` are not in the IR yet (servers arrive with routing in M2); response headers could be added if needed.
 
 ### M2 — Core: Corpus + Verify + Classify + rules (size 1.3)
 

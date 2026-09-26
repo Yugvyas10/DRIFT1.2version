@@ -4,19 +4,20 @@
 
 A change is labelled **BREAKING** only when a concrete sample that the old contract accepts is rejected by the new one. A structurally dangerous change without such evidence is **RISKY**; everything else is **SAFE**. See [ADR-0002](docs/adr/0002-evidence-based-classification.md).
 
-> **Status: rebuild in progress — milestone M0 (foundations).** The engine does not exist yet. What works today is listed below; everything else is planned in [`docs/PLAN.md`](docs/PLAN.md). Nothing in this repository presents a planned feature as working; see [`docs/INVENTORY.md`](docs/INVENTORY.md).
+> **Status: rebuild in progress — milestone M1 (Ingest + Diff).** DRIFT can validate specs and list structural changes; evidence and the gate (Corpus, Verify, Classify, Report) arrive in M2–M3. What works today is listed below; everything else is planned in [`docs/PLAN.md`](docs/PLAN.md). Nothing in this repository presents a planned feature as working; see [`docs/INVENTORY.md`](docs/INVENTORY.md).
 
-## What works today (M0)
+## What works today (M1)
 
-| Area                                                   | Try it                                                    |
-| ------------------------------------------------------ | --------------------------------------------------------- |
-| Monorepo checks (typecheck, lint, test, build)         | `pnpm turbo run typecheck lint test build`                |
-| Canonical JSON + content hashing (engine foundation)   | `pnpm --filter @drift/core test`                          |
-| `drift` CLI skeleton (version, help, exit codes)       | `pnpm --filter @drift/cli exec drift --help`              |
-| Landing page with the DRIFT design system              | `pnpm --filter @drift/web dev` → http://localhost:3000    |
-| Local services: Postgres, Redis, S3-compatible storage | `docker compose -f infra/docker-compose.yml up -d --wait` |
-| Worker startup check against Redis                     | `pnpm --filter @drift/worker dev`                         |
-| Secret scan                                            | `sh scripts/secret-scan.sh`                               |
+| Area                                                   | Try it                                                               |
+| ------------------------------------------------------ | -------------------------------------------------------------------- |
+| Monorepo checks (typecheck, lint, test, build)         | `pnpm turbo run typecheck lint test build`                           |
+| Canonical JSON + content hashing (engine foundation)   | `pnpm --filter @drift/core test`                                     |
+| Validate a spec (located errors, exit 2 when invalid)  | `pnpm --filter @drift/cli exec drift validate <spec>`                |
+| List structural changes between two specs              | `pnpm --filter @drift/cli exec drift diff --base <old> --head <new>` |
+| Landing page with the DRIFT design system              | `pnpm --filter @drift/web dev` → http://localhost:3000               |
+| Local services: Postgres, Redis, S3-compatible storage | `docker compose -f infra/docker-compose.yml up -d --wait`            |
+| Worker startup check against Redis                     | `pnpm --filter @drift/worker dev`                                    |
+| Secret scan                                            | `sh scripts/secret-scan.sh`                                          |
 
 ## Quick start
 
