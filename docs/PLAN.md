@@ -2,7 +2,7 @@
 
 **Status: APPROVED 2026-09-26** (roles assigned; all other recommendations in §10 accepted as written). This file wins over `MASTER_PROMPT.md` wherever they differ. Decisions are recorded in §10.
 
-**Current milestone: M0 — Foundations.**
+**Current milestone: M0 — Foundations: complete, awaiting review (2026-09-26). Next: M1.**
 
 Related: [`INVENTORY.md`](INVENTORY.md) (current state) · [`adr/`](adr/) (decisions) · [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (full specification).
 
@@ -225,6 +225,12 @@ Owners: P4 (CI, tooling), P3 (docker-compose), P2 (env validation, secrets hygie
   - starting `web` with a missing required env var exits with a readable zod error;
   - CLAUDE.md "Commands" is updated to the real scripts.
 
+- **Status: complete, awaiting review (2026-09-26),** on branch `rebuild/m0-foundations`. Deviations from the text above, all deliberate:
+  - `packages/db`, `github-action` and `bench` contain only a manifest and a README stating their milestone. There is no real code to scaffold yet, and an empty stub would be noise.
+  - Vitest uses per-package configs and thresholds instead of root projects mode. This keeps Turborepo's per-package caching, and per-package ≥ 80% implies overall ≥ 80% (see `docs/modules/tooling.md`).
+  - "Fresh clone" needs one extra step: `cp apps/web/.env.example apps/web/.env.local`. That is the fail-fast env validation working as intended; CI sets `APP_URL` itself.
+  - The Groq key was removed before any commit, but **rotating it is an owner action still open** (SECURITY.md incident log).
+
 ### M1 — Core: Ingest + IR + Diff (size 1.0)
 
 Owners: P3 (Ingest), P4 (Diff, report-schema change types).
@@ -403,7 +409,17 @@ Milestones merge in order, but people work ahead on branches so nobody idles whi
 
 ## 8. Dependencies
 
-Versions are **checked and pinned at install time** in the milestone that introduces them; none are remembered here. Each added dependency needs a one-line reason:
+Versions are **checked and pinned at install time** in the milestone that introduces them; none are remembered here. Each added dependency needs a one-line reason.
+
+**Pinned in M0** (reasons for the non-obvious choices are in `docs/modules/tooling.md`):
+
+- Node 24 LTS; pnpm 12.6.0; Turborepo 2.11.4.
+- TypeScript **6.0.3**, not 7: TS 7 has no classic compiler API, which typescript-eslint and Next.js need.
+- ESLint **9.39.5**, not 10: eslint-config-next's React and jsx-a11y plugins do not support 10 yet.
+- Vitest 5.0.2, fast-check 4.10.2, zod 4.6.5, commander 15.0.0.
+- Next.js 16.3.6, React 19.3.0, Tailwind 4.3.3.
+- ioredis 6.0.0 and pino 10.3.1 (brought forward from M6 for the worker's Redis readiness check and structured logs).
+- Postgres 18, Redis 8.8, **SeaweedFS 4.47 instead of MinIO** (risk R8 materialised).
 
 | Dependency                                                                                  | Where                             | Why                                                                                                                                |
 | ------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -432,23 +448,23 @@ Versions are **checked and pinned at install time** in the milestone that introd
 
 ## 9. Risks
 
-| #   | Risk                                                                                                                         | Likelihood / impact | Mitigation                                                                                                                                                   |
-| --- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| R1  | Scope: 9 milestones, 4 students, one semester                                                                                | High / High         | Cut line (§6), parallel tracks (§7), milestone sizes re-estimated after M1 with real velocity.                                                               |
-| R2  | Leaked Groq API key (INVENTORY §5)                                                                                           | Present / High      | Rotate now. Remove the literal before any commit. Add secret scanning (e.g. gitleaks) to pre-commit and CI in M0.                                            |
-| R3  | Real-world specs (GitHub, Stripe) hit parser edge cases or are slow                                                          | Medium / High       | M1 spike on those fixtures; located errors; fuzz and property tests; ingest performance measured by bench, not asserted.                                     |
-| R4  | `allOf` merging or 3.0→JSON Schema conversion is subtly wrong, giving false BREAKING                                         | Medium / High       | Merge only when provably safe; otherwise keep `allOf`. Every normaliser rule has unit tests. The mutation benchmark measures false positives.                |
-| R5  | ajv compile cost on specs with thousands of schemas                                                                          | Medium / Medium     | Compile lazily, only for affected operations; cache per key; measured in bench.                                                                              |
-| R6  | Redaction changes values so validation fails (false BREAKING)                                                                | Medium / High       | Record redacted pointers; errors at redacted pointers count as "unknown", never as failure. Dedicated tests.                                                 |
-| R7  | Synthetic evidence is over-trusted                                                                                           | Medium / Medium     | `synthetic: true` everywhere; lower confidence (ADR-0002); reports state it prominently; bench reports recorded vs synthetic separately.                     |
-| R8  | MinIO's community distribution changed in 2025 (pre-built images may no longer be published or updated)                      | Medium / Low        | Verify at M0. If needed, pin the last published image by digest, or use another S3-compatible server. Code only uses the S3 API, so the choice is swappable. |
-| R9  | BullMQ per-group concurrency is a Pro feature                                                                                | Known / Medium      | Per-org concurrency with a Redis counting semaphore and delayed retry; integration-tested.                                                                   |
-| R10 | Auth.js v5 has stayed in beta; v4 is in maintenance                                                                          | Known / Medium      | ADR-0007 decides (Q7). Authorization (org, role) is our own code either way, so the auth library only handles identity.                                      |
-| R11 | Serverless hosting limits SSE duration and cannot run the worker                                                             | Medium / Medium     | Definition of done is `docker compose` locally. SSE clients auto-reconnect with `Last-Event-ID`. The hosting decision is Q13.                                |
-| R12 | oasdiff comparison seen as unfair                                                                                            | Medium / Medium     | Level mapping committed before the first run; identical inputs; generator, seed and scripts committed so anyone can reproduce.                               |
-| R13 | Toolchain drift: local Node 26 vs LTS; `node_modules` from another architecture; corepack no longer bundled with recent Node | Known / Low         | Pin Node LTS in `.nvmrc`/`engines`/CI; pin pnpm via `packageManager`; install pnpm explicitly in docs and CI.                                                |
-| R14 | Repo is owned by a teammate's account; branch protection, Actions secrets and App registration need owner rights             | Known / Medium      | Q5/Q8: agree who administers the repo, or move to a GitHub organisation.                                                                                     |
-| R15 | Big-bang rewrite removes the demo that exists today                                                                          | Medium / Low        | Tag the legacy snapshot (Q3). It stays reachable from the tag, but not from product paths.                                                                   |
+| #   | Risk                                                                                                                         | Likelihood / impact | Mitigation                                                                                                                                                                                                                                                              |
+| --- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | Scope: 9 milestones, 4 students, one semester                                                                                | High / High         | Cut line (§6), parallel tracks (§7), milestone sizes re-estimated after M1 with real velocity.                                                                                                                                                                          |
+| R2  | Leaked Groq API key (INVENTORY §5)                                                                                           | Present / High      | Rotate now. Remove the literal before any commit. Add secret scanning (e.g. gitleaks) to pre-commit and CI in M0.                                                                                                                                                       |
+| R3  | Real-world specs (GitHub, Stripe) hit parser edge cases or are slow                                                          | Medium / High       | M1 spike on those fixtures; located errors; fuzz and property tests; ingest performance measured by bench, not asserted.                                                                                                                                                |
+| R4  | `allOf` merging or 3.0→JSON Schema conversion is subtly wrong, giving false BREAKING                                         | Medium / High       | Merge only when provably safe; otherwise keep `allOf`. Every normaliser rule has unit tests. The mutation benchmark measures false positives.                                                                                                                           |
+| R5  | ajv compile cost on specs with thousands of schemas                                                                          | Medium / Medium     | Compile lazily, only for affected operations; cache per key; measured in bench.                                                                                                                                                                                         |
+| R6  | Redaction changes values so validation fails (false BREAKING)                                                                | Medium / High       | Record redacted pointers; errors at redacted pointers count as "unknown", never as failure. Dedicated tests.                                                                                                                                                            |
+| R7  | Synthetic evidence is over-trusted                                                                                           | Medium / Medium     | `synthetic: true` everywhere; lower confidence (ADR-0002); reports state it prominently; bench reports recorded vs synthetic separately.                                                                                                                                |
+| R8  | MinIO's community distribution changed in 2025 (pre-built images may no longer be published or updated)                      | **Occurred** / Low  | **Confirmed at M0:** the `minio/minio` Docker Hub repository returns 404 and the GitHub repository is archived. Replaced by SeaweedFS (Apache-2.0, maintained) behind the S3 API. Testcontainers' MinIO module cannot be used in M5; use a generic SeaweedFS container. |
+| R9  | BullMQ per-group concurrency is a Pro feature                                                                                | Known / Medium      | Per-org concurrency with a Redis counting semaphore and delayed retry; integration-tested.                                                                                                                                                                              |
+| R10 | Auth.js v5 has stayed in beta; v4 is in maintenance                                                                          | Known / Medium      | ADR-0007 decides (Q7). Authorization (org, role) is our own code either way, so the auth library only handles identity.                                                                                                                                                 |
+| R11 | Serverless hosting limits SSE duration and cannot run the worker                                                             | Medium / Medium     | Definition of done is `docker compose` locally. SSE clients auto-reconnect with `Last-Event-ID`. The hosting decision is Q13.                                                                                                                                           |
+| R12 | oasdiff comparison seen as unfair                                                                                            | Medium / Medium     | Level mapping committed before the first run; identical inputs; generator, seed and scripts committed so anyone can reproduce.                                                                                                                                          |
+| R13 | Toolchain drift: local Node 26 vs LTS; `node_modules` from another architecture; corepack no longer bundled with recent Node | Known / Low         | Pin Node LTS in `.nvmrc`/`engines`/CI; pin pnpm via `packageManager`; install pnpm explicitly in docs and CI.                                                                                                                                                           |
+| R14 | Repo is owned by a teammate's account; branch protection, Actions secrets and App registration need owner rights             | Known / Medium      | Q5/Q8: agree who administers the repo, or move to a GitHub organisation.                                                                                                                                                                                                |
+| R15 | Big-bang rewrite removes the demo that exists today                                                                          | Medium / Low        | Tag the legacy snapshot (Q3). It stays reachable from the tag, but not from product paths.                                                                                                                                                                              |
 
 ## 10. Decisions (approved 2026-09-26)
 

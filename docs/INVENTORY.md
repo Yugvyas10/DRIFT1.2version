@@ -1,10 +1,52 @@
-# INVENTORY — DRIFT before the rebuild
+# INVENTORY — what is real, what is not
 
-Snapshot taken 2026-09-26 on branch `master` (one commit, `3b1a436 First commit`, plus 22 modified and 12 untracked files that are not committed yet). Remote: `github.com/Yugvyas10/DRIFT1.2version`.
+This file records what exists, what is real, and what is not built yet. The **SIMULATED register** (Section 1.2) must list every simulated item in the repository. Remove an entry only in the commit that removes the simulation.
 
-This file records what exists, what is real, what is simulated, and what can be reused. Once the rebuild starts, the **SIMULATED register** (Section 7) must list every simulated item still in the repo. Remove an entry only in the commit that removes the simulation.
+Legend: **REAL** = does what it claims. **PARTIAL** = real mechanism, but wrong or incomplete semantics. **SIMULATED** = hardcoded data, timers or fake status shown as if it were real. **UNSAFE** = a security defect. **NOT BUILT** = absent, and labelled as absent wherever it is mentioned.
 
-Legend: **REAL** = does what it claims. **PARTIAL** = real mechanism, but wrong or incomplete semantics. **SIMULATED** = hardcoded data, timers or fake status shown as if it were real. **UNSAFE** = a security defect.
+## 1. Current state (after M0, 2026-09-26)
+
+The legacy app was removed from product paths in M0 and is preserved at tag **`legacy-v1`** (Section 2 onwards describes it). Everything in the repository now is either real or explicitly labelled as not built.
+
+### 1.1 What is real
+
+| Item                                                                                                                                   | Where                                                | Evidence                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| Monorepo tooling: pnpm workspaces, Turborepo, strict TypeScript, ESLint with dependency rules, Prettier, commitlint, husky, Changesets | repo root                                            | `pnpm turbo run typecheck lint test build` (24 tasks)              |
+| Canonical JSON (RFC 8785) + content hashing                                                                                            | `packages/core/src/hash`                             | RFC vectors + fast-check property tests                            |
+| Report vocabulary (severity, direction, fail-on, exit codes)                                                                           | `packages/report-schema`                             | unit tests                                                         |
+| Rule id grammar                                                                                                                        | `packages/rules`                                     | unit tests                                                         |
+| `drift` CLI skeleton: version, help, exit codes 0/2/3                                                                                  | `packages/cli`                                       | unit tests + spawned-binary tests                                  |
+| Worker: env validation, Redis readiness check, credential-free logs                                                                    | `apps/worker`                                        | unit tests; CI runs it against real Redis                          |
+| Web: landing page with the ported design system, fail-fast env validation, security headers                                            | `apps/web`                                           | `next build`; env tests; headers checked with curl                 |
+| Local services: Postgres 18, Redis 8.8, SeaweedFS (S3) with healthchecks                                                               | `infra/docker-compose.yml`                           | `docker compose ... up --wait`; S3 rejects unsigned requests (403) |
+| Secret scanning (pre-commit + CI), pinned CI actions, dependency audit                                                                 | `scripts/secret-scan.sh`, `.github/workflows/ci.yml` | a planted fake token is blocked; full history scan is clean        |
+
+### 1.2 SIMULATED register
+
+| Item     | File | Owner | Remove by |
+| -------- | ---- | ----- | --------- |
+| _(none)_ | —    | —     | —         |
+
+### 1.3 NOT BUILT (labelled as such where it appears)
+
+| Item                                                | Where it is mentioned          | Label shown                                                                                  | Arrives          |
+| --------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- | ---------------- |
+| The engine stages (Ingest → Report & Gate)          | landing page "How DRIFT works" | "DRIFT is being rebuilt… nothing on it comes from a real run"; header badge "In development" | M1–M3            |
+| CLI commands (`validate`, `diff`, `compare`, …)     | `packages/cli` help            | help lists only `--version`/`--help`                                                         | M1–M3            |
+| Queue processors                                    | `apps/worker`                  | worker logs "no job processors are registered yet; queues arrive in M6"                      | M6               |
+| `@drift/db`, `@drift/github-action`, `@drift/bench` | package READMEs                | "Status: not implemented yet"                                                                | M5, M4, M1/M3/M8 |
+
+### 1.4 Open items carried over
+
+- **Groq API key rotation.** The key from the legacy code is in no commit (gitleaks-verified), but it must still be rotated by the repository owner (SECURITY.md incident log).
+- **Legacy local files.** The untracked root `.env` (contains the key above) and `.env.example` belong to the legacy app. Delete them once the key is rotated; nothing in the new code reads them.
+
+---
+
+# Legacy inventory (tag `legacy-v1`, snapshot 2026-09-26)
+
+Snapshot taken on branch `master` before the rebuild (one commit, `3b1a436 First commit`, plus 22 modified and 12 untracked files, committed as `1eb71fc`). Remote: `github.com/Yugvyas10/DRIFT1.2version`.
 
 ---
 
@@ -124,10 +166,6 @@ If the old app is still deployed (README mentions `driftapi.vercel.app`), items 
 
 **Not reused in any product path:** `constants/demo-data.ts`, dashboard arrays, `/live-demo` and `/demo` simulations, pipeline auto-play store, health fake probes, `/api/upload`, `/api/ai/chat`, `scripts/simulate-ci.sh`, `prisma/seed.js`, the README/walkthrough claims, and the marketing numbers.
 
-## 7. SIMULATED register
+## 7. Legacy SIMULATED register (closed)
 
-While the legacy app exists, **everything in Sections 4.1–4.5 marked SIMULATED is simulated.** When the rebuild replaces the legacy app (PLAN M0), this list is reset. From then on, every new simulated item is added here with file path, owner and removal milestone.
-
-| Item                 | File      | Owner | Remove by                                                   |
-| -------------------- | --------- | ----- | ----------------------------------------------------------- |
-| (legacy app, entire) | repo root | all   | M0 (moved out of product paths — see PLAN open question Q3) |
+Everything in Sections 4.1–4.5 marked SIMULATED was removed from product paths in M0 (commit `chore: remove legacy app from product paths`). The current register is Section 1.2.

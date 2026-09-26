@@ -37,13 +37,23 @@ Post a summary: what works (with the exact command to see it), test and coverage
 
 ## Commands
 
-- Local services: `docker compose -f infra/docker-compose.yml up -d`
+Setup (once): Node 24+, `npm install -g pnpm@12.6.0`, Docker. Then:
+
+- Install: `pnpm install`
+- Env files (web and worker refuse to start without them): `cp apps/web/.env.example apps/web/.env.local && cp apps/worker/.env.example apps/worker/.env`
+- Local services: `docker compose -f infra/docker-compose.yml up -d --wait` (stop: `... down`, add `-v` to wipe data)
 - Full check: `pnpm turbo run typecheck lint test build`
-- Engine quick run: `pnpm --filter @drift/cli exec drift compare --base <old> --head <new>`
-- Benchmarks: `pnpm --filter @drift/bench run all`
-  (Update this list as the real scripts are created.)
+- Format: `pnpm format` (CI runs `pnpm format:check`)
+- Web dev server: `pnpm --filter @drift/web dev` → http://localhost:3000
+- Worker: `pnpm --filter @drift/worker dev`
+- CLI: `pnpm --filter @drift/cli exec drift --help`. `validate`/`diff` arrive in M1; `compare --base <old> --head <new>` in M2.
+- Secret scan: `sh scripts/secret-scan.sh` (full history; the pre-commit hook scans staged changes)
+- Version bump: `pnpm changeset`
+- Benchmarks: `pnpm --filter @drift/bench run all` (from M3)
 
 ## Ownership (for docs and review)
+
+P1 Prathamesh Yewale · P2 Yug Vyas · P3 Tanishq Chavan · P4 Pruthvi Gangapure (PLAN §5).
 
 - Person 1: web UI · Person 2: auth, RBAC, API keys · Person 3: DB, ingestion API, storage, worker, SSE · Person 4: rules, classify/report, CLI gate, GitHub Action/App, CI, bench.
 - Engine stages 1–4: owners as assigned in `PLAN.md`.
