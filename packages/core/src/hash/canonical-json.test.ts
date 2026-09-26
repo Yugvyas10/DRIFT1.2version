@@ -102,12 +102,19 @@ describe("canonicalJson — rejects values that are not JSON data", () => {
 });
 
 describe("canonicalJson — properties", () => {
-  it("round-trips: parsing the output gives back an equal value", () => {
+  it("round-trips: parsing the output gives back the same JSON data", () => {
+    // Compared through JSON.stringify's view of the data: JSON has one zero, so -0 and 0 are the
+    // same JSON value (RFC 8785 §3.2.2.3) and must not count as a difference.
     fc.assert(
       fc.property(fc.jsonValue(), (value) => {
-        expect(JSON.parse(canonicalJson(value))).toStrictEqual(value);
+        expect(JSON.parse(canonicalJson(value))).toStrictEqual(JSON.parse(JSON.stringify(value)));
       })
     );
+  });
+
+  it("round-trips -0 nested in arrays as 0 (regression: found by the round-trip property)", () => {
+    expect(canonicalJson([[-0]])).toBe("[[0]]");
+    expect(JSON.parse(canonicalJson({ a: [-0, 1] }))).toStrictEqual({ a: [0, 1] });
   });
 
   it("is idempotent: canonicalising canonical output changes nothing", () => {
