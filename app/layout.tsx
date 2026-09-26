@@ -10,6 +10,7 @@ import { PageTransition } from "@/components/site/page-transition";
 import { ScrollProgress } from "@/components/site/scroll-progress";
 import { Toaster } from "@/components/ui/toaster";
 import { GlobalSearchModal } from "@/components/layout/global-search-modal";
+import { AiAssistantDrawer } from "@/components/demo/ai-assistant-drawer";
 
 const sans = Poppins({
   subsets: ["latin"],
@@ -94,6 +95,7 @@ export default function RootLayout({
           <Analytics />
           <Toaster />
           <GlobalSearchModal />
+          <AiAssistantDrawer />
         </AppProviders>
       </body>
     </html>

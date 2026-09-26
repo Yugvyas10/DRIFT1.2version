@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { authenticateApiRequest } from "@/lib/security";
 
 const createReportSchema = z.object({
   projectId: z.string().min(1),
   prTitle: z.string().min(1),
-  severity: z.enum(["PASSED", "WARNING", "CRITICAL_BREAKING"]).default("PASSED"),
+  severity: z
+    .enum(["PASSED", "WARNING", "CRITICAL_BREAKING"])
+    .default("PASSED"),
   safeCount: z.number().int().min(0).default(0),
   warningCount: z.number().int().min(0).default(0),
   breakingCount: z.number().int().min(0).default(0),
@@ -42,12 +45,23 @@ export async function GET() {
       })),
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to load reports" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Failed to load reports" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req: Request) {
   try {
+    const auth = await authenticateApiRequest(req);
+    if (!auth) {
+      return NextResponse.json(
+        { error: "Unauthorized access: Valid API Key or Session required" },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const validated = createReportSchema.parse(body);
 
@@ -66,8 +80,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ report }, { status: 201 });
   } catch (error: any) {
     if (error?.code === "P2003") {
-      return NextResponse.json({ error: "Project does not exist" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Project does not exist" },
+        { status: 400 }
+      );
     }
-    return NextResponse.json({ error: error.message || "Invalid input" }, { status: 400 });
+    return NextResponse.json(
+      { error: error.message || "Invalid input" },
+      { status: 400 }
+    );
   }
 }

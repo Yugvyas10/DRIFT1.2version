@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FolderGit2, Plus, Search, CheckCircle2, ShieldAlert, AlertTriangle } from "lucide-react";
+import {
+  FolderGit2,
+  Plus,
+  Search,
+  CheckCircle2,
+  ShieldAlert,
+  AlertTriangle,
+} from "lucide-react";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,10 +26,42 @@ interface ProjectItem {
 }
 
 const initialProjects: ProjectItem[] = [
-  { id: "1", name: "Payments Core Microservice", env: "Production", specVersion: "v1.2.0", status: "HEALTHY", replayedRequests: "1.4M / mo", lastRun: "4m ago" },
-  { id: "2", name: "Orders & Checkout Service", env: "Staging Candidate", specVersion: "v1.3.0-rc1", status: "CRITICAL", replayedRequests: "500k / mo", lastRun: "12m ago" },
-  { id: "3", name: "User Auth & Tokens Mesh", env: "Production", specVersion: "v2.1.0", status: "HEALTHY", replayedRequests: "2.8M / mo", lastRun: "1h ago" },
-  { id: "4", name: "Webhooks Dispatch Engine", env: "Production", specVersion: "v1.0.4", status: "WARNING", replayedRequests: "300k / mo", lastRun: "3h ago" },
+  {
+    id: "1",
+    name: "Payments Core Microservice",
+    env: "Production",
+    specVersion: "v1.2.0",
+    status: "HEALTHY",
+    replayedRequests: "1.4M / mo",
+    lastRun: "4m ago",
+  },
+  {
+    id: "2",
+    name: "Orders & Checkout Service",
+    env: "Staging Candidate",
+    specVersion: "v1.3.0-rc1",
+    status: "CRITICAL",
+    replayedRequests: "500k / mo",
+    lastRun: "12m ago",
+  },
+  {
+    id: "3",
+    name: "User Auth & Tokens Mesh",
+    env: "Production",
+    specVersion: "v2.1.0",
+    status: "HEALTHY",
+    replayedRequests: "2.8M / mo",
+    lastRun: "1h ago",
+  },
+  {
+    id: "4",
+    name: "Webhooks Dispatch Engine",
+    env: "Production",
+    specVersion: "v1.0.4",
+    status: "WARNING",
+    replayedRequests: "300k / mo",
+    lastRun: "3h ago",
+  },
 ];
 
 export function ProjectsGrid() {
@@ -40,7 +79,11 @@ export function ProjectsGrid() {
     fetch("/api/projects")
       .then((res) => res.json())
       .then((data) => {
-        if (data.projects && Array.isArray(data.projects) && data.projects.length > 0) {
+        if (
+          data.projects &&
+          Array.isArray(data.projects) &&
+          data.projects.length > 0
+        ) {
           const formatted = data.projects.map((p: any) => ({
             id: p.id,
             name: p.name,
@@ -52,8 +95,10 @@ export function ProjectsGrid() {
           }));
           setProjects((prev) => {
             const existingIds = new Set(prev.map((item) => item.id));
-            const newItems = formatted.filter((item: any) => !existingIds.has(item.id));
-            return [...prev, ...newItems];
+            const newItems = formatted.filter(
+              (item: any) => !existingIds.has(item.id)
+            );
+            return [...newItems, ...prev];
           });
         }
       })
@@ -61,7 +106,9 @@ export function ProjectsGrid() {
   }, []);
 
   const filteredProjects = projects.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.env.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.env.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || p.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -127,7 +174,11 @@ export function ProjectsGrid() {
           </select>
         </div>
 
-        <Button size="sm" onClick={() => setIsModalOpen(true)} className="shadow-cyan-glow w-full sm:w-auto">
+        <Button
+          size="sm"
+          onClick={() => setIsModalOpen(true)}
+          className="shadow-cyan-glow w-full sm:w-auto"
+        >
           <Plus className="h-4 w-4 mr-1.5" /> Add Microservice Project
         </Button>
       </div>
@@ -143,12 +194,23 @@ export function ProjectsGrid() {
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-white">{p.name}</h4>
-                  <p className="text-xs text-slate-400">{p.env} • <span className="font-mono text-drift-cyan">{p.specVersion}</span></p>
+                  <p className="text-xs text-slate-400">
+                    {p.env} •{" "}
+                    <span className="font-mono text-drift-cyan">
+                      {p.specVersion}
+                    </span>
+                  </p>
                 </div>
               </div>
 
               <Badge
-                variant={p.status === "HEALTHY" ? "success" : p.status === "WARNING" ? "warning" : "breaking"}
+                variant={
+                  p.status === "HEALTHY"
+                    ? "success"
+                    : p.status === "WARNING"
+                      ? "warning"
+                      : "breaking"
+                }
                 className="text-[10px]"
               >
                 {p.status}
@@ -157,11 +219,17 @@ export function ProjectsGrid() {
 
             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800/80 font-mono text-xs">
               <div>
-                <span className="text-slate-500 text-[10px] block">REPLAY VOLUME</span>
-                <span className="text-white font-bold">{p.replayedRequests}</span>
+                <span className="text-slate-500 text-[10px] block">
+                  REPLAY VOLUME
+                </span>
+                <span className="text-white font-bold">
+                  {p.replayedRequests}
+                </span>
               </div>
               <div>
-                <span className="text-slate-500 text-[10px] block">LAST SENTINEL RUN</span>
+                <span className="text-slate-500 text-[10px] block">
+                  LAST SENTINEL RUN
+                </span>
                 <span className="text-slate-300">{p.lastRun}</span>
               </div>
             </div>
@@ -173,13 +241,23 @@ export function ProjectsGrid() {
       <Modal open={isModalOpen} onOpenChange={setIsModalOpen}>
         <ModalContent className="max-w-md bg-[#0A0E17] border-slate-800 p-6 space-y-4">
           <div className="space-y-1">
-            <h3 className="text-lg font-bold text-white">Add Microservice Project</h3>
-            <p className="text-xs text-slate-400">Register a new microservice for contract AST diffing & shadow replay.</p>
+            <h3 className="text-lg font-bold text-white">
+              Add Microservice Project
+            </h3>
+            <p className="text-xs text-slate-400">
+              Register a new microservice for contract AST diffing & shadow
+              replay.
+            </p>
           </div>
 
-          <form onSubmit={handleCreateProject} className="space-y-4 font-sans text-xs">
+          <form
+            onSubmit={handleCreateProject}
+            className="space-y-4 font-sans text-xs"
+          >
             <div className="space-y-1.5">
-              <label className="text-slate-300 font-mono text-[10px] uppercase font-bold">Project Name</label>
+              <label className="text-slate-300 font-mono text-[10px] uppercase font-bold">
+                Project Name
+              </label>
               <Input
                 type="text"
                 placeholder="Billing & Invoicing Service"
@@ -191,7 +269,9 @@ export function ProjectsGrid() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-slate-300 font-mono text-[10px] uppercase font-bold">Environment</label>
+              <label className="text-slate-300 font-mono text-[10px] uppercase font-bold">
+                Environment
+              </label>
               <select
                 value={env}
                 onChange={(e) => setEnv(e.target.value)}
@@ -204,7 +284,9 @@ export function ProjectsGrid() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-slate-300 font-mono text-[10px] uppercase font-bold">Initial Spec Version</label>
+              <label className="text-slate-300 font-mono text-[10px] uppercase font-bold">
+                Initial Spec Version
+              </label>
               <Input
                 type="text"
                 placeholder="v1.0.0"
@@ -216,10 +298,20 @@ export function ProjectsGrid() {
             </div>
 
             <div className="flex justify-end space-x-2 pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsModalOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button type="submit" size="sm" isLoading={isSubmitting} className="shadow-cyan-glow">
+              <Button
+                type="submit"
+                size="sm"
+                isLoading={isSubmitting}
+                className="shadow-cyan-glow"
+              >
                 Create Project
               </Button>
             </div>

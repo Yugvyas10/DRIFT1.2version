@@ -1,17 +1,28 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ArrowRight, Mail, Lock, User, Building2, Github, Eye, EyeOff, Check } from 'lucide-react';
-import { AuthLayout } from '@/app/auth/auth-layout';
+import React, { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import {
+  ArrowRight,
+  Mail,
+  Lock,
+  User,
+  Building2,
+  Github,
+  Eye,
+  EyeOff,
+  Check,
+} from "lucide-react";
+import { AuthLayout } from "@/app/auth/auth-layout";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [orgName, setOrgName] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [orgName, setOrgName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,31 +33,49 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        throw new Error('Registration failed');
+        setIsLoading(false);
+        setError(data.error || "Registration failed. Please try again.");
+        return;
       }
 
+      // Automatically sign in the newly registered user into NextAuth session
+      const signInRes = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
       setIsLoading(false);
-      router.push('/dashboard');
+
+      if (signInRes?.error) {
+        setError(
+          "Registered successfully, but auto login failed. Please sign in manually."
+        );
+      } else {
+        router.push("/dashboard");
+        router.refresh();
+      }
     } catch (err: any) {
       setIsLoading(false);
-      // Fallback for demo mode if backend is disconnected
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 400);
+      setError("An unexpected error occurred during registration.");
     }
   };
 
   return (
     <AuthLayout mode="signup">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Create your account</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
+          Create your account
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Start catching breaking changes in minutes. No credit card required.
         </p>
@@ -54,7 +83,7 @@ export default function RegisterPage() {
         <div className="mt-8 space-y-3">
           <button
             type="button"
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push("/dashboard")}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary/40 px-4 py-3 text-sm font-medium text-foreground transition-all hover:border-primary/40"
           >
             <Github className="h-4 w-4" />
@@ -76,7 +105,9 @@ export default function RegisterPage() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">Full name</label>
+            <label className="mb-2 block text-sm font-medium text-foreground">
+              Full name
+            </label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -91,7 +122,9 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">Work email</label>
+            <label className="mb-2 block text-sm font-medium text-foreground">
+              Work email
+            </label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -106,7 +139,9 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">Organization name</label>
+            <label className="mb-2 block text-sm font-medium text-foreground">
+              Organization name
+            </label>
             <div className="relative">
               <Building2 className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -121,11 +156,13 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">Password</label>
+            <label className="mb-2 block text-sm font-medium text-foreground">
+              Password
+            </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -137,14 +174,25 @@ export default function RegisterPage() {
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>
 
           <div className="space-y-2 pt-2">
-            {['At least 8 characters', 'One uppercase letter', 'One number'].map((req) => (
-              <div key={req} className="flex items-center gap-2 text-xs text-muted-foreground">
+            {[
+              "At least 8 characters",
+              "One uppercase letter",
+              "One number",
+            ].map((req) => (
+              <div
+                key={req}
+                className="flex items-center gap-2 text-xs text-muted-foreground"
+              >
                 <Check className="h-3.5 w-3.5 text-primary" />
                 {req}
               </div>

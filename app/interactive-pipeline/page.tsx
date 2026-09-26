@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   GitBranch,
   FileCode2,
@@ -16,57 +16,72 @@ import {
   Cpu,
   Play,
   Layers,
-} from 'lucide-react';
-import { Reveal, StaggerGroup, staggerItem } from '@/components/site/primitives';
-import { PageHero } from '@/components/site/page-hero';
-import { PipelineControls } from '@/components/pipeline/pipeline-controls';
-import { SideInspectorPanel } from '@/components/pipeline/side-inspector-panel';
-import { Stage1Validation } from '@/components/pipeline/stage-1-validation';
-import { Stage2Diff } from '@/components/pipeline/stage-2-diff';
-import { Stage3Replay } from '@/components/pipeline/stage-3-replay';
-import { Stage4Classification } from '@/components/pipeline/stage-4-classification';
-import { Stage5Report } from '@/components/pipeline/stage-5-report';
-import { Stage6Cicd } from '@/components/pipeline/stage-6-cicd';
-import { ArchitectureDiagram } from '@/components/technology/architecture-diagram';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { PIPELINE_STAGES } from '@/constants/pipeline';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import {
+  Reveal,
+  StaggerGroup,
+  staggerItem,
+} from "@/components/site/primitives";
+import { PageHero } from "@/components/site/page-hero";
+import { PipelineControls } from "@/components/pipeline/pipeline-controls";
+import { SideInspectorPanel } from "@/components/pipeline/side-inspector-panel";
+import { Stage1Validation } from "@/components/pipeline/stage-1-validation";
+import { Stage2Diff } from "@/components/pipeline/stage-2-diff";
+import { Stage3Replay } from "@/components/pipeline/stage-3-replay";
+import { Stage4Classification } from "@/components/pipeline/stage-4-classification";
+import { Stage5Report } from "@/components/pipeline/stage-5-report";
+import { Stage6Cicd } from "@/components/pipeline/stage-6-cicd";
+import { ArchitectureDiagram } from "@/components/technology/architecture-diagram";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PIPELINE_STAGES } from "@/constants/pipeline";
+import { usePipelineStore } from "@/store/use-pipeline-store";
+import { cn } from "@/lib/utils";
 
 const metrics = [
-  { icon: Cpu, label: 'Core latency', value: '118ms' },
-  { icon: Activity, label: 'Changes found', value: '3' },
-  { icon: ShieldCheck, label: 'Breaking', value: '1' },
-  { icon: Eye, label: 'Consumers hit', value: '3' },
+  { icon: Cpu, label: "Core latency", value: "118ms" },
+  { icon: Activity, label: "Changes found", value: "3" },
+  { icon: ShieldCheck, label: "Breaking", value: "1" },
+  { icon: Eye, label: "Consumers hit", value: "3" },
 ];
 
 export default function InteractivePipelinePage() {
-  const [activeStageIndex, setActiveStageIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [speed, setSpeed] = useState(1);
+  const {
+    stages,
+    activeStageIndex,
+    isPlaying,
+    speed,
+    setActiveStageIndex,
+    setIsPlaying,
+    setSpeed,
+    stepNext,
+    stepPrev,
+    resetPipeline,
+    retryStage,
+    cancelPipeline,
+  } = usePipelineStore();
 
   // Auto-play timer
   useEffect(() => {
     if (!isPlaying) return;
 
     const interval = setInterval(() => {
-      setActiveStageIndex((prev) => (prev + 1) % PIPELINE_STAGES.length);
+      setActiveStageIndex((activeStageIndex + 1) % stages.length);
     }, 4000 / speed);
 
     return () => clearInterval(interval);
-  }, [isPlaying, speed]);
+  }, [isPlaying, speed, activeStageIndex, stages.length, setActiveStageIndex]);
 
   const handleStepPrev = () => {
-    setActiveStageIndex((prev) => Math.max(0, prev - 1));
+    stepPrev();
   };
 
   const handleStepNext = () => {
-    setActiveStageIndex((prev) => Math.min(PIPELINE_STAGES.length - 1, prev + 1));
+    stepNext();
   };
 
   const handleReset = () => {
-    setActiveStageIndex(0);
-    setIsPlaying(false);
+    resetPipeline();
   };
 
   return (
@@ -75,7 +90,8 @@ export default function InteractivePipelinePage() {
         eyebrow="Interactive Pipeline"
         title={
           <>
-            Watch a contract <span className="gradient-text">flow through DRIFT.</span>
+            Watch a contract{" "}
+            <span className="gradient-text">flow through DRIFT.</span>
           </>
         }
         description="Step through a real regression analysis — from PR trigger to merge gate. Each stage shows exactly what the engine sees and decides."
@@ -111,6 +127,8 @@ export default function InteractivePipelinePage() {
                 onStepPrev={handleStepPrev}
                 onStepNext={handleStepNext}
                 onReset={handleReset}
+                onRetry={retryStage}
+                onCancel={cancelPipeline}
                 onSpeedChange={setSpeed}
               />
             </div>
@@ -132,16 +150,23 @@ export default function InteractivePipelinePage() {
                       setIsPlaying(false);
                     }}
                     className={cn(
-                      'flex flex-col items-start p-3.5 rounded-xl border transition-colors text-left',
+                      "flex flex-col items-start p-3.5 rounded-xl border transition-colors text-left",
                       isActive
-                        ? 'border-primary/50 bg-primary/10 text-primary shadow-[0_0_20px_-4px_hsl(174_72%_51%/0.3)]'
-                        : 'border-border bg-secondary/30 text-muted-foreground hover:border-primary/30 hover:text-foreground'
+                        ? "border-primary/50 bg-primary/10 text-primary shadow-[0_0_20px_-4px_hsl(174_72%_51%/0.3)]"
+                        : "border-border bg-secondary/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
                     )}
                   >
-                    <span className={cn('font-mono text-[10px] font-bold', isActive ? 'text-primary' : 'text-muted-foreground')}>
+                    <span
+                      className={cn(
+                        "font-mono text-[10px] font-bold",
+                        isActive ? "text-primary" : "text-muted-foreground"
+                      )}
+                    >
                       STAGE 0{s.stageNumber}
                     </span>
-                    <h4 className="mt-1 text-xs font-semibold text-foreground truncate w-full">{s.shortName}</h4>
+                    <h4 className="mt-1 text-xs font-semibold text-foreground truncate w-full">
+                      {s.shortName}
+                    </h4>
                   </motion.button>
                 );
               })}
@@ -154,9 +179,9 @@ export default function InteractivePipelinePage() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeStageIndex}
-                  initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
-                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+                  initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
                   transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 >
                   {activeStageIndex === 0 && <Stage1Validation />}
@@ -183,7 +208,9 @@ export default function InteractivePipelinePage() {
                   <p className="mt-3 font-display text-2xl font-semibold">
                     {m.value}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{m.label}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {m.label}
+                  </p>
                 </div>
               </Reveal>
             ))}
@@ -195,14 +222,18 @@ export default function InteractivePipelinePage() {
       <section className="section-pad relative bg-background-2/30 border-t border-border/60">
         <div className="container-max space-y-8">
           <div className="text-center space-y-2">
-            <Badge variant="outline" className="font-mono text-xs border-primary/40 text-primary">
+            <Badge
+              variant="outline"
+              className="font-mono text-xs border-primary/40 text-primary"
+            >
               Enterprise Data Flow
             </Badge>
             <h2 className="font-display text-3xl font-semibold tracking-tight">
               OpenAPI Specs & Shadow Traffic Alignment
             </h2>
             <p className="text-sm text-muted-foreground max-w-xl mx-auto">
-              Trace how raw API contracts and shadow production traffic streams merge before the replay & classification engine.
+              Trace how raw API contracts and shadow production traffic streams
+              merge before the replay & classification engine.
             </p>
           </div>
           <ArchitectureDiagram />

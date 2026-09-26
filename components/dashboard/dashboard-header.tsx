@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { SearchTrigger } from '@/components/ui/search';
-import { Badge } from '@/components/ui/badge';
-import { Building2, ChevronDown, Bell } from 'lucide-react';
+import React from "react";
+import { SearchTrigger } from "@/components/ui/search";
+import { Badge } from "@/components/ui/badge";
+import { Building2, ChevronDown, Bell } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 
 interface DashboardHeaderProps {
   onOpenNotifications: () => void;
@@ -35,22 +35,25 @@ export function DashboardHeader({
           <DropdownMenuContent align="start">
             <DropdownMenuItem>Acme Corp Enterprise</DropdownMenuItem>
             <DropdownMenuItem>Staging Sandbox Org</DropdownMenuItem>
-            <DropdownMenuItem className="text-primary">+ Create Organization</DropdownMenuItem>
+            <DropdownMenuItem className="text-primary">
+              + Create Organization
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         <span className="text-muted-foreground">/</span>
 
-        <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+        <Badge
+          variant="outline"
+          className="font-mono text-xs text-muted-foreground"
+        >
           Payment Checkout Services
         </Badge>
       </div>
 
       {/* Right Controls: Command Palette Search, Notifications, Profile */}
       <div className="flex items-center space-x-3">
-        <button onClick={onOpenCommandPalette}>
-          <SearchTrigger />
-        </button>
+        <SearchTrigger onClick={onOpenCommandPalette} />
 
         {/* Notification Bell */}
         <button
@@ -74,10 +77,14 @@ export function DashboardHeader({
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem className="font-bold text-foreground">Tyrell (Lead Architect)</DropdownMenuItem>
+            <DropdownMenuItem className="font-bold text-foreground">
+              Tyrell (Lead Architect)
+            </DropdownMenuItem>
             <DropdownMenuItem>Account Settings</DropdownMenuItem>
             <DropdownMenuItem>API Keys</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">Sign Out</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive">
+              Sign Out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ArrowRight, Mail, Lock, Github, Eye, EyeOff } from 'lucide-react';
-import { AuthLayout } from '@/app/auth/auth-layout';
+import React, { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { ArrowRight, Mail, Lock, Github, Eye, EyeOff } from "lucide-react";
+import { AuthLayout } from "@/app/auth/auth-layout";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('tyrell@acme.corp');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState("demo@drift.dev");
+  const [password, setPassword] = useState("driftdemo123");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,20 +21,34 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      setTimeout(() => {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (res?.error) {
         setIsLoading(false);
-        router.push('/dashboard');
-      }, 600);
+        setError(
+          "Invalid credentials. Please use demo@drift.dev / driftdemo123 or register."
+        );
+      } else {
+        setIsLoading(false);
+        router.push("/dashboard");
+        router.refresh();
+      }
     } catch (err: any) {
       setIsLoading(false);
-      setError('Invalid credentials. Please try again.');
+      setError("An unexpected error occurred. Please try again.");
     }
   };
 
   return (
     <AuthLayout mode="signin">
       <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">Welcome back</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
+          Welcome back
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Sign in to your DRIFT account to continue.
         </p>
@@ -41,7 +56,7 @@ export default function LoginPage() {
         <div className="mt-8 space-y-3">
           <button
             type="button"
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push("/dashboard")}
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary/40 px-4 py-3 text-sm font-medium text-foreground transition-all hover:border-primary/40"
           >
             <Github className="h-4 w-4" />
@@ -63,7 +78,9 @@ export default function LoginPage() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">Email</label>
+            <label className="mb-2 block text-sm font-medium text-foreground">
+              Email
+            </label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -79,7 +96,9 @@ export default function LoginPage() {
 
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="block text-sm font-medium text-foreground">Password</label>
+              <label className="block text-sm font-medium text-foreground">
+                Password
+              </label>
               <span className="text-xs text-primary hover:underline cursor-pointer">
                 Forgot password?
               </span>
@@ -87,7 +106,7 @@ export default function LoginPage() {
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -99,7 +118,11 @@ export default function LoginPage() {
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>

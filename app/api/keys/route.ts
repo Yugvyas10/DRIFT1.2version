@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { apiKeySchema } from "@/lib/validations/project";
@@ -30,14 +31,13 @@ export async function POST(req: Request) {
     const validated = apiKeySchema.parse(body);
     const userId = await resolveUserId();
 
-    const generatedKey =
-      "drift_live_" + Math.random().toString(36).substring(2, 18);
+    const rawKey = "drift_live_" + randomBytes(24).toString("hex");
 
     const created = await prisma.apiKey.create({
       data: {
         userId,
         name: validated.name,
-        key: hashApiKey(generatedKey),
+        key: hashApiKey(rawKey),
       },
     });
 
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
         key: {
           id: created.id,
           name: created.name,
-          key: created.key,
+          key: rawKey,
           createdAt: created.createdAt.toISOString(),
         },
       },

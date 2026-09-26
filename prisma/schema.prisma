@@ -112,6 +112,7 @@ model Project {
   organizationId String
   name           String
   slug           String
+  repoFullName   String?  @unique
   environment    String   @default("Production")
   specVersion    String   @default("v1.0.0")
   createdAt      DateTime @default(now())

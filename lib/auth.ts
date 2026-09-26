@@ -17,7 +17,8 @@ export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID || "drift-dev-google-client-id",
-      clientSecret: env.GOOGLE_CLIENT_SECRET || "drift-dev-google-client-secret",
+      clientSecret:
+        env.GOOGLE_CLIENT_SECRET || "drift-dev-google-client-secret",
     }),
     CredentialsProvider({
       name: "Credentials",
@@ -50,15 +51,32 @@ export const authOptions: NextAuthOptions = {
           console.error("Auth DB lookup failed:", error);
         }
 
-        // Demo Authenticated User — only enabled outside production so the
-        // demo never blocks login, without allowing open login in production.
+        // Demo Authenticated User — persist custom credentials into Prisma DB
         if (env.NODE_ENV !== "production") {
-          return {
-            id: "usr_101",
-            name: "Tyrell (Lead Architect)",
-            email: credentials.email,
-            image: "https://avatar.vercel.sh/tyrell",
-          };
+          try {
+            const passwordHash = await bcrypt.hash(credentials.password, 10);
+            const nameFromEmail = credentials.email.split("@")[0];
+            const createdUser = await prisma.user.upsert({
+              where: { email: credentials.email },
+              update: {},
+              create: {
+                email: credentials.email,
+                name:
+                  nameFromEmail.charAt(0).toUpperCase() +
+                  nameFromEmail.slice(1),
+                passwordHash,
+              },
+            });
+
+            return {
+              id: createdUser.id,
+              name: createdUser.name ?? credentials.email,
+              email: createdUser.email,
+              image: `https://avatar.vercel.sh/${encodeURIComponent(createdUser.email)}`,
+            };
+          } catch (e) {
+            console.error("Failed to persist custom login user into DB:", e);
+          }
         }
 
         return null;
@@ -82,7 +100,10 @@ export const authOptions: NextAuthOptions = {
             },
           });
         } catch (e) {
-          console.warn("Prisma user upsert skipped in Google signIn callback:", e);
+          console.warn(
+            "Prisma user upsert skipped in Google signIn callback:",
+            e
+          );
         }
       }
       return true;
