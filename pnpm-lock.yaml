@@ -298,6 +298,25 @@ importers:
         specifier: 'catalog:'
         version: 5.0.2(@types/node@24.13.6)(@vitest/coverage-v8@5.0.2)(vite@8.3.1(@types/node@24.13.6)(jiti@2.6.1)(yaml@2.9.1))
 
+  packages/bench:
+    dependencies:
+      '@drift/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.6
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.2(vitest@5.0.2)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.2(@types/node@24.13.6)(@vitest/coverage-v8@5.0.2)(vite@8.3.1(@types/node@24.13.6)(jiti@2.6.1)(yaml@2.9.1))
+
   packages/cli:
     dependencies:
       '@drift/core':
