@@ -1,0 +1,37 @@
+{
+  "name": "drift",
+  "private": true,
+  "description": "DRIFT: evidence-based API contract compatibility gate for CI/CD",
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "check": "turbo run typecheck lint test build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "changeset": "changeset",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@changesets/cli": "3.0.3",
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3",
+    "@drift/cli": "workspace:*",
+    "@eslint/js": "9.39.5",
+    "@types/node": "catalog:",
+    "eslint": "9.39.5",
+    "globals": "16.5.0",
+    "husky": "9.1.7",
+    "lint-staged": "17.5.1",
+    "prettier": "3.9.9",
+    "turbo": "2.11.4",
+    "typescript": "catalog:",
+    "typescript-eslint": "8.70.1"
+  }
+}
