@@ -2,7 +2,7 @@
 
 **Status: APPROVED 2026-09-26** (roles assigned; all other recommendations in §10 accepted as written). This file wins over `MASTER_PROMPT.md` wherever they differ. Decisions are recorded in §10.
 
-**Current milestone: M1 — Ingest + IR + Diff: complete, awaiting review (2026-09-26), with one acceptance check pending CI (see M1 status). M0: complete.**
+**Current milestone: M2 — Corpus + Verify + Classify + rules: complete, awaiting review (2026-09-28). M0 and M1: approved 2026-09-28 (M1's fixtures check re-runs in CI after a fix, see M1 status).**
 
 Related: [`INVENTORY.md`](INVENTORY.md) (current state) · [`adr/`](adr/) (decisions) · [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (full specification).
 
@@ -251,7 +251,7 @@ Owners: P3 (Ingest), P4 (Diff, report-schema change types).
   - both large fixtures ingest, and self-diff yields zero changes;
   - core coverage ≥ 90%.
 
-- **Status: complete, awaiting review (2026-09-26),** on branch `rebuild/m1-ingest-diff` (stacked on `rebuild/m0-foundations`).
+- **Status: approved 2026-09-28,** on branch `rebuild/m1-ingest-diff` (stacked on `rebuild/m0-foundations`). The CI fixtures job first timed out on Stripe: the diff went exponential on densely mutually recursive components. That is fixed in `7e90056` (Tarjan strongly connected components; regression test in `diff.test.ts`), and the job re-runs on PR #2.
   - Done: Ingest and Diff as above; `drift validate` and `drift diff`; 18 golden pairs covering all 46 change kinds; golden `drift validate` output for every invalid example (`file:line:col`, exit 2); property tests (self-diff empty, key-order independence of hash and diff, determinism, unique ids, mutation detection); security tests (remote ref, other schemes, `../` and symlink escapes, oversize, too many files, alias bomb, deep nesting); core coverage above the 90% threshold.
   - ADR-0003 is Accepted, with a different outcome than proposed: our own resolver instead of a bundler library (positions across files, no network code path).
   - Real-world fixtures: all three pinned fixtures (GitHub 3.0 and 3.1, Stripe) were ingested successfully during the spike. The acceptance check "self-diff yields zero changes" on them is automated in the new CI job `fixtures` (`fixtures:fetch` + `fixtures:check`) but **has not run yet**, because the branch cannot be pushed (no write access to the remote). It can also be run locally on request (downloads about 26 MB).
@@ -271,6 +271,15 @@ Owners: P3 (Corpus, Verify), P4 (rules, Classify, report-schema v1), P2 (redacti
   - redaction canary test: secrets planted in the test corpus appear in **no** output or artifact;
   - validators compile once per cache key (asserted by a counter);
   - rules coverage ≥ 90%.
+
+- **Status: complete, awaiting review (2026-09-28),** on branch `rebuild/m2-evidence` (stacked on M1).
+  - Every acceptance check above passes. The two `drift compare` runs are golden tests (`examples/petstore/expected*.{json,txt}`). The property test, the canary test (8 planted secrets and personal data, two of them inside a malformed line) and the compile counter are in core. Rules coverage is 100%.
+  - Also built: HAR import, the policy format (escalations, expiring suppressions), `unattributed` failures, recorded-response non-conformance, content-addressed stage keys in the report, and an additive example that passes with semver `minor`.
+  - Deviations:
+    - **The validation worker pool (piscina) moves to M3.** Verify runs on the main thread. The M3 performance harness will show whether a pool pays off, so no dependency is added before there is a measurement.
+    - **ADR-0005 amended:** rules hold no `when` conditions (the evidence policy is fixed in core), and the default ruleset is JSON.
+    - **ADR-0002 amended:** the confidence formula is fixed. Synthetic request samples are generated only for affected operations that traffic did not reach, and response evidence is always synthetic.
+    - Only root-level `servers` are used for routing.
 
 ### M3 — CLI + all report formats + exit codes + first bench run (size 0.9)
 
@@ -437,7 +446,7 @@ Versions are **checked and pinned at install time** in the milestone that introd
 | `yaml`                                                                                  | core                              | YAML 1.2 parser with source positions and alias limits (needed for located errors and DoS limits).                                 |
 | `ajv`, `ajv-formats`, `ajv-draft-04`                                                    | core                              | JSON Schema validation: 2020-12 for OAS 3.1 and payloads; draft-04 only to validate 3.0 documents against the official 3.0 schema. |
 | ~~`$ref` bundler~~ (not added)                                                          | core                              | ADR-0003 (M1): our own loader and resolver keep positions across files and have no network code path, so no bundler is needed.     |
-| piscina                                                                                 | core/worker                       | Mature `worker_threads` pool for CPU-bound validation.                                                                             |
+| piscina (moved to M3, added only if the perf harness shows it pays off)                 | core/worker                       | Mature `worker_threads` pool for CPU-bound validation.                                                                             |
 | zod                                                                                     | report-schema, rules, web, worker | Runtime validation; zod v4 also generates the committed JSON Schema.                                                               |
 | commander, picocolors                                                                   | cli                               | Argument parsing; tiny colour library that respects `NO_COLOR`.                                                                    |
 | @actions/core, @actions/github, esbuild                                                 | github-action                     | Official Action toolkit; single-file bundle required by JS Actions.                                                                |
@@ -494,12 +503,12 @@ Versions are **checked and pinned at install time** in the milestone that introd
 
 ## 11. Architecture Decision Records
 
-| ADR                                                    | Title                                             | Status                                      |
-| ------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------- |
-| [0001](adr/0001-monorepo-and-rebuild-strategy.md)      | Monorepo with pnpm + Turborepo; rebuild in place  | Accepted                                    |
-| [0002](adr/0002-evidence-based-classification.md)      | Evidence-based classification and confidence      | Accepted (confidence formula amended in M2) |
-| [0003](adr/0003-openapi-parsing-and-ref-resolution.md) | OpenAPI parsing, validation and `$ref` resolution | Accepted (M1: own resolver, no bundler)     |
-| [0004](adr/0004-sse-over-websockets.md)                | Server-Sent Events instead of WebSockets          | Accepted                                    |
-| [0005](adr/0005-rules-as-data.md)                      | Classification rules as versioned data            | Accepted                                    |
-| [0006](adr/0006-content-addressed-stage-outputs.md)    | Typed, content-addressed stage outputs            | Accepted                                    |
-| [0007](adr/0007-auth-library.md)                       | Authentication library (next-auth v4)             | Accepted                                    |
+| ADR                                                    | Title                                             | Status                                       |
+| ------------------------------------------------------ | ------------------------------------------------- | -------------------------------------------- |
+| [0001](adr/0001-monorepo-and-rebuild-strategy.md)      | Monorepo with pnpm + Turborepo; rebuild in place  | Accepted                                     |
+| [0002](adr/0002-evidence-based-classification.md)      | Evidence-based classification and confidence      | Accepted; amended in M2 (confidence formula) |
+| [0003](adr/0003-openapi-parsing-and-ref-resolution.md) | OpenAPI parsing, validation and `$ref` resolution | Accepted (M1: own resolver, no bundler)      |
+| [0004](adr/0004-sse-over-websockets.md)                | Server-Sent Events instead of WebSockets          | Accepted                                     |
+| [0005](adr/0005-rules-as-data.md)                      | Classification rules as versioned data            | Accepted; amended in M2 (no `when`, JSON)    |
+| [0006](adr/0006-content-addressed-stage-outputs.md)    | Typed, content-addressed stage outputs            | Accepted                                     |
+| [0007](adr/0007-auth-library.md)                       | Authentication library (next-auth v4)             | Accepted                                     |
