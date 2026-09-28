@@ -1,0 +1,12 @@
+{"method":"POST","path":"/v1/pets","headers":{"Authorization":"Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.c2lnbmF0dXJlLWZvci10ZXN0cw","Content-Type":"application/json"},"requestBody":{"name":"Rex","status":"pending","tag":"dog","ownerEmail":"alice@example.com"},"status":201,"responseHeaders":{"Content-Type":"application/json"},"responseBody":{"id":1,"name":"Rex","status":"pending"},"timestamp":"2026-09-20T10:00:00Z","clientId":"mobile-app"}
+{"method":"POST","path":"/v1/pets","headers":{"Content-Type":"application/json"},"requestBody":{"name":"Tom","status":"available","category":"cat"},"status":201,"clientId":"web"}
+{"method":"GET","path":"/v1/pets?limit=80","status":200,"responseBody":[],"clientId":"web"}
+{"method":"GET","path":"/v1/pets","query":{"limit":"10","status":"sold"},"status":200,"responseHeaders":{"Content-Type":"application/json"},"responseBody":[{"id":2,"name":"Tom","status":"sold"}]}
+{"method":"GET","path":"/v1/pets/42","headers":{"X-Api-Key":"AKIAIOSFODNN7EXAMPLE"},"status":200,"responseHeaders":{"Content-Type":"application/json"},"responseBody":{"id":42,"name":"Rex","status":"available"}}
+{"method":"DELETE","path":"/v1/pets/7","status":204,"clientId":"admin-tool"}
+{"method":"GET","path":"/v1/pets","reqestBody":{}}
+not a traffic record: card 4000 0566 5566 5556 belongs to bob@example.com
+{"method":"GET","path":"/v1/unknown","status":404}
+{"method":"POST","path":"/v1/pets","headers":{"Content-Type":"application/json"},"requestBody":{"name":"Bella","category":"dog","note":"card 4111 1111 1111 1111"},"status":201}
+{"method":"GET","path":"/v1/pets/abc","status":400}
+{"method":"GET","path":"/v1/pets?limit=100&token=gsk_abcdefghijklmnopqrstuvwxyz0123","status":200}

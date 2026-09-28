@@ -5,7 +5,7 @@
 - Stage 1 Ingest, 3 Corpus, 4 Verify: P3 (Tanishq Chavan).
 - Stage 2 Diff, 5 Classify, 6 Report & Gate: P4 (Pruthvi Gangapure).
 
-**Status:** M1 — hashing, **Ingest** and **Diff** are implemented. Corpus, Verify and Classify arrive in M2, Report in M3.
+**Status:** M2 — **Ingest**, **Diff**, **Corpus**, **Verify** and **Classify** are implemented, with `compare` running them in order and producing a `drift-report/v1` report. The other report formats (Stage 6) arrive in M3.
 
 ## Purpose
 
@@ -13,15 +13,21 @@ The pure engine that compares two OpenAPI contracts and, from M2, backs each lab
 
 ## Public API
 
-| Export                                                          | What it does                                                                                                 |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `ingestSpec(path, { reader, refRoot?, limits?, displayPath? })` | Stage 1. Returns `{ spec?, diagnostics }`; `spec` only when there are no errors. Never throws for bad input. |
-| `diffSpecs(baseIR, headIR)`                                     | Stage 2. Returns `{ changes, impact }`: sorted `Change` records, and operation → change ids.                 |
-| `SpecReader`, `IngestLimits`, `DEFAULT_LIMITS`                  | The file adapter the caller provides, and the resource limits.                                               |
-| `SpecIR`, `OperationIR`, `NormalizedSchema`, …                  | IR types.                                                                                                    |
-| `canonicalJson`, `contentHash`, `sha256Hex`                     | RFC 8785 canonical JSON and hashing (ADR-0006).                                                              |
-| `changeId`                                                      | The stable change id function.                                                                               |
-| `ENGINE_NAME`, `ENGINE_VERSION`                                 | Engine identity, kept equal to package.json by a test.                                                       |
+| Export                                                                         | What it does                                                                                                                             |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ingestSpec(path, { reader, refRoot?, limits?, displayPath? })`                | Stage 1. Returns `{ spec?, diagnostics }`; `spec` only when there are no errors. Never throws for bad input.                             |
+| `diffSpecs(baseIR, headIR)`                                                    | Stage 2. Returns `{ changes, impact, anchors }`: sorted `Change` records, operation → change ids, and where each change sits (internal). |
+| `compare({ base, head, traffic?, ruleset?, policy?, failOn?, asOf, seed? })`   | Runs Diff → Corpus → Verify → Classify and returns a schema-validated `drift-report/v1` report.                                          |
+| `readJsonl(lines)`, `readHar(document)`                                        | Traffic readers: an async stream of `drift-traffic/v1` lines, or a HAR 1.2 document.                                                     |
+| `buildCorpus`, `verify`, `classify`, `assess`                                  | Stages 3–5, exported for tests, the worker and the M6 re-runs.                                                                           |
+| `redactSample`, `detect`, `DEFAULT_REDACTION`                                  | Redaction and the secret/PII detectors.                                                                                                  |
+| `stageKey(stage, inputs)`, `specSummary(spec)`                                 | Content-addressed stage keys (ADR-0006) and report summaries.                                                                            |
+| `parseDataText`, `parseRuleset`, `Policy`, `DEFAULT_RULESET`, `DEFAULT_POLICY` | Safe YAML/JSON parsing and the rules/policy loaders, re-exported so callers depend on core only.                                         |
+| `SpecReader`, `IngestLimits`, `DEFAULT_LIMITS`                                 | The file adapter the caller provides, and the resource limits.                                                                           |
+| `SpecIR`, `OperationIR`, `NormalizedSchema`, …                                 | IR types.                                                                                                                                |
+| `canonicalJson`, `contentHash`, `sha256Hex`                                    | RFC 8785 canonical JSON and hashing (ADR-0006).                                                                                          |
+| `changeId`                                                                     | The stable change id function.                                                                                                           |
+| `ENGINE_NAME`, `ENGINE_VERSION`                                                | Engine identity, kept equal to package.json by a test.                                                                                   |
 
 ## Data flow
 
@@ -31,8 +37,14 @@ spec file ──▶ loadDocumentSet ──▶ detectVersion ──▶ validateSt
               local $refs only)                      located errors)        normalised
                                                                              schemas)
 base IR ─┐
-         ├──▶ diffSpecs ──▶ Change[] + impact index
-head IR ─┘
+         ├──▶ diffSpecs ──▶ Change[] + impact index + anchors
+head IR ─┘                       │
+traffic ──▶ readJsonl/readHar ──▶ buildCorpus ──▶ redacted, sampled samples of affected operations
+                                 │                (routed against the old contract)
+                                 ▼
+                              verify ──▶ per-change evidence (+ synthetic samples where traffic is missing)
+                                 │
+rules + policy ─────────────▶ classify ──▶ BREAKING / RISKY / SAFE, confidence, semver, gate ──▶ Report
 ```
 
 ## Stage 1 — Ingest (`src/ingest/`)
@@ -91,6 +103,66 @@ head IR ─┘
 - **Cycles and cost:** reference pairs are compared like a graph search (Tarjan's strongly connected components). Meeting a pair that is still open stops there. When the first pair of a cycle finishes, its result holds everything reachable from it, and every pair in that cycle gets exactly that result in the cache. Each pair is compared once per direction, however densely components refer to each other. Before this (M1 fixtures job), Stripe's `anyOf: [string, $ref]` expandable fields made the diff exponential, because results inside a cycle were never cached.
 - **Output:** changes are de-duplicated by id and sorted by operation, direction, location, kind and subject.
 
+## Stage 3 — Corpus (`src/corpus/`)
+
+| File            | Role                                                                                                                                                                                                                                                                                                                                                 |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `traffic.ts`    | `drift-traffic/v1` JSONL, read one line at a time (lines over 4 MiB are refused unparsed), and HAR import. Malformed input is counted and reported by line number, and the reason never quotes the line.                                                                                                                                             |
+| `router.ts`     | Matches recorded paths to operations: server base paths stripped (longest first), then a trie of path templates in which literal segments win over parameters. Mixed segments such as `{id}.json` are supported.                                                                                                                                     |
+| `redact.ts`     | Denylisted headers (`authorization`, cookies, API-key headers) and field names (`password`, `token`, …), plus detectors for emails, JWTs, bearer tokens, common cloud keys, private keys and Luhn-valid card numbers. Every quantifier is bounded, so long input cannot cause catastrophic backtracking. Every redacted value's pointer is recorded. |
+| `corpus.ts`     | The stage: route against the **old** contract, keep only operations in the impact index, keep per operation the samples with the lowest priority hash (deterministic, independent of line order), share the global cap in turns across operations, then redact every kept sample.                                                                    |
+| `synthesize.ts` | The deterministic sample generator (below).                                                                                                                                                                                                                                                                                                          |
+
+**Synthetic samples** use no randomness. Every schema node offers a short list of variants: each enum value, the typical value and both bounds of a number, the shortest and longest strings, format examples, all properties or only the required ones or one extra, each `oneOf`/`anyOf` branch, and so on. A _plan_ picks one variant per node. For each group (an operation's requests, or one response status and media type), plans run in this order:
+
+1. a baseline;
+2. every variant of each node a change touches (the "focus" points, from the change anchors);
+3. sweeps;
+4. a fill, so that every variant of every node reached is generated at least once, within a cap of 48 per group.
+
+This makes samples change-directed without per-change code. For a removed enum value, the old schema offers that value; for a tightened bound, it offers the old bound. Every sample is validated against the contract it was generated from and discarded if that contract rejects it, so the generator's shortcuts (for example with `pattern`) can never produce false evidence.
+
+## Stage 4 — Verify (`src/verify/`)
+
+- **Request direction:** a sample is evidence for a change when the **old** contract accepts it and the **new** one rejects it for a reason that change explains.
+  - Recorded samples come from the corpus.
+  - An affected operation that no recorded sample reached gets synthetic samples generated from the old contract.
+- **Response direction:** samples are generated from the **new** response schema and validated against the **old** one, for each status and media type both contracts share. Recorded responses are checked against the new contract for information only (`nonConformance.responses`).
+- **Attribution** (`attribution.ts`): the diff records, for every change, the pair of schema nodes it was found at and which part of the message it sits in (a parameter, a body media type or a response). Ajv reports the node that rejected a value (`parentSchema.$source`), so a failure is attributed to a change when:
+  - the part matches;
+  - the node matches on the side being validated;
+  - the keyword and value fit the kind of change: an `enum` failure with the removed value, `required` with the added property name, `maximum` for a tightened maximum, and so on.
+    Failures no change explains are reported as `unattributed` instead of being hidden.
+- **Redaction and evidence:** a failure at a redacted value or inside one is _unknown_, never failing (risk R6). So is a failure above one, for keywords that look at nested values (`oneOf`, `enum`, `uniqueItems`, …).
+- **Validators** (`validators.ts`): Ajv 2020, compiled once per (operation, direction, part, media type) per contract and cached, with a counter so tests can assert this. Components are added once per direction. `readOnly` properties are not required in requests and `writeOnly` ones not in responses. A schema that cannot be compiled is noted in the report, not fatal.
+- **Wire values** (`wire.ts`): query, path, header and cookie values are text on the wire. Each contract decodes them with its own schema (numbers, booleans, arrays from repeated keys or commas), as its server would.
+
+## Stage 5 — Classify (`src/classify/`)
+
+- **Label** (ADR-0002): failing evidence → BREAKING; otherwise the rule's structural judgement: dangerous → RISKY, safe → SAFE. Missing evidence never gives SAFE; a property test checks this for every dangerous rule.
+- **Confidence** (ADR-0002, M2 amendment), with n = recorded samples that reached the change:
+  - recorded failing → 1;
+  - synthetic-only failing → 0.8 · 2^(−n/20);
+  - no failing evidence → max(0, 1 − 3/n);
+  - not verifiable → null.
+    `unverified` means n = 0.
+- **Policy:** escalations (SAFE → RISKY), suppressions with reason and expiry (ignored and reported when expired, reported when unused), `failOn`.
+- **Semver:** major if anything is BREAKING (or RISKY, unless `riskyIsMajor: false`), minor if any rule is additive, patch otherwise.
+
+## Stage keys (ADR-0006)
+
+`compare` records a content-addressed key for every stage: `sha256(JCS({ stage, engine, inputs }))`. The inputs are:
+
+| Stage    | Inputs                                                                                   |
+| -------- | ---------------------------------------------------------------------------------------- |
+| Ingest   | The hash of the parsed documents.                                                        |
+| Diff     | The two spec hashes.                                                                     |
+| Corpus   | The diff key, the traffic file's SHA-256, the caps, the seed and the redaction settings. |
+| Verify   | The diff and corpus keys, and the options.                                               |
+| Classify | The verify key, the rules and policy hashes, the date and `failOn`.                      |
+
+A test checks that changing the seed changes the Corpus key but not the Diff key, and that changing `failOn` changes only Classify. The local cache that uses these keys arrives in M3.
+
 ## Tests
 
 - **Golden change sets:** `examples/diff/*/expected.json`, 18 pairs covering all 46 kinds.
@@ -103,10 +175,19 @@ head IR ─┘
   - an added required query parameter is always RISKY;
   - schema normalisation is idempotent.
 - **Real-world fixtures:** GitHub 3.0 and 3.1, Stripe, via `@drift/bench` (see [bench.md](bench.md)).
+- **Corpus:** JSONL and HAR reading (malformed reasons never contain the input), routing, sampling (caps, fair sharing, independence from input order, seed), and redaction of every detector kind. Fake secrets are assembled at run time, and a timing test runs the detectors on adversarial input.
+- **Generator:** the variants of every schema form, allOf merging, readOnly/writeOnly, endless required recursion.
+- **Verify:** one case per kind of provable change, from synthetic samples and from recorded ones; unknown at redacted values; non-conformance; unattributed failures; compile-once counter.
+- **Classify:** the confidence formula, escalation, suppressions (id, glob, expired, unused), semver, gate, and the property "a dangerous change without failing evidence is never SAFE".
+- **Pipeline (`compare.test.ts`):** the M2 acceptance runs on `examples/petstore` (BREAKING with a redacted recorded payload; synthetic evidence without traffic; an additive change passes), the redaction canary (no planted secret reaches the report), determinism, stage keys and HAR input.
 
 ## Known limitations
 
-- Not in the IR yet: 3.1 `webhooks`, callbacks, links, response headers and `servers` (routing arrives in M2).
+- Not in the IR yet: 3.1 `webhooks`, callbacks, links and response headers. Only the root `servers` are used for routing; path- and operation-level `servers` are not.
+- Verify runs on the main thread. The worker pool of PLAN §4.4 moves to M3, where the performance benchmark can show whether it pays off.
+- Bodies are validated for JSON and `text/*` media types only; form, XML and binary bodies are not checked.
+- A change of `items` to a referenced component attributes failures only when they are reported under `…/items` of the node; failures elsewhere show up as unattributed.
+- Response evidence is always synthetic, because recorded responses come from the old server.
 - `$ref` to `#anchor` fragments and `$id`-based references are rejected (`REF_UNSUPPORTED`).
 - OpenAPI 3.2 is rejected (`UNSUPPORTED_VERSION`).
 - JSON input with duplicate keys keeps the last value (`JSON.parse` semantics). YAML duplicates are errors.
@@ -114,6 +195,12 @@ head IR ─┘
 - A `$ref` inside a property literally named `example` is followed only because property names are recognised as names. Other literal-data positions are skipped by key.
 
 ## Questions an examiner might ask
+
+- **How do you know which change a failing sample proves?** The diff records the pair of schema nodes each change was found at. Ajv reports the node that rejected the value, and attribution checks that node, the part of the message and the keyword (for a removed enum value, also the value itself). Anything that fails without a matching change is reported as unattributed, so the mechanism cannot silently blame the wrong change.
+- **Can redaction create a false BREAKING?** No. A failure at, inside, or (for value-dependent keywords) above a redacted value is unknown, never failing. A test changes an email format and sends a redacted email: the result is unknown, not failing.
+- **Can the generator produce false evidence?** No. A generated sample counts only if the contract it was generated from accepts it. Generation shortcuts can only cost coverage, never correctness.
+- **Why are synthetic labels less confident?** A synthetic sample shows that _some_ valid request breaks, not that any real client sends it. Confidence 0.8 halves for every 20 recorded samples that reach the change without failing.
+- **How do you sample a million lines without keeping them?** Per operation, only the samples with the lowest priority hash are kept, and the list is trimmed whenever it doubles. Memory is bounded by the caps, and the kept set does not depend on line order.
 
 - **How do you know a spec diffed with itself gives nothing, beyond the examples?** A property test generates random valid specs, including mutually recursive components, and asserts an empty diff against the spec itself and against a copy with every key reversed.
 - **Renaming `/users/{id}` to `/users/{userId}` — is that breaking?** No. The operation key erases parameter names, and path parameters are matched by position, so it is one SAFE `path.param.renamed`.

@@ -14,3 +14,21 @@ export type {
   SpecIR,
 } from "./ingest/ir.ts";
 export { changeId, diffSpecs, type DiffResult } from "./diff/diff.ts";
+export type { Anchor, Slot } from "./diff/anchors.ts";
+export { compare, specSummary, stageKey, type CompareInput, type TrafficInput } from "./compare.ts";
+export { readHar, readJsonl, toSample, type TrafficEntry } from "./corpus/traffic.ts";
+export { DEFAULT_REDACTION, detect, redactSample, type RedactionOptions } from "./corpus/redact.ts";
+export { buildCorpus, DEFAULT_CORPUS_OPTIONS, type Corpus, type CorpusOptions } from "./corpus/corpus.ts";
+export { Router, type RouteMatch } from "./corpus/router.ts";
+export type { RoutedSample, Sample } from "./corpus/sample.ts";
+export {
+  DEFAULT_VERIFY_OPTIONS,
+  verify,
+  type Evidence,
+  type VerifyOptions,
+  type VerifyResult,
+} from "./verify/verify.ts";
+export { assess, classify, globMatch, type ClassifyInput, type ClassifyResult } from "./classify/classify.ts";
+export { parseSpecText as parseDataText, type ParseOutcome } from "./ingest/parse.ts";
+// The CLI, Action and worker depend on core only; rules and policy loading is re-exported for them.
+export { DEFAULT_POLICY, DEFAULT_RULESET, parseRuleset, Policy, type Ruleset } from "@drift/rules";
