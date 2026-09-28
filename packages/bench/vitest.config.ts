@@ -3,6 +3,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
+    // Tests compile the official OpenAPI schemas and run whole comparisons; 5 s is too tight when turbo runs
+    // every package's tests at once on a busy machine (seen locally, M3).
+    testTimeout: 30_000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

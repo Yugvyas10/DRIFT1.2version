@@ -47,7 +47,9 @@ describe("detect", () => {
     detect("a".repeat(200_000));
     detect(`${"a.".repeat(100_000)}@`);
     detect("eyJ".repeat(50_000));
-    expect(performance.now() - started).toBeLessThan(2000);
+    // Linear patterns take well under a second here; catastrophic (quadratic or worse) backtracking on 200,000
+    // characters would take minutes. The bound is loose so the test does not depend on machine load.
+    expect(performance.now() - started).toBeLessThan(20_000);
   });
 });
 
