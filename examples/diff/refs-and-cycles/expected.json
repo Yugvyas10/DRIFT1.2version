@@ -1,0 +1,26 @@
+[
+  {
+    "id": "f1330cc0cd5bb9fe",
+    "kind": "schema.enum.value_added",
+    "direction": "request",
+    "operation": "POST /trees",
+    "location": "#/components/schemas/TreeNode/properties/color/enum",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): Enum value \"blue\" was added",
+    "subject": "\"blue\"",
+    "after": "blue"
+  },
+  {
+    "id": "bda66c4f7963b767",
+    "kind": "schema.enum.value_added",
+    "direction": "response",
+    "operation": "POST /trees",
+    "location": "#/components/schemas/TreeNode/properties/color/enum",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): Enum value \"blue\" was added",
+    "subject": "\"blue\"",
+    "after": "blue"
+  }
+]

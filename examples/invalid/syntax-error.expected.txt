@@ -1,0 +1,3 @@
+examples/invalid/syntax-error.yaml:3:10  error  SYNTAX_ERROR  Implicit keys need to be on a single line
+examples/invalid/syntax-error.yaml:3:10  error  SYNTAX_ERROR  Nested mappings are not allowed in compact mappings
+✖ 2 errors, 0 warnings

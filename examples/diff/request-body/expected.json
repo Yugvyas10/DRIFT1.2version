@@ -1,0 +1,74 @@
+[
+  {
+    "id": "405b7fc55a604ef2",
+    "kind": "request.body.added.optional",
+    "direction": "request",
+    "operation": "POST /added-optional",
+    "location": "#/paths/~1added-optional/post/requestBody",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Optional request body was added"
+  },
+  {
+    "id": "0126ddb56c12784d",
+    "kind": "request.body.added.required",
+    "direction": "request",
+    "operation": "POST /added-required",
+    "location": "#/paths/~1added-required/post/requestBody",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Required request body was added"
+  },
+  {
+    "id": "b927fd6234af31c8",
+    "kind": "request.body.made_optional",
+    "direction": "request",
+    "operation": "POST /made-optional",
+    "location": "#/paths/~1made-optional/post/requestBody",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body is no longer required"
+  },
+  {
+    "id": "1b8112d21aac2387",
+    "kind": "request.body.made_required",
+    "direction": "request",
+    "operation": "POST /made-required",
+    "location": "#/paths/~1made-required/post/requestBody",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body is now required"
+  },
+  {
+    "id": "bb208b5864258d38",
+    "kind": "media_type.added",
+    "direction": "request",
+    "operation": "POST /media-types",
+    "location": "#/paths/~1media-types/post/requestBody/content/application~1x-www-form-urlencoded",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body: media type application/x-www-form-urlencoded was added",
+    "subject": "application/x-www-form-urlencoded"
+  },
+  {
+    "id": "32c7c89bf1d617b7",
+    "kind": "media_type.removed",
+    "direction": "request",
+    "operation": "POST /media-types",
+    "location": "#/paths/~1media-types/post/requestBody/content/application~1xml",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Request body: media type application/xml was removed",
+    "subject": "application/xml"
+  },
+  {
+    "id": "f67285804920bc86",
+    "kind": "request.body.removed",
+    "direction": "request",
+    "operation": "POST /removed",
+    "location": "#/paths/~1removed/post/requestBody",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Request body was removed"
+  }
+]

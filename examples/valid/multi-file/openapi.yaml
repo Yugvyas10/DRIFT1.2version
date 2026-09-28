@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: Multi-file example
+  version: 1.0.0
+paths:
+  /orders/{orderId}:
+    get:
+      parameters:
+        - $ref: "./parameters.yaml#/OrderId"
+      responses:
+        "200":
+          description: One order
+          content:
+            application/json:
+              schema:
+                $ref: "./schemas/order.yaml"

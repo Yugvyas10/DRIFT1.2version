@@ -1,0 +1,2 @@
+examples/invalid/ref-outside-root.yaml:14:23  error  REF_OUTSIDE_ROOT  $ref "../valid/multi-file/schemas/order.yaml" leaves the ref root; local references must stay inside it
+✖ 1 error, 0 warnings

@@ -1,0 +1,46 @@
+openapi: 3.1.0
+info:
+  title: Petstore
+  version: 1.0.0
+paths:
+  /pets/{petId}:
+    get:
+      operationId: getPet
+      parameters:
+        - name: petId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: One pet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          exclusiveMinimum: 0
+        name:
+          type: string
+        tag:
+          type: [string, "null"]
+        owner:
+          $ref: "#/components/schemas/Person"
+          description: The owner (3.1 allows siblings next to $ref)
+    Person:
+      type: object
+      properties:
+        name:
+          type: string
+        pets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Pet"

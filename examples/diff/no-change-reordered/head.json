@@ -1,0 +1,26 @@
+{
+  "components": {
+    "schemas": {
+      "Pet": {
+        "properties": { "name": { "type": "string" }, "id": { "type": "integer" } },
+        "required": ["name", "id"],
+        "type": "object"
+      }
+    }
+  },
+  "paths": {
+    "/pets": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } },
+            "description": "ok"
+          }
+        },
+        "parameters": [{ "schema": { "minimum": 1, "type": "integer" }, "in": "query", "name": "limit" }]
+      }
+    }
+  },
+  "info": { "version": "1", "title": "Reordered" },
+  "openapi": "3.0.3"
+}
