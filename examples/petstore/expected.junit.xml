@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="drift" tests="14" failures="7" skipped="0">
+  <testsuite name="DELETE /pets/{}" tests="1" failures="1" skipped="0">
+    <testcase classname="DELETE /pets/{}" name="BREAKING operation.removed [5d252af03800fea0]"><failure type="BREAKING" message="Operation DELETE /pets/{} was removed">Operation DELETE /pets/{} was removed
+at examples/petstore/v1.yaml:65:7
+rule DRIFT-REQ-OPERATION-REMOVED: Clients still calling the operation will get an error; a recorded call to it proves the break.
+evidence: 1 of 1 sample fails (recorded); confidence 1.00</failure><system-out>Operation DELETE /pets/{} was removed
+at examples/petstore/v1.yaml:65:7
+rule DRIFT-REQ-OPERATION-REMOVED: Clients still calling the operation will get an error; a recorded call to it proves the break.
+evidence: 1 of 1 sample fails (recorded); confidence 1.00</system-out></testcase>
+  </testsuite>
+  <testsuite name="GET /pets" tests="5" failures="2" skipped="0">
+    <testcase classname="GET /pets" name="SAFE schema.enum.value_added &quot;adopted&quot; [b467c2271950e449]"><system-out>Request query parameter &quot;status&quot;: Enum value &quot;adopted&quot; was added
+at examples/petstore/v2-breaking.yaml:77:13
+rule DRIFT-REQ-SCHEMA-ENUM-VALUE-ADDED: The server accepts one more value.
+evidence: 1 sample reached it, none fail (1 recorded); confidence 0.00</system-out></testcase>
+    <testcase classname="GET /pets" name="RISKY schema.enum.value_removed &quot;pending&quot; [644bf2ac60adabd6]"><system-out>Request query parameter &quot;status&quot;: Enum value &quot;pending&quot; was removed
+at examples/petstore/v1.yaml:77:13
+rule DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED: Clients still sending the removed value will be rejected.
+evidence: 1 sample reached it, none fail (1 recorded); confidence 0.00</system-out></testcase>
+    <testcase classname="GET /pets" name="BREAKING schema.bound.tightened maximum [760d32eee71daae3]"><failure type="BREAKING" message="Request query parameter &quot;limit&quot;: &quot;maximum&quot; tightened: 100 → 50">Request query parameter &quot;limit&quot;: &quot;maximum&quot; tightened: 100 → 50
+at examples/petstore/v2-breaking.yaml:17:22
+rule DRIFT-REQ-SCHEMA-BOUND-TIGHTENED: Values that used to be accepted may now be rejected.
+evidence: 2 of 3 samples fail (recorded); confidence 1.00</failure><system-out>Request query parameter &quot;limit&quot;: &quot;maximum&quot; tightened: 100 → 50
+at examples/petstore/v2-breaking.yaml:17:22
+rule DRIFT-REQ-SCHEMA-BOUND-TIGHTENED: Values that used to be accepted may now be rejected.
+evidence: 2 of 3 samples fail (recorded); confidence 1.00</system-out></testcase>
+    <testcase classname="GET /pets" name="BREAKING schema.enum.value_added &quot;adopted&quot; [a37def3c7de93e01]"><failure type="BREAKING" message="Response 200 body (application/json): Enum value &quot;adopted&quot; was added">Response 200 body (application/json): Enum value &quot;adopted&quot; was added
+at examples/petstore/v2-breaking.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+evidence: 2 of 8 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)</failure><system-out>Response 200 body (application/json): Enum value &quot;adopted&quot; was added
+at examples/petstore/v2-breaking.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+evidence: 2 of 8 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)</system-out></testcase>
+    <testcase classname="GET /pets" name="SAFE schema.enum.value_removed &quot;pending&quot; [28c1b933c2ce75c2]"><system-out>Response 200 body (application/json): Enum value &quot;pending&quot; was removed
+at examples/petstore/v1.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED: The server returns fewer values than before.
+evidence: 8 samples reached it, none fail (0 recorded); confidence 0.00; unverified (no recorded traffic)</system-out></testcase>
+  </testsuite>
+  <testsuite name="GET /pets/{}" tests="3" failures="1" skipped="0">
+    <testcase classname="GET /pets/{}" name="SAFE param.added.optional query:fields [3b018b3bd6131702]"><system-out>Optional query parameter &quot;fields&quot; was added
+at examples/petstore/v2-breaking.yaml:56:11
+rule DRIFT-REQ-PARAM-ADDED-OPTIONAL: Existing clients can keep omitting an optional parameter.
+evidence: not verifiable by samples; structural only</system-out></testcase>
+    <testcase classname="GET /pets/{}" name="BREAKING schema.enum.value_added &quot;adopted&quot; [2e23389f89244d4f]"><failure type="BREAKING" message="Response 200 body (application/json): Enum value &quot;adopted&quot; was added">Response 200 body (application/json): Enum value &quot;adopted&quot; was added
+at examples/petstore/v2-breaking.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)</failure><system-out>Response 200 body (application/json): Enum value &quot;adopted&quot; was added
+at examples/petstore/v2-breaking.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)</system-out></testcase>
+    <testcase classname="GET /pets/{}" name="SAFE schema.enum.value_removed &quot;pending&quot; [5968c1bff269f5d2]"><system-out>Response 200 body (application/json): Enum value &quot;pending&quot; was removed
+at examples/petstore/v1.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED: The server returns fewer values than before.
+evidence: 6 samples reached it, none fail (0 recorded); confidence 0.00; unverified (no recorded traffic)</system-out></testcase>
+  </testsuite>
+  <testsuite name="POST /pets" tests="5" failures="3" skipped="0">
+    <testcase classname="POST /pets" name="BREAKING schema.property.added.required category [bb412def2697a713]"><failure type="BREAKING" message="Request body (application/json): Property &quot;category&quot; was added as required">Request body (application/json): Property &quot;category&quot; was added as required
+at examples/petstore/v2-breaking.yaml:93:11
+rule DRIFT-REQ-SCHEMA-PROPERTY-ADDED-REQUIRED: Existing clients do not send the new property, so the server will reject their requests.
+evidence: 1 of 3 samples fails (recorded); confidence 1.00</failure><system-out>Request body (application/json): Property &quot;category&quot; was added as required
+at examples/petstore/v2-breaking.yaml:93:11
+rule DRIFT-REQ-SCHEMA-PROPERTY-ADDED-REQUIRED: Existing clients do not send the new property, so the server will reject their requests.
+evidence: 1 of 3 samples fails (recorded); confidence 1.00</system-out></testcase>
+    <testcase classname="POST /pets" name="SAFE schema.enum.value_added &quot;adopted&quot; [d3a7fb20cd5617d4]"><system-out>Request body (application/json): Enum value &quot;adopted&quot; was added
+at examples/petstore/v2-breaking.yaml:77:13
+rule DRIFT-REQ-SCHEMA-ENUM-VALUE-ADDED: The server accepts one more value.
+evidence: 3 samples reached it, none fail (3 recorded); confidence 0.00</system-out></testcase>
+    <testcase classname="POST /pets" name="BREAKING schema.enum.value_removed &quot;pending&quot; [306b396f638281e8]"><failure type="BREAKING" message="Request body (application/json): Enum value &quot;pending&quot; was removed">Request body (application/json): Enum value &quot;pending&quot; was removed
+at examples/petstore/v1.yaml:77:13
+rule DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED: Clients still sending the removed value will be rejected.
+evidence: 1 of 3 samples fails (recorded); confidence 1.00</failure><system-out>Request body (application/json): Enum value &quot;pending&quot; was removed
+at examples/petstore/v1.yaml:77:13
+rule DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED: Clients still sending the removed value will be rejected.
+evidence: 1 of 3 samples fails (recorded); confidence 1.00</system-out></testcase>
+    <testcase classname="POST /pets" name="BREAKING schema.enum.value_added &quot;adopted&quot; [db8893be5ad2c107]"><failure type="BREAKING" message="Response 201 body (application/json): Enum value &quot;adopted&quot; was added">Response 201 body (application/json): Enum value &quot;adopted&quot; was added
+at examples/petstore/v2-breaking.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)</failure><system-out>Response 201 body (application/json): Enum value &quot;adopted&quot; was added
+at examples/petstore/v2-breaking.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)</system-out></testcase>
+    <testcase classname="POST /pets" name="SAFE schema.enum.value_removed &quot;pending&quot; [be68941301b74cbf]"><system-out>Response 201 body (application/json): Enum value &quot;pending&quot; was removed
+at examples/petstore/v1.yaml:77:13
+rule DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED: The server returns fewer values than before.
+evidence: 6 samples reached it, none fail (0 recorded); confidence 0.00; unverified (no recorded traffic)</system-out></testcase>
+  </testsuite>
+</testsuites>

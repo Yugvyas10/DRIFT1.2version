@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/drift-config-v1",
+  "$defs": {
+    "drift-config-v1": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "const": "drift-config/v1"
+        },
+        "base": {
+          "type": "string"
+        },
+        "head": {
+          "type": "string"
+        },
+        "traffic": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "string"
+        },
+        "formats": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["console", "json", "html", "md", "sarif", "junit"]
+          }
+        },
+        "out": {
+          "type": "string"
+        },
+        "failOn": {
+          "type": "string",
+          "enum": ["breaking", "risky"]
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "refRoot": {
+          "type": "string"
+        },
+        "cache": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean",
+              "const": false
+            }
+          ]
+        }
+      },
+      "required": ["format"],
+      "additionalProperties": false,
+      "title": "DRIFT configuration (drift-config/v1)"
+    }
+  }
+}
