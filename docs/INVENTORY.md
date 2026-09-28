@@ -44,14 +44,10 @@ The legacy app was removed from product paths in M0 and is preserved at tag **`l
 
 ### 1.4 Open items carried over
 
-- **Push access.** Granted on 2026-09-28. The branches `rebuild/m0-foundations` and `rebuild/m1-ingest-diff` and the tag `legacy-v1` still have to be pushed so that CI runs on them.
+- **Push access.** Granted on 2026-09-28. `rebuild/m0-foundations`, `rebuild/m1-ingest-diff` and the tag `legacy-v1` are pushed; CI runs on their pull requests.
 - **Groq API key rotation: deferred (accepted risk, 2026-09-28).** The key from the legacy code is in no commit (gitleaks-verified), and only the four team members use it. Rotate it if it is ever shared or deployed beyond the team.
 - **Legacy local files.** The untracked root `.env` (contains the key above) and `.env.example` belong to the legacy app. Nothing in the new code reads them. They must never be committed; the secret scan blocks the key.
-- **GitHub organisation for the sample repo (Q8, needed by M4).** A person has to create it (it is a GitHub account and needs the terms accepted). Requirements:
-  - plan: Free; name: any free name, e.g. `drift-edi4` (lower case, it appears in the sample repo URL);
-  - owners: all four team members, plus the GitHub account used for pushes from this machine (`The-Creative-Developer`), so the sample repo can be created and the Action and App installed from here;
-  - base member permission: Read; GitHub Actions allowed for all repositories;
-  - nothing else yet. The sample repo (`drift-sample-api`) is created in M4, and the GitHub App is registered under the organisation in M8.
+- **GitHub organisation for the sample repo (Q8): created 2026-09-28 as [`The-Singularity44`](https://github.com/The-Singularity44)** (Free plan, base member permission Read; `The-Creative-Developer` is an owner). The sample repo (`drift-sample-api`) is created there in M4, and the GitHub App is registered under it in M8.
 
 ---
 
