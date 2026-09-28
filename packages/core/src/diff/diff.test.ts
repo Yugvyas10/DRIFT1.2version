@@ -85,6 +85,47 @@ describe("diffSpecs", () => {
     expect(changes.map((c) => c.operation)).toEqual(["POST /a", "POST /b"]);
   });
 
+  // Regression (M1 fixtures job): Stripe's densely mutually recursive components made the diff exponential,
+  // because results inside a cycle were never cached and were recomputed along every path.
+  it("stays fast on densely mutually recursive components (Stripe-like expandable fields)", async () => {
+    const count = 40;
+    const schemas = (max: number) =>
+      Object.fromEntries(
+        Array.from({ length: count }, (_, i) => [
+          `C${String(i)}`,
+          {
+            type: "object",
+            properties: {
+              n: { type: "integer", maximum: max },
+              ...Object.fromEntries(
+                [1, 2, 3, 5, 7].map((step) => [
+                  `link${String(step)}`,
+                  { anyOf: [{ type: "string" }, { $ref: `#/components/schemas/C${String((i + step) % count)}` }] },
+                ])
+              ),
+            },
+          },
+        ])
+      );
+    const doc = (max: number) =>
+      openapi(
+        Object.fromEntries(
+          Array.from({ length: 10 }, (_, i) => [
+            `/c${String(i)}`,
+            { get: { responses: ok({ $ref: `#/components/schemas/C${String(i * 3)}` }) } },
+          ])
+        ),
+        { schemas: schemas(max) }
+      );
+    const started = performance.now();
+    const same = await diff(doc(10), doc(10));
+    const changed = await diff(doc(10), doc(5));
+    expect(performance.now() - started).toBeLessThan(10_000);
+    expect(same.changes).toEqual([]);
+    // Every operation reaches every component, so each reports the one bound change of each component.
+    expect(changed.changes).toHaveLength(10 * count);
+  }, 60_000);
+
   it("compares an inlined schema with a referenced one by content", async () => {
     const inline = { type: "object", properties: { id: { type: "string" } } };
     const base = openapi({ "/a": { get: { responses: ok(inline) } } });

@@ -24,16 +24,23 @@ const MAX_ALIAS_HOPS = 32;
  * difference (PLAN §4.2). Components are compared by content, not by name, so renaming a component is
  * not a change.
  *
- * Recursive schemas: every pair of compared references is on a stack; meeting a pair that is already on
- * the stack stops there (its changes are reported by the outer comparison of the same pair).
- * Memoisation: results for a pair of references are cached per direction and reused across operations,
- * but only when the comparison never hit the stack, because a result cut short by a cycle is incomplete
- * when the same pair is reached from elsewhere.
+ * Recursive schemas are compared like a graph search (Tarjan's strongly connected components). Every pair
+ * of compared references gets an index; meeting a pair that is still open (on the stack, or finished inside
+ * a cycle that is not closed yet) stops there, because its changes are already being collected by the
+ * comparison that opened it. When the first pair of a cycle (the root of a strongly connected component)
+ * finishes, its result contains everything reachable from it; every pair in that component reaches the root,
+ * so they all have exactly that result, and all of them are cached with it. So each pair is compared once
+ * per direction, however densely the components refer to each other, and a cached result is always complete.
  */
 export class SchemaDiffer {
   readonly #base: SpecIR;
   readonly #head: SpecIR;
   readonly #cache = new Map<string, SchemaChange[]>();
+  /** Open pairs (on the stack, or finished inside a component whose root is still open) → their index. */
+  readonly #open = new Map<string, number>();
+  /** Open pairs in the order they were opened (Tarjan's stack). */
+  readonly #pending: string[] = [];
+  #next = 0;
 
   constructor(base: SpecIR, head: SpecIR) {
     this.#base = base;
@@ -42,35 +49,41 @@ export class SchemaDiffer {
 
   diff(base: NormalizedSchema, head: NormalizedSchema, direction: Direction): SchemaChange[] {
     const out: SchemaChange[] = [];
-    this.#walk(base, head, direction, new Set(), out);
+    this.#walk(base, head, direction, out);
     return out;
   }
 
-  #walk(
-    b: NormalizedSchema,
-    h: NormalizedSchema,
-    direction: Direction,
-    stack: Set<string>,
-    out: SchemaChange[]
-  ): boolean {
+  /** Compares a pair and returns the lowest index of an open pair it reached (Infinity if none). */
+  #walk(b: NormalizedSchema, h: NormalizedSchema, direction: Direction, out: SchemaChange[]): number {
     const bRef = refOf(b);
     const hRef = refOf(h);
-    if (bRef === undefined && hRef === undefined) return this.#compare(b, h, direction, stack, out);
+    if (bRef === undefined && hRef === undefined) return this.#compare(b, h, direction, out);
 
     const key = `${direction}\0${bRef ?? `@${sourceOf(b)}`}\0${hRef ?? `@${sourceOf(h)}`}`;
-    if (stack.has(key)) return false;
     const cached = this.#cache.get(key);
     if (cached) {
       out.push(...cached);
-      return true;
+      return Infinity;
     }
-    stack.add(key);
+    const open = this.#open.get(key);
+    if (open !== undefined) return open;
+
+    const index = this.#next++;
+    this.#open.set(key, index);
+    this.#pending.push(key);
     const local: SchemaChange[] = [];
-    const clean = this.#compare(this.#resolve(b, this.#base), this.#resolve(h, this.#head), direction, stack, local);
-    stack.delete(key);
-    if (clean) this.#cache.set(key, local);
+    const low = Math.min(
+      index,
+      this.#compare(this.#resolve(b, this.#base), this.#resolve(h, this.#head), direction, local)
+    );
     out.push(...local);
-    return clean;
+    if (low < index) return low; // part of a cycle whose root is still open
+    for (let member = this.#pending.pop(); member !== undefined; member = this.#pending.pop()) {
+      this.#open.delete(member);
+      this.#cache.set(member, local);
+      if (member === key) break;
+    }
+    return Infinity;
   }
 
   /** Follows component references (including components that are themselves references). */
@@ -86,16 +99,10 @@ export class SchemaDiffer {
     return current;
   }
 
-  #compare(
-    b: NormalizedSchema,
-    h: NormalizedSchema,
-    direction: Direction,
-    stack: Set<string>,
-    out: SchemaChange[]
-  ): boolean {
-    let clean = true;
+  #compare(b: NormalizedSchema, h: NormalizedSchema, direction: Direction, out: SchemaChange[]): number {
+    let low = Infinity;
     const walk = (x: NormalizedSchema, y: NormalizedSchema) => {
-      clean = this.#walk(x, y, direction, stack, out) && clean;
+      low = Math.min(low, this.#walk(x, y, direction, out));
     };
     const emit = (change: SchemaChange) => out.push(change);
 
@@ -109,7 +116,7 @@ export class SchemaDiffer {
     compareVariants(b, h, walk, emit);
     compareComposition(b, h, walk, emit);
     compareAnnotations(b, h, emit);
-    return clean;
+    return low;
   }
 
   #compareAdditional(b: NormalizedSchema, h: NormalizedSchema, walk: Walk, emit: Emit): void {

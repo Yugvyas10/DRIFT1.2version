@@ -88,7 +88,7 @@ head IR ─┘
   - allOf, not and discriminator;
   - default, deprecated, title and description.
 - **Direction semantics:** each change gets its candidate severity (RISKY/SAFE) from `STRUCTURAL_DEFAULTS` in `@drift/rules`. There is no severity logic in the engine.
-- **Cycles and cost:** pairs of compared references sit on a stack, and meeting a pair again stops there. Results for a pair are memoised per direction, but only when no cycle cut them short, so each shared component is compared once across all operations.
+- **Cycles and cost:** reference pairs are compared like a graph search (Tarjan's strongly connected components). Meeting a pair that is still open stops there. When the first pair of a cycle finishes, its result holds everything reachable from it, and every pair in that cycle gets exactly that result in the cache. Each pair is compared once per direction, however densely components refer to each other. Before this (M1 fixtures job), Stripe's `anyOf: [string, $ref]` expandable fields made the diff exponential, because results inside a cycle were never cached.
 - **Output:** changes are de-duplicated by id and sorted by operation, direction, location, kind and subject.
 
 ## Tests
@@ -119,5 +119,6 @@ head IR ─┘
 - **Renaming `/users/{id}` to `/users/{userId}` — is that breaking?** No. The operation key erases parameter names, and path parameters are matched by position, so it is one SAFE `path.param.renamed`.
 - **Why is adding an enum value RISKY in a response but SAFE in a request?** A server accepting a new value cannot break a client, but a client that validates responses strictly can reject a value it has never seen. The table is in `@drift/rules` and is checked for this request/response symmetry by a test.
 - **What if the same component is used in five operations?** It is compared once per direction (memoised), and the change is reported once per operation that reaches it, with that operation in the change id. So the impact index is exact.
-- **How do you avoid infinite recursion on `Node.children: Node[]`?** Components stay references in the IR. The differ keeps a stack of the reference pairs it is comparing and stops when a pair repeats. Memoised results are only reused when no cycle cut them short (tested with mutual recursion reached from two entry points).
+- **How do you avoid infinite recursion on `Node.children: Node[]`?** Components stay references in the IR. The differ tracks the reference pairs it has open and stops when it meets one again.
+- **And how do you avoid exponential time on specs like Stripe's, where hundreds of components refer to each other?** That was a real bug, found by the fixtures job: the first version cached only results that no cycle had cut short, and in a dense cycle almost nothing qualified. Now the differ finds strongly connected components as it goes (Tarjan). Every pair in a cycle reaches every other, so they share one complete result, cached when the cycle's first pair finishes. A regression test with 40 components linked five ways each runs in well under a second.
 - **Why does `allOf` merging not change behaviour?** It only merges when it is provably equivalent: object-only keywords, no conflicting property definitions, and a non-empty type intersection. Anything else keeps the `allOf`, and the differ compares it member by member.
