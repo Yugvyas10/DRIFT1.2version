@@ -32,7 +32,14 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["console", "json", "html", "md", "sarif", "junit"]
+            "enum": [
+              "console",
+              "json",
+              "html",
+              "md",
+              "sarif",
+              "junit"
+            ]
           }
         },
         "out": {
@@ -40,7 +47,10 @@
         },
         "failOn": {
           "type": "string",
-          "enum": ["breaking", "risky"]
+          "enum": [
+            "breaking",
+            "risky"
+          ]
         },
         "seed": {
           "type": "integer",
@@ -62,7 +72,9 @@
           ]
         }
       },
-      "required": ["format"],
+      "required": [
+        "format"
+      ],
       "additionalProperties": false,
       "title": "DRIFT configuration (drift-config/v1)"
     }
