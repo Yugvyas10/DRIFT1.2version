@@ -5,7 +5,7 @@
 - Stage 1 Ingest, 3 Corpus, 4 Verify: P3 (Tanishq Chavan).
 - Stage 2 Diff, 5 Classify, 6 Report & Gate: P4 (Pruthvi Gangapure).
 
-**Status:** M2 — **Ingest**, **Diff**, **Corpus**, **Verify** and **Classify** are implemented, with `compare` running them in order and producing a `drift-report/v1` report. The other report formats (Stage 6) arrive in M3.
+**Status:** M3 — all six stages are implemented. `compare` runs them in order, reuses cached stage outputs, and produces a `drift-report/v1` report that `renderReport` turns into console, Markdown, HTML, SARIF or JUnit.
 
 ## Purpose
 
@@ -149,6 +149,19 @@ This makes samples change-directed without per-change code. For a removed enum v
 - **Policy:** escalations (SAFE → RISKY), suppressions with reason and expiry (ignored and reported when expired, reported when unused), `failOn`.
 - **Semver:** major if anything is BREAKING (or RISKY, unless `riskyIsMajor: false`), minor if any rule is additive, patch otherwise.
 
+## Stage 6 — Report (`src/report/`)
+
+| Format    | Notes                                                                                                                                                                                                                                                                                                                                                      |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `console` | Grouped by label; each change with its rule, `file:line:col`, evidence and first failing sample. ANSI colour only when the caller asks for it.                                                                                                                                                                                                             |
+| `json`    | The `drift-report/v1` document itself.                                                                                                                                                                                                                                                                                                                     |
+| `md`      | PR comment or job summary. Starts with the hidden marker `<!-- drift-report -->` so the Action (M4) updates one comment. BREAKING changes are shown in full; the rest are in collapsed tables. Every untrusted value is escaped; code values go in `<code>` elements with escaped content; payloads go in fences longer than any backtick run inside them. |
+| `html`    | One self-contained file: no scripts and no external assets. CSP `default-src 'none'` plus the page's own stylesheet by SHA-256; every value escaped. Visual design: P1.                                                                                                                                                                                    |
+| `sarif`   | SARIF 2.1.0 for code scanning. BREAKING → error and RISKY → warning, at the line of the spec that changed (`%SRCROOT%`-relative). The change id is a partial fingerprint, and suppressions map to SARIF suppressions. SAFE changes are left out. Tests validate the output against the official OASIS schema.                                              |
+| `junit`   | One test suite per operation, one test case per change. A change that fails the gate is a failure; a suppressed change is skipped. XML-escaped, with forbidden control characters removed.                                                                                                                                                                 |
+
+**Positions:** `IngestedSpec.locate(location)` finds a change's `file:line:col` with the lazy position index (ADR-0003). Every change in the report carries it as `position`.
+
 ## Stage keys (ADR-0006)
 
 `compare` records a content-addressed key for every stage: `sha256(JCS({ stage, engine, inputs }))`. The inputs are:
@@ -161,7 +174,15 @@ This makes samples change-directed without per-change code. For a removed enum v
 | Verify   | The diff and corpus keys, and the options.                                               |
 | Classify | The verify key, the rules and policy hashes, the date and `failOn`.                      |
 
-A test checks that changing the seed changes the Corpus key but not the Diff key, and that changing `failOn` changes only Classify. The local cache that uses these keys arrives in M3.
+A test checks that changing the seed changes the Corpus key but not the Diff key, and that changing `failOn` changes only Classify.
+
+**Cache.** `compare({ cache })` takes a `StageCache` adapter (`get(hash)`, `put(hash, value)`):
+
+- Before running Diff, Corpus, Verify or Classify, it looks the stage up by its key. A hit is reused and marked `cached: true` in `stages`.
+- Traffic is an `open()` function, called only on a Corpus miss, so a cached re-run does not read the traffic file at all.
+- A damaged entry is a miss, and is recomputed and overwritten.
+- The CLI's adapter is `.drift/cache/` (see cli.md); object storage follows in M5.
+- Ingest is not cached: its key (the hash of the parsed documents) is only known after parsing, which is most of its cost.
 
 ## Tests
 
@@ -179,6 +200,11 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 - **Generator:** the variants of every schema form, allOf merging, readOnly/writeOnly, endless required recursion.
 - **Verify:** one case per kind of provable change, from synthetic samples and from recorded ones; unknown at redacted values; non-conformance; unattributed failures; compile-once counter.
 - **Classify:** the confidence formula, escalation, suppressions (id, glob, expired, unused), semver, gate, and the property "a dangerous change without failing evidence is never SAFE".
+- **Report formats (`report/render.test.ts`):**
+  - SARIF, with and without traffic, is valid against the official schema, and so is the CLI's golden `examples/petstore/expected.sarif`.
+  - The HTML has no scripts or external URLs, and its CSP hash matches its stylesheet.
+  - A report whose every string is hostile (script tags, Markdown links, backtick fences, control characters) is neutralised in every format.
+- **Cache:** a second run reuses Diff, Corpus, Verify and Classify without opening the traffic; a new policy re-runs only Classify; damaged entries are recomputed.
 - **Pipeline (`compare.test.ts`):** the M2 acceptance runs on `examples/petstore` (BREAKING with a redacted recorded payload; synthetic evidence without traffic; an additive change passes), the redaction canary (no planted secret reaches the report), determinism, stage keys and HAR input.
 
 ## Known limitations
@@ -195,6 +221,10 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 - A `$ref` inside a property literally named `example` is followed only because property names are recognised as names. Other literal-data positions are skipped by key.
 
 ## Questions an examiner might ask
+
+- **A pull request controls the spec. Could it inject script into the HTML report or the PR comment?** Every value is escaped for its format. The HTML page has no scripts, and its CSP (`default-src 'none'` plus one hashed stylesheet) would block injected ones anyway. In Markdown, links, HTML and emphasis are escaped, and payloads sit in fences that are always longer than any backtick run inside them. A test builds a report whose every string is hostile and checks each format.
+- **Why is SAFE left out of SARIF?** Code scanning is a list of problems to fix. SAFE changes stay in every other format.
+- **Can the cache return a stale result?** Only if the engine code changes without its version changing. Keys hash every input, the engine version, and the rules and policy hashes. The CLI docs tell developers to use `--no-cache` while editing the engine.
 
 - **How do you know which change a failing sample proves?** The diff records the pair of schema nodes each change was found at. Ajv reports the node that rejected the value, and attribution checks that node, the part of the message and the keyword (for a removed enum value, also the value itself). Anything that fails without a matching change is reported as unattributed, so the mechanism cannot silently blame the wrong change.
 - **Can redaction create a false BREAKING?** No. A failure at, inside, or (for value-dependent keywords) above a redacted value is unknown, never failing. A test changes an email format and sends a redacted email: the result is unknown, not failing.

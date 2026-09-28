@@ -2,7 +2,7 @@
 
 **Status: APPROVED 2026-09-26** (roles assigned; all other recommendations in §10 accepted as written). This file wins over `MASTER_PROMPT.md` wherever they differ. Decisions are recorded in §10.
 
-**Current milestone: M2 — Corpus + Verify + Classify + rules: complete, awaiting review (2026-09-28). M0 and M1: approved 2026-09-28 (M1's fixtures check re-runs in CI after a fix, see M1 status).**
+**Current milestone: M3 — CLI + report formats + first bench run: complete except the first full benchmark run, awaiting review (2026-09-28). M0–M2: approved 2026-09-28.**
 
 Related: [`INVENTORY.md`](INVENTORY.md) (current state) · [`adr/`](adr/) (decisions) · [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (full specification).
 
@@ -297,6 +297,20 @@ Owners: P4 (CLI, formats, bench), P1 (HTML template).
 - **Acceptance:**
   - `pnpm --filter @drift/cli exec drift compare --base examples/petstore/v1.yaml --head examples/petstore/v2-breaking.yaml --format console,json,html,md,sarif --out out/` exits 1 and writes five valid files. SARIF is validated against its schema; HTML contains no external URL.
   - `pnpm --filter @drift/bench run perf` produces results and EVALUATION.md.
+
+- **Status: complete, awaiting review (2026-09-28),** on branch `rebuild/m3-cli-reports` (stacked on M2), except the first full benchmark run (below).
+  - The first acceptance check is a golden test: the CLI test runs the command with every format and `--out`, and compares each file. `render.test.ts` validates the SARIF golden against the official schema, and the HTML is checked for scripts and external URLs.
+  - Built as planned: the full CLI surface (`explain`, `rules list`, `corpus inspect`, git revisions via `git cat-file`, `drift.config.{json,yaml}` with a JSON Schema), all six formats with goldens, the tested exit codes, and the local stage cache (`.drift/cache/`, `stages[].cached` in the report).
+  - `packages/bench`:
+    - the performance harness, with the memory ceiling fixed at 512 MiB;
+    - the mutation benchmark (DRIFT only), with 9 operators and single-side component detection;
+    - `EVALUATION.md` rendered only from `docs/evaluation/*.json`, with the CI step `evaluation:check`;
+    - the manual workflow **Benchmarks**.
+  - **Pending:** the first complete `perf` run. It downloads the three fixtures (about 26 MB) and streams up to 1M lines, so it needs the owner's go-ahead to run locally, or the Benchmarks workflow once the workflow is on `master`. The mutation results on petstore are committed. `docs/EVALUATION.md` says "Performance: not measured yet" until then.
+  - Deviations:
+    - Ingest is not cached (its key needs the parsed documents, which is most of its cost).
+    - SAFE changes are not written to SARIF.
+    - Mutations run on petstore only until the fixtures are fetched (`mutations --fixtures`).
 
 ### M4 — GitHub Action + dogfooding (size 0.6)
 
