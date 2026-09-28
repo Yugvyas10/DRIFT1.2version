@@ -19,6 +19,7 @@ export { compare, specSummary, stageKey, type CompareInput, type TrafficInput } 
 export { readHar, readJsonl, toSample, type TrafficEntry } from "./corpus/traffic.ts";
 export { DEFAULT_REDACTION, detect, redactSample, type RedactionOptions } from "./corpus/redact.ts";
 export { buildCorpus, DEFAULT_CORPUS_OPTIONS, type Corpus, type CorpusOptions } from "./corpus/corpus.ts";
+export { inspectTraffic, type TrafficInspection } from "./corpus/inspect.ts";
 export { Router, type RouteMatch } from "./corpus/router.ts";
 export type { RoutedSample, Sample } from "./corpus/sample.ts";
 export {
@@ -32,3 +33,10 @@ export { assess, classify, globMatch, type ClassifyInput, type ClassifyResult } 
 export { parseSpecText as parseDataText, type ParseOutcome } from "./ingest/parse.ts";
 // The CLI, Action and worker depend on core only; rules and policy loading is re-exported for them.
 export { DEFAULT_POLICY, DEFAULT_RULESET, parseRuleset, Policy, type Ruleset } from "@drift/rules";
+export { REPORT_FILES, REPORT_FORMATS, renderReport, type ReportFormat } from "./report/render.ts";
+export { renderConsole, type ConsoleOptions } from "./report/console.ts";
+export { escapeMarkdown, MARKDOWN_MARKER, renderMarkdown } from "./report/markdown.ts";
+export { escapeHtml, renderHtml } from "./report/html.ts";
+export { renderSarif } from "./report/sarif.ts";
+export { escapeXml, renderJunit } from "./report/junit.ts";
+export type { StageCache } from "./compare.ts";

@@ -23,7 +23,14 @@ export interface TrafficInput {
   file?: string;
   /** SHA-256 of the traffic file's bytes: the Corpus stage's input hash (ADR-0006). */
   hash: string;
-  entries: AsyncIterable<TrafficEntry> | Iterable<TrafficEntry>;
+  /** Opens the entries. Called only when the Corpus stage is not in the cache, so a cached run reads nothing. */
+  open: () => AsyncIterable<TrafficEntry> | Iterable<TrafficEntry>;
+}
+
+/** Where stage outputs are kept between runs (ADR-0006): `.drift/cache/` for the CLI, object storage from M5. */
+export interface StageCache {
+  get(hash: string): Promise<string | undefined>;
+  put(hash: string, value: string): Promise<void>;
 }
 
 export interface CompareInput {
@@ -39,6 +46,8 @@ export interface CompareInput {
   /** Rotates which recorded samples are kept and how synthetic samples are swept; deterministic. */
   seed?: number;
   corpus?: Partial<Pick<CorpusOptions, "perOperationCap" | "totalCap" | "redaction">>;
+  /** Reuses stage outputs whose inputs did not change. */
+  cache?: StageCache;
 }
 
 export function specSummary(spec: IngestedSpec): SpecSummary {
@@ -59,7 +68,7 @@ export function stageKey(stage: string, inputs: Record<string, unknown>): string
 
 /**
  * Runs Diff → Corpus → Verify → Classify on two ingested contracts and returns a `drift-report/v1` report,
- * validated against its schema. Report & Gate formats other than JSON arrive in M3 (PLAN §6).
+ * validated against its schema. `renderReport` turns it into the other formats.
  */
 export async function compare(input: CompareInput): Promise<Report> {
   const ruleset = input.ruleset ?? DEFAULT_RULESET;
@@ -69,52 +78,71 @@ export async function compare(input: CompareInput): Promise<Report> {
   const verifyOptions = { ...DEFAULT_VERIFY_OPTIONS, seed };
   const diagnostics: ReportDiagnostic[] = [];
 
-  const stages: { stage: StageName; hash: string }[] = [];
-  const key = (stage: StageName, inputs: Record<string, unknown>) => {
-    const hash = stageKey(stage, inputs);
-    stages.push({ stage, hash });
-    return hash;
+  const stages: { stage: StageName; hash: string; cached: boolean }[] = [
+    { stage: "ingest.base", hash: stageKey("ingest.base", { source: input.base.sourceHash }), cached: false },
+    { stage: "ingest.head", hash: stageKey("ingest.head", { source: input.head.sourceHash }), cached: false },
+  ];
+  /** Runs a stage, or reuses its output from the cache when a stage with the same inputs ran before (ADR-0006). */
+  const stage = async <T>(name: StageName, inputs: Record<string, unknown>, run: () => T | Promise<T>) => {
+    const hash = stageKey(name, inputs);
+    const hit = input.cache ? await input.cache.get(hash) : undefined;
+    if (hit !== undefined) {
+      try {
+        const value = JSON.parse(hit) as T;
+        stages.push({ stage: name, hash, cached: true });
+        return { hash, value };
+      } catch {
+        // A damaged entry is a miss: compute the stage again and overwrite it.
+      }
+    }
+    const value = await run();
+    await input.cache?.put(hash, JSON.stringify(value));
+    stages.push({ stage: name, hash, cached: false });
+    return { hash, value };
   };
-  key("ingest.base", { source: input.base.sourceHash });
-  key("ingest.head", { source: input.head.sourceHash });
-  const diffKey = key("diff", { base: input.base.specHash, head: input.head.specHash });
-  const diff = diffSpecs(input.base.ir, input.head.ir);
 
-  const affected = new Set(Object.keys(diff.impact));
-  const corpus = input.traffic
-    ? await buildCorpus(input.traffic.entries, input.base.ir, affected, corpusOptions)
-    : { samples: [], stats: { read: 0, malformed: 0, malformedExamples: [], unrouted: 0, outOfScope: 0, sampled: 0 } };
-  const corpusKey = key("corpus", {
-    diff: diffKey,
-    traffic: input.traffic?.hash ?? null,
+  const diff = await stage("diff", { base: input.base.specHash, head: input.head.specHash }, () =>
+    diffSpecs(input.base.ir, input.head.ir)
+  );
+  const affected = new Set(Object.keys(diff.value.impact));
+  const traffic = input.traffic;
+  const corpusInputs = {
+    diff: diff.hash,
+    traffic: traffic?.hash ?? null,
     options: {
       perOperationCap: corpusOptions.perOperationCap,
       totalCap: corpusOptions.totalCap,
       seed,
       redaction: corpusOptions.redaction,
     },
-  });
-
-  const verified = verify(input.base.ir, input.head.ir, diff, corpus.samples, verifyOptions);
-  const verifyKey = key("verify", { diff: diffKey, corpus: corpusKey, options: verifyOptions });
+  };
+  const { hash: corpusHash, value: corpus } = await stage("corpus", corpusInputs, () =>
+    traffic
+      ? buildCorpus(traffic.open(), input.base.ir, affected, corpusOptions)
+      : { samples: [], stats: { read: 0, malformed: 0, malformedExamples: [], unrouted: 0, outOfScope: 0, sampled: 0 } }
+  );
+  const { hash: verifyHash, value: verified } = await stage(
+    "verify",
+    { diff: diff.hash, corpus: corpusHash, options: verifyOptions },
+    () => verify(input.base.ir, input.head.ir, diff.value, corpus.samples, verifyOptions)
+  );
 
   const rulesHash = contentHash(ruleset);
   const policyHash = contentHash(policy);
-  const classified = classify({
-    changes: diff.changes,
-    evidence: verified.evidence,
-    ruleset,
-    policy,
-    asOf: input.asOf,
-    ...(input.failOn === undefined ? {} : { failOn: input.failOn }),
-  });
-  key("classify", {
-    verify: verifyKey,
-    rules: rulesHash,
-    policy: policyHash,
-    asOf: input.asOf,
-    failOn: classified.gate.failOn,
-  });
+  const failOn = input.failOn ?? policy.failOn ?? "breaking";
+  const { value: classified } = await stage(
+    "classify",
+    { verify: verifyHash, rules: rulesHash, policy: policyHash, asOf: input.asOf, failOn },
+    () =>
+      classify({
+        changes: diff.value.changes,
+        evidence: verified.evidence,
+        ruleset,
+        policy,
+        asOf: input.asOf,
+        failOn,
+      })
+  );
 
   const sampledOperations = new Set(corpus.samples.map((sample) => sample.operation));
   const corpusSummary: CorpusSummary = {
@@ -176,7 +204,10 @@ export async function compare(input: CompareInput): Promise<Report> {
     base: specSummary(input.base),
     head: specSummary(input.head),
     corpus: corpusSummary,
-    changes: classified.changes,
+    changes: classified.changes.map((change) => {
+      const position = (change.side === "head" ? input.head : input.base).locate(change.location);
+      return position ? { ...change, position } : change;
+    }),
     unattributed: verified.unattributed,
     nonConformance: verified.nonConformance,
     summary: classified.summary,

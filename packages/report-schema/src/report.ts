@@ -77,6 +77,10 @@ export const ClassifiedChange = Change.extend({
   escalation: z.string().optional(),
   /** Set when a suppression applies: the change is reported but does not count towards the gate. */
   suppression: Suppression.optional(),
+  /** Where `location` is in the source: the display path of the file on `side`, 1-based line and column. */
+  position: z
+    .object({ file: z.string(), line: z.number().int().positive(), column: z.number().int().positive() })
+    .optional(),
 });
 export type ClassifiedChange = z.infer<typeof ClassifiedChange>;
 
@@ -153,7 +157,14 @@ export const Report = z
      * Content-addressed key of every stage output (ADR-0006). Named `hash`, not `cacheKey`: secret scanners
      * read a 64-hex value under a name containing "key" as an API key, and reports get committed and posted.
      */
-    stages: z.array(z.object({ stage: StageName, hash: Hash })),
+    stages: z.array(
+      z.object({
+        stage: StageName,
+        hash: Hash,
+        /** True when the output was reused from the cache instead of computed (ADR-0006). */
+        cached: z.boolean(),
+      })
+    ),
     diagnostics: z.array(ReportDiagnostic),
   })
   .meta({
