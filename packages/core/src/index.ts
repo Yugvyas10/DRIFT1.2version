@@ -40,3 +40,4 @@ export { escapeHtml, renderHtml } from "./report/html.ts";
 export { renderSarif } from "./report/sarif.ts";
 export { escapeXml, renderJunit } from "./report/junit.ts";
 export type { StageCache } from "./compare.ts";
+export { FAIL, RecordingPlan, SchemaGenerator, synthesizeRequest, type ChoicePlan } from "./corpus/synthesize.ts";

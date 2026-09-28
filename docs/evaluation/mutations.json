@@ -1,0 +1,152 @@
+{
+  "kind": "drift-mutations/v1",
+  "engineVersion": "0.0.0",
+  "generatedAt": "2026-09-28T17:35:39.160Z",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "specs": [
+    "petstore-v1"
+  ],
+  "summary": {
+    "breaking": {
+      "total": 7,
+      "proven": 7,
+      "flagged": 0,
+      "missed": 0
+    },
+    "safe": {
+      "total": 6,
+      "falseBreaking": 0,
+      "flagged": 0,
+      "clean": 6
+    },
+    "precision": 1,
+    "recall": 1
+  },
+  "results": [
+    {
+      "spec": "petstore-v1",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET /pets edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 25
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of POST /pets edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 12
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET /pets/{petId} edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 7
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "operation-added",
+      "label": "safe",
+      "description": "GET /drift-added added",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 6
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET /pets removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 7
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "POST /pets removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 7
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET /pets/{petId} removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 4
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "request-bound-relaxed",
+      "label": "safe",
+      "description": "maximum 100 → 201 at /paths/~1pets/get/parameters/0/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 6
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/NewPet/properties/name",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 10
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/NewPet/properties/note",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 9
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/NewPet/properties/ownerEmail",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 9
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /components/schemas/NewPet",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 8
+    },
+    {
+      "spec": "petstore-v1",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /components/schemas/NewPet",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 8
+    }
+  ],
+  "skipped": [
+    "petstore-v1: request-enum-value-removed (no suitable place)",
+    "petstore-v1: response-enum-value-added (no suitable place)"
+  ]
+}
