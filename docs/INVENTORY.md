@@ -44,10 +44,14 @@ The legacy app was removed from product paths in M0 and is preserved at tag **`l
 
 ### 1.4 Open items carried over
 
-- **Push access.** The account used on this machine cannot push to `Yugvyas10/DRIFT1.2version` (HTTP 403). The branches `rebuild/m0-foundations` and `rebuild/m1-ingest-diff` are local only, and CI has not run on them yet.
-
-- **Groq API key rotation.** The key from the legacy code is in no commit (gitleaks-verified), but it must still be rotated by the repository owner (SECURITY.md incident log).
-- **Legacy local files.** The untracked root `.env` (contains the key above) and `.env.example` belong to the legacy app. Delete them once the key is rotated; nothing in the new code reads them.
+- **Push access.** Granted on 2026-09-28. The branches `rebuild/m0-foundations` and `rebuild/m1-ingest-diff` and the tag `legacy-v1` still have to be pushed so that CI runs on them.
+- **Groq API key rotation: deferred (accepted risk, 2026-09-28).** The key from the legacy code is in no commit (gitleaks-verified), and only the four team members use it. Rotate it if it is ever shared or deployed beyond the team.
+- **Legacy local files.** The untracked root `.env` (contains the key above) and `.env.example` belong to the legacy app. Nothing in the new code reads them. They must never be committed; the secret scan blocks the key.
+- **GitHub organisation for the sample repo (Q8, needed by M4).** A person has to create it (it is a GitHub account and needs the terms accepted). Requirements:
+  - plan: Free; name: any free name, e.g. `drift-edi4` (lower case, it appears in the sample repo URL);
+  - owners: all four team members, plus the GitHub account used for pushes from this machine (`The-Creative-Developer`), so the sample repo can be created and the Action and App installed from here;
+  - base member permission: Read; GitHub Actions allowed for all repositories;
+  - nothing else yet. The sample repo (`drift-sample-api`) is created in M4, and the GitHub App is registered under the organisation in M8.
 
 ---
 
