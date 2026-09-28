@@ -100,6 +100,7 @@ class IrBuilder {
       irVersion: 1,
       oasVersion,
       info: { title: typeof title === "string" ? title : "", version: typeof version === "string" ? version : "" },
+      basePaths: basePaths(getOwn(doc, "servers")),
       operations,
       schemas: this.#schemas.schemas,
     };
@@ -285,6 +286,30 @@ class IrBuilder {
 }
 
 /** Lower-case, without spaces: `Application/JSON; charset=UTF-8` → `application/json;charset=utf-8`. */
+/**
+ * The path part of every server URL (`https://api.example.com/v1` → `/v1`), which recorded request paths start
+ * with. Server variables take their default value. No servers means the root (`""`), as the specification says.
+ */
+export function basePaths(servers: JsonValue | undefined): string[] {
+  const paths = new Set<string>();
+  for (const server of Array.isArray(servers) ? servers : []) {
+    if (!isJsonObject(server)) continue;
+    const url = getOwn(server, "url");
+    if (typeof url !== "string") continue;
+    const variables = getOwn(server, "variables");
+    const expanded = url.replace(/\{([^}]*)\}/g, (whole, name: string) => {
+      const variable = isJsonObject(variables) ? getOwn(variables, name) : undefined;
+      const fallback = isJsonObject(variable) ? getOwn(variable, "default") : undefined;
+      return typeof fallback === "string" ? fallback : whole;
+    });
+    const withoutOrigin = expanded.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i, "").replace(/^\/\/[^/]*/, "");
+    const path = withoutOrigin.split(/[?#]/)[0] ?? "";
+    const trimmed = path.replace(/\/+$/, "");
+    paths.add(trimmed === "" ? "" : trimmed.startsWith("/") ? trimmed : `/${trimmed}`);
+  }
+  return paths.size === 0 ? [""] : [...paths].sort();
+}
+
 export function normalizeMediaType(mediaType: string): string {
   return mediaType.toLowerCase().replace(/\s+/g, "");
 }
