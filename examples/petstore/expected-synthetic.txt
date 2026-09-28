@@ -1,0 +1,86 @@
+base  examples/petstore/v1.yaml  (OpenAPI 3.0.3, 4 operations)
+head  examples/petstore/v2-breaking.yaml  (OpenAPI 3.0.3, 3 operations)
+traffic  none (synthetic samples only)
+synthetic  38 samples generated (marked synthetic)
+
+BREAKING (8)
+  DELETE /pets/{}  request  operation.removed  [5d252af03800fea0]
+      Operation DELETE /pets/{} was removed
+      rule DRIFT-REQ-OPERATION-REMOVED: Clients still calling the operation will get an error; a recorded call to it proves the break.
+      evidence: 1 of 1 sample fails (synthetic); confidence 0.80; unverified (no recorded traffic)
+      sample (synthetic): {"method":"DELETE","path":"/v1/pets/1"}
+      fails: /operation DELETE /pets/{} is not in this contract
+  GET /pets  request  schema.enum.value_removed  [644bf2ac60adabd6]
+      Request query parameter "status": Enum value "pending" was removed
+      rule DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED: Clients still sending the removed value will be rejected.
+      evidence: 1 of 6 samples fails (synthetic); confidence 0.80; unverified (no recorded traffic)
+      sample (synthetic): {"method":"GET","path":"/v1/pets","query":{"limit":"51","status":"pending"}}
+      fails: /query/status must be equal to one of the allowed values
+  GET /pets  request  schema.bound.tightened  [760d32eee71daae3]
+      Request query parameter "limit": "maximum" tightened: 100 → 50
+      rule DRIFT-REQ-SCHEMA-BOUND-TIGHTENED: Values that used to be accepted may now be rejected.
+      evidence: 5 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)
+      sample (synthetic): {"method":"GET","path":"/v1/pets","query":{"limit":"51","status":"available"}}
+      fails: /query/limit must be <= 50
+  GET /pets  response  schema.enum.value_added  [a37def3c7de93e01]
+      Response 200 body (application/json): Enum value "adopted" was added
+      rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+      evidence: 2 of 8 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)
+      sample (synthetic): {"method":"GET","path":"/pets","status":200,"contentType":"application/json","body":[{"id":1,"name":"drift","status":"adopted","tag":"drift"}]}
+      fails: /body/0/status must be equal to one of the allowed values
+  GET /pets/{}  response  schema.enum.value_added  [2e23389f89244d4f]
+      Response 200 body (application/json): Enum value "adopted" was added
+      rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+      evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)
+      sample (synthetic): {"method":"GET","path":"/pets/{petId}","status":200,"contentType":"application/json","body":{"id":1,"name":"drift","status":"adopted","tag":"drift"}}
+      fails: /body/status must be equal to one of the allowed values
+  POST /pets  request  schema.property.added.required  [bb412def2697a713]
+      Request body (application/json): Property "category" was added as required
+      rule DRIFT-REQ-SCHEMA-PROPERTY-ADDED-REQUIRED: Existing clients do not send the new property, so the server will reject their requests.
+      evidence: 9 of 9 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)
+      sample (synthetic): {"method":"POST","path":"/v1/pets","headers":{"content-type":"application/json"},"body":{"name":"drift","note":"drift","ownerEmail":"user@example.com","status":"available","tag":"drift"}}
+      fails: /body/category must have required property 'category'
+  POST /pets  request  schema.enum.value_removed  [306b396f638281e8]
+      Request body (application/json): Enum value "pending" was removed
+      rule DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED: Clients still sending the removed value will be rejected.
+      evidence: 1 of 9 samples fails (synthetic); confidence 0.80; unverified (no recorded traffic)
+      sample (synthetic): {"method":"POST","path":"/v1/pets","headers":{"content-type":"application/json"},"body":{"name":"drift","note":"drift","ownerEmail":"user@example.com","status":"pending","tag":"drift"}}
+      fails: /body/status must be equal to one of the allowed values
+  POST /pets  response  schema.enum.value_added  [db8893be5ad2c107]
+      Response 201 body (application/json): Enum value "adopted" was added
+      rule DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED: Clients that validate responses strictly may reject a value they have never seen.
+      evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)
+      sample (synthetic): {"method":"POST","path":"/pets","status":201,"contentType":"application/json","body":{"id":1,"name":"drift","status":"adopted","tag":"drift"}}
+      fails: /body/status must be equal to one of the allowed values
+
+SAFE (6)
+  GET /pets  request  schema.enum.value_added  [b467c2271950e449]
+      Request query parameter "status": Enum value "adopted" was added
+      rule DRIFT-REQ-SCHEMA-ENUM-VALUE-ADDED: The server accepts one more value.
+      evidence: 6 samples reached it, none fail (0 recorded); confidence 0.00; unverified (no recorded traffic)
+  GET /pets  response  schema.enum.value_removed  [28c1b933c2ce75c2]
+      Response 200 body (application/json): Enum value "pending" was removed
+      rule DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED: The server returns fewer values than before.
+      evidence: 8 samples reached it, none fail (0 recorded); confidence 0.00; unverified (no recorded traffic)
+  GET /pets/{}  request  param.added.optional  [3b018b3bd6131702]
+      Optional query parameter "fields" was added
+      rule DRIFT-REQ-PARAM-ADDED-OPTIONAL: Existing clients can keep omitting an optional parameter.
+      evidence: not verifiable by samples; structural only; unverified (no recorded traffic)
+  GET /pets/{}  response  schema.enum.value_removed  [5968c1bff269f5d2]
+      Response 200 body (application/json): Enum value "pending" was removed
+      rule DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED: The server returns fewer values than before.
+      evidence: 6 samples reached it, none fail (0 recorded); confidence 0.00; unverified (no recorded traffic)
+  POST /pets  request  schema.enum.value_added  [d3a7fb20cd5617d4]
+      Request body (application/json): Enum value "adopted" was added
+      rule DRIFT-REQ-SCHEMA-ENUM-VALUE-ADDED: The server accepts one more value.
+      evidence: 9 samples reached it, none fail (0 recorded); confidence 0.00; unverified (no recorded traffic)
+  POST /pets  response  schema.enum.value_removed  [be68941301b74cbf]
+      Response 201 body (application/json): Enum value "pending" was removed
+      rule DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED: The server returns fewer values than before.
+      evidence: 6 samples reached it, none fail (0 recorded); confidence 0.00; unverified (no recorded traffic)
+
+info  NO_TRAFFIC  No traffic was given: request evidence comes from synthetic samples only.
+info  SYNTHETIC_EVIDENCE  38 synthetic samples were generated from the contracts; evidence from them is marked synthetic and has lower confidence.
+
+8 BREAKING, 0 RISKY, 6 SAFE; semver: major
+✖ gate failed (fail on breaking)
