@@ -21,7 +21,7 @@ Every accuracy or performance number anywhere in this repository, README include
 | `evaluation` / `evaluation:check`            | Renders the page from the committed results / checks it (CI).                                                                                                                                                            |
 | `all`                                        | Fetch, check, perf, mutations with fixtures.                                                                                                                                                                             |
 
-The workflow **Benchmarks** (`.github/workflows/benchmarks.yml`, started by hand) runs `all` on a GitHub-hosted runner and uploads the results as an artifact.
+The workflow **Benchmarks** (`.github/workflows/benchmarks.yml`) runs `all` on a GitHub-hosted runner and uploads the results as an artifact. It starts by hand once it is on `master`, or when a pull request gets the label `run-benchmarks` (it then measures the branch's head commit).
 
 ## Performance benchmark (`src/perf.ts`)
 
