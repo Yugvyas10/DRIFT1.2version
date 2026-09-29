@@ -6,7 +6,34 @@ Every number on this page comes from `packages/bench` output (CLAUDE.md). Re-run
 
 ## Performance
 
-Not measured yet.
+Measured on 2026-09-29 with engine 0.0.0: AMD EPYC 7763 64-Core Processor (4 cores), 15.6 GiB RAM, linux-x64, Node v24.21.0. Memory is the process's peak resident set size, sampled every 25 ms.
+
+### Recorded traffic of growing size
+
+`drift compare` on `examples/petstore/v1.yaml` → `examples/petstore/v2-breaking.yaml`, streaming a generated drift-traffic/v1 file. Memory ceiling fixed in the bench config: **512 MiB**.
+
+| Lines | File | Time | Lines/s | Kept samples | Peak RSS | Within ceiling |
+| ---: | ---: | ---: | ---: | ---: | ---: | :---: |
+| 1,000 | 0.1 MiB | 102 ms | 9,804 | 1,000 | 128 MiB | yes |
+| 10,000 | 0.7 MiB | 168 ms | 59,524 | 4,000 | 156 MiB | yes |
+| 100,000 | 7.4 MiB | 656 ms | 152,439 | 4,000 | 251 MiB | yes |
+| 1,000,000 | 73.6 MiB | 5339 ms | 187,301 | 4,000 | 322 MiB | yes |
+
+Time per line changes by a factor of 0.05 from 1,000 to 1,000,000 lines (1.00 would be exactly linear; below 1 is better than linear).
+
+### Cached re-run
+
+The same comparison (100,000 lines of traffic) twice with a stage cache: **610 ms** the first time, **7 ms** when Diff, Corpus, Verify and Classify are reused.
+
+### Real-world specs
+
+| Spec | Operations | Ingest | Compare with itself | Changes | Compare with a mutant | Changes (BREAKING) | Peak RSS |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| github-3.0 | 1,224 | 6656 ms | 132 ms | 0 | 113 ms | 2 (2) | 1581 MiB |
+| github-3.1 | 1,224 | 6585 ms | 98 ms | 0 | 109 ms | 2 (2) | 1687 MiB |
+| stripe-3.0 | 612 | 2403 ms | 190 ms | 0 | 1405 ms | 1 (0) | 1728 MiB |
+
+The mutant adds a required request property (required property driftAdded added at /components/schemas/actions-artifact-and-log-retention for github-3.0); the comparison includes synthetic evidence for every affected operation.
 
 ## Accuracy on labelled mutations (DRIFT only)
 

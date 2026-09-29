@@ -1,0 +1,152 @@
+{
+  "kind": "drift-perf/v1",
+  "engineVersion": "0.0.0",
+  "environment": {
+    "node": "v24.21.0",
+    "platform": "linux-x64",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cores": 4,
+    "memoryGiB": 15.6
+  },
+  "generatedAt": "2026-09-29T14:21:49.238Z",
+  "config": {
+    "corpusSizes": [
+      1000,
+      10000,
+      100000,
+      1000000
+    ],
+    "memoryCeilingMiB": 512,
+    "sampleIntervalMs": 25
+  },
+  "corpus": {
+    "spec": "examples/petstore/v1.yaml",
+    "head": "examples/petstore/v2-breaking.yaml",
+    "runs": [
+      {
+        "ms": 102,
+        "peakRssMiB": 128,
+        "peakHeapMiB": 28,
+        "lines": 1000,
+        "fileMiB": 0.1,
+        "linesPerSecond": 9804,
+        "kept": 1000,
+        "withinCeiling": true
+      },
+      {
+        "ms": 168,
+        "peakRssMiB": 156,
+        "peakHeapMiB": 60,
+        "lines": 10000,
+        "fileMiB": 0.7,
+        "linesPerSecond": 59524,
+        "kept": 4000,
+        "withinCeiling": true
+      },
+      {
+        "ms": 656,
+        "peakRssMiB": 251,
+        "peakHeapMiB": 102,
+        "lines": 100000,
+        "fileMiB": 7.4,
+        "linesPerSecond": 152439,
+        "kept": 4000,
+        "withinCeiling": true
+      },
+      {
+        "ms": 5339,
+        "peakRssMiB": 322,
+        "peakHeapMiB": 165,
+        "lines": 1000000,
+        "fileMiB": 73.6,
+        "linesPerSecond": 187301,
+        "kept": 4000,
+        "withinCeiling": true
+      }
+    ]
+  },
+  "cache": {
+    "cold": {
+      "ms": 610,
+      "peakRssMiB": 325,
+      "peakHeapMiB": 130
+    },
+    "warm": {
+      "ms": 7,
+      "peakRssMiB": 326,
+      "peakHeapMiB": 94
+    },
+    "lines": 100000
+  },
+  "fixtures": [
+    {
+      "id": "github-3.0",
+      "operations": 1224,
+      "ingest": {
+        "ms": 6656,
+        "peakRssMiB": 915,
+        "peakHeapMiB": 463
+      },
+      "selfCompare": {
+        "ms": 132,
+        "peakRssMiB": 915,
+        "peakHeapMiB": 463,
+        "changes": 0
+      },
+      "mutatedCompare": {
+        "ms": 113,
+        "peakRssMiB": 1581,
+        "peakHeapMiB": 1336,
+        "changes": 2,
+        "breaking": 2,
+        "mutation": "required property driftAdded added at /components/schemas/actions-artifact-and-log-retention"
+      }
+    },
+    {
+      "id": "github-3.1",
+      "operations": 1224,
+      "ingest": {
+        "ms": 6585,
+        "peakRssMiB": 1606,
+        "peakHeapMiB": 1305
+      },
+      "selfCompare": {
+        "ms": 98,
+        "peakRssMiB": 1606,
+        "peakHeapMiB": 490,
+        "changes": 0
+      },
+      "mutatedCompare": {
+        "ms": 109,
+        "peakRssMiB": 1687,
+        "peakHeapMiB": 1330,
+        "changes": 2,
+        "breaking": 2,
+        "mutation": "required property driftAdded added at /components/schemas/actions-artifact-and-log-retention"
+      }
+    },
+    {
+      "id": "stripe-3.0",
+      "operations": 612,
+      "ingest": {
+        "ms": 2403,
+        "peakRssMiB": 1687,
+        "peakHeapMiB": 1292
+      },
+      "selfCompare": {
+        "ms": 190,
+        "peakRssMiB": 1687,
+        "peakHeapMiB": 150,
+        "changes": 0
+      },
+      "mutatedCompare": {
+        "ms": 1405,
+        "peakRssMiB": 1728,
+        "peakHeapMiB": 413,
+        "changes": 1,
+        "breaking": 0,
+        "mutation": "required property driftAdded added at /paths/~1v1~1account/get/requestBody/content/application~1x-www-form-urlencoded/schema"
+      }
+    }
+  ]
+}
