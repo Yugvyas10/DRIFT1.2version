@@ -1,5 +1,5 @@
 import type { Report, Severity } from "@drift/report-schema";
-import { bySeverity, evidenceSummary, gateLine, plural, SEVERITIES, where } from "./common.ts";
+import { bySeverity, evidenceSummary, gateLine, omittedBody, plural, SEVERITIES, where } from "./common.ts";
 
 export interface ConsoleOptions {
   /** ANSI colours. The CLI turns them off for NO_COLOR, non-terminals and files. */
@@ -45,6 +45,8 @@ export function renderConsole(report: Report, options: ConsoleOptions = { color:
       if (example) {
         const origin = example.line === undefined ? example.origin : `${example.origin}, line ${String(example.line)}`;
         text += `      sample (${origin}): ${JSON.stringify(example.payload)}\n`;
+        const omitted = omittedBody(example);
+        if (omitted) text += `      ${omitted}\n`;
         text += `      fails: ${example.errors.map((error) => `${error.pointer} ${error.message}`).join("; ")}\n`;
       }
     }

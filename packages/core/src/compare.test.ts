@@ -8,6 +8,7 @@ import { readHar, readJsonl } from "./corpus/traffic.ts";
 import { sha256Hex } from "./hash/content-hash.ts";
 import { ingestSpec } from "./ingest/ingest.ts";
 import type { SpecReader } from "./ingest/types.ts";
+import { ingestObject, sharedComponentPair } from "./testing/specs.ts";
 
 /** The M2 acceptance example (examples/petstore). */
 const dir = fileURLToPath(new URL("../../../examples/petstore/", import.meta.url));
@@ -86,6 +87,19 @@ describe("compare (M2 acceptance, examples/petstore)", () => {
     }
     expect(report.corpus.source).toEqual({ kind: "none" });
     expect(report.diagnostics.map((d) => d.code)).toEqual(["NO_TRAFFIC", "SYNTHETIC_EVIDENCE"]);
+  });
+
+  it("warns when the synthetic budget cut samples short, and still proves the change everywhere", async () => {
+    const pair = sharedComponentPair(400);
+    const [base, head] = await Promise.all([ingestObject(pair.base), ingestObject(pair.head)]);
+    const report = await compare({ base, head, asOf: "2026-09-28" });
+    expect(report.changes).toHaveLength(400);
+    expect(report.changes.every((change) => change.severity === "BREAKING")).toBe(true);
+    const warning = report.diagnostics.find((d) => d.code === "SYNTHETIC_BUDGET");
+    expect(warning).toMatchObject({ level: "warning" });
+    expect(warning?.message).toMatch(
+      /^400 operations or responses needed synthetic samples, so broad-coverage samples stopped at 10 for each /
+    );
   });
 
   it("passes an additive change and recommends a minor version", async () => {

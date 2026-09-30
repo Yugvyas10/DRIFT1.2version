@@ -1,5 +1,5 @@
 import type { ClassifiedChange, Report } from "@drift/report-schema";
-import { bySeverity, evidenceSummary, gateLine, where } from "./common.ts";
+import { bySeverity, evidenceSummary, gateLine, omittedBody, where } from "./common.ts";
 
 /** Hidden marker the GitHub Action uses to find and update its one PR comment (M4). */
 export const MARKDOWN_MARKER = "<!-- drift-report -->";
@@ -40,7 +40,9 @@ function details(change: ClassifiedChange): string {
     const origin = example.line === undefined ? example.origin : `${example.origin}, line ${String(example.line)}`;
     const errors = example.errors.map((error) => `${error.pointer} ${error.message}`).join("\n");
     text += `\n  <details><summary>Failing sample (${escapeMarkdown(origin)}, redacted)</summary>\n\n`;
-    text += `${codeBlock(JSON.stringify(example.payload, null, 2), "json")}\n\n${codeBlock(errors)}\n\n  </details>\n`;
+    const omitted = omittedBody(example);
+    text += `${codeBlock(JSON.stringify(example.payload, null, 2), "json")}\n\n${omitted ? `${codeBlock(omitted)}\n\n` : ""}`;
+    text += `${codeBlock(errors)}\n\n  </details>\n`;
   }
   return `${text}\n`;
 }

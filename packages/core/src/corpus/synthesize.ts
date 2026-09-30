@@ -116,6 +116,99 @@ export class SchemaGenerator {
     return schema ? this.#value(schema, 0) : "drift";
   }
 
+  /**
+   * Directions towards `targets` (schema sources): for each decision on a way from `schema` to a target, the first
+   * variant that leads there. A plan that follows them reaches every reachable target within SHALLOW_DEPTH,
+   * where a plan that picks the first variant everywhere may never get there (for example when the way passes
+   * through the second branch of an anyOf, as with Stripe's expandable fields). Computed on the schema graph, so
+   * recursive schemas are handled.
+   */
+  routes(schema: NormalizedSchema | null | undefined, targets: ReadonlySet<string>): Map<string, number> {
+    const nodes = new Map<string, { variants: string[][]; always: string[] }>();
+    const parents = new Map<string, Set<string>>();
+    const queue: JsonObject[] = schema ? [schema] : [];
+    const pointOf = (child: JsonObject): string | undefined => {
+      const node = resolveSchema(child, this.#spec);
+      return node ? sourceOf(node) : undefined;
+    };
+    while (queue.length > 0) {
+      const next = queue.pop();
+      const node = next ? resolveSchema(next, this.#spec) : undefined;
+      if (!node) continue;
+      const point = sourceOf(node);
+      if (nodes.has(point)) continue;
+      const edges = (children: JsonObject[]) => {
+        const points: string[] = [];
+        for (const child of children) {
+          const target = pointOf(child);
+          if (target === undefined) continue;
+          points.push(target);
+          const set = parents.get(target) ?? new Set<string>();
+          set.add(point);
+          parents.set(target, set);
+          queue.push(child);
+        }
+        return points;
+      };
+      nodes.set(point, {
+        variants: this.#variants(node).map((variant) => edges(this.#children(node, variant))),
+        always: edges(list(node, "allOf") ?? []),
+      });
+    }
+    // Every node from which a target can be reached, walking the parent edges back from the targets.
+    const reaching = new Set([...targets].filter((target) => nodes.has(target)));
+    const walk = [...reaching];
+    while (walk.length > 0) {
+      for (const parent of parents.get(walk.pop() ?? "") ?? []) {
+        if (reaching.has(parent)) continue;
+        reaching.add(parent);
+        walk.push(parent);
+      }
+    }
+    const out = new Map<string, number>();
+    for (const point of reaching) {
+      const node = nodes.get(point);
+      if (!node || targets.has(point) || node.always.some((child) => reaching.has(child))) continue;
+      const index = node.variants.findIndex((children) => children.some((child) => reaching.has(child)));
+      if (index >= 0) out.set(point, index);
+    }
+    return out;
+  }
+
+  /** The subschemas `variant` of `node` generates values for (allOf members apart). */
+  #children(node: JsonObject, variant: Variant): JsonObject[] {
+    const properties = (which: "all" | "required"): JsonObject[] => {
+      const props = getOwn(node, "properties");
+      if (!isJsonObject(props ?? null)) return [];
+      const requiredList = getOwn(node, "required");
+      const required = new Set(Array.isArray(requiredList) ? requiredList : []);
+      const hidden = this.#direction === "request" ? "readOnly" : "writeOnly";
+      return Object.entries(props as JsonObject)
+        .filter(([name, schema]) => (which === "all" || required.has(name)) && isJsonObject(schema ?? null))
+        .map(([, schema]) => schema as JsonObject)
+        .filter((schema) => getOwn(resolveSchema(schema, this.#spec) ?? {}, hidden) !== true);
+    };
+    switch (variant.kind) {
+      case "branch": {
+        const branch = list(node, variant.keyword)?.[variant.index];
+        return [...(branch ? [branch] : []), ...properties("all")];
+      }
+      case "array": {
+        const items = getOwn(node, "items");
+        const prefix = list(node, "prefixItems") ?? [];
+        const some = variant.which !== "few" || (num(node, "minItems") ?? 0) > 0;
+        return [...prefix, ...(some && isJsonObject(items ?? null) ? [items as JsonObject] : [])];
+      }
+      case "object": {
+        const additional = getOwn(node, "additionalProperties");
+        const extra = variant.which === "extra" && isJsonObject(additional ?? null) ? [additional as JsonObject] : [];
+        return [...properties(variant.which === "required" ? "required" : "all"), ...extra];
+      }
+      default:
+        return [];
+    }
+  }
+
   #value(schema: NormalizedSchema, depth: number): Generated {
     if (depth > MAX_DEPTH) return FAIL;
     const node = resolveSchema(schema, this.#spec);

@@ -6,8 +6,8 @@ import type { DiffResult } from "../diff/diff.ts";
 import type { NormalizedSchema, OperationIR, SpecIR } from "../ingest/ir.ts";
 import { isJsonMediaType, mediaTypeOf, requestPayload, responsePayload, type RoutedSample } from "../corpus/sample.ts";
 import { FAIL, RecordingPlan, SchemaGenerator, synthesizeRequest, type ChoicePlan } from "../corpus/synthesize.ts";
-import { escapeToken } from "../util/json-pointer.ts";
-import type { JsonValue } from "../util/json.ts";
+import { escapeToken, getAtTokens, parsePointer } from "../util/json-pointer.ts";
+import type { JsonObject, JsonValue } from "../util/json.ts";
 import { explains, type Failure } from "./attribution.ts";
 import { Validators } from "./validators.ts";
 import { fromWire } from "./wire.ts";
@@ -19,9 +19,20 @@ export interface VerifyOptions {
   maxExamples: number;
   /** Synthetic samples generated per operation (requests) or per response status and media type. */
   syntheticPerGroup: number;
+  /**
+   * Synthetic samples for the whole comparison, shared out evenly between the groups that need them. When a change
+   * reaches many operations (a shared component), each group gets fewer broad-coverage samples; the samples aimed
+   * at the changed nodes always run. Counted in samples, not time, so reports stay deterministic.
+   */
+  syntheticBudget: number;
 }
 
-export const DEFAULT_VERIFY_OPTIONS: VerifyOptions = { seed: 0, maxExamples: 3, syntheticPerGroup: 48 };
+export const DEFAULT_VERIFY_OPTIONS: VerifyOptions = {
+  seed: 0,
+  maxExamples: 3,
+  syntheticPerGroup: 48,
+  syntheticBudget: 4096,
+};
 
 export interface Counts {
   recorded: number;
@@ -42,6 +53,8 @@ export interface VerifyResult {
   unattributed: UnattributedFailure[];
   nonConformance: { requests: number; responses: number };
   synthetic: { generated: number; discarded: number };
+  /** How the synthetic budget was shared: groups that needed samples, the limit each got, and how many hit it. */
+  budget: { groups: number; perGroup: number; trimmed: number };
   /** Validators compiled per contract (each at most once per cache key). */
   compiled: { base: number; head: number };
   /** Parts of a contract that could not be checked, e.g. a `pattern` that is not a valid regular expression. */
@@ -307,6 +320,7 @@ export function verify(
     unattributed: [],
     nonConformance: { requests: 0, responses: 0 },
     synthetic: { generated: 0, discarded: 0 },
+    budget: { groups: 0, perGroup: options.syntheticPerGroup, trimmed: 0 },
     compiled: { base: 0, head: 0 },
     notes: [],
   };
@@ -329,7 +343,7 @@ export function verify(
     failures: Failure[],
     reached: (anchor: Anchor) => boolean,
     side: "base" | "head",
-    payload: JsonValue,
+    payload: JsonObject,
     redacted: readonly string[]
   ) => {
     const real = failures.filter((failure) => !isUnknown(failure, redacted));
@@ -345,14 +359,7 @@ export function verify(
         explainedAny = true;
         entry.failed[sample.origin === "recorded" ? "recorded" : "synthetic"]++;
         if (entry.examples.length < options.maxExamples) {
-          entry.examples.push({
-            sample: sample.id,
-            origin: sample.origin,
-            ...(sample.line === undefined ? {} : { line: sample.line }),
-            payload,
-            redacted: [...redacted],
-            errors: mine.map(({ pointer, keyword, message }) => ({ pointer, keyword, message })),
-          });
+          entry.examples.push(example(sample, payload, redacted, mine));
         }
       } else if (unknown.some((failure) => anchors.some((anchor) => explains(change, anchor, failure, side)))) {
         entry.unknown++;
@@ -367,14 +374,7 @@ export function verify(
           operation: group.operation,
           direction: group.direction,
           count: 1,
-          example: {
-            sample: sample.id,
-            origin: sample.origin,
-            ...(sample.line === undefined ? {} : { line: sample.line }),
-            payload,
-            redacted: [...redacted],
-            errors: real.map(({ pointer, keyword, message }) => ({ pointer, keyword, message })),
-          },
+          example: example(sample, payload, redacted, real),
         });
       }
     }
@@ -406,6 +406,15 @@ export function verify(
   };
 
   let syntheticId = 0;
+  // Work is planned first and run afterwards, in the same order, so the budget can be shared out before any
+  // synthetic sample is generated. `start` creates a group's generator (and its state) only when the group runs.
+  const steps: ((limit: number) => void)[] = [];
+  const synthesize = (focus: string[], steer: Steer, start: () => (plan: ChoicePlan) => void) => {
+    result.budget.groups++;
+    steps.push((limit) => {
+      if (runPlans(focus, options, limit, start(), steer)) result.budget.trimmed++;
+    });
+  };
   const sortedGroups = [...groups.values()].sort((a, b) =>
     a.operation < b.operation ? -1 : a.operation > b.operation ? 1 : a.direction < b.direction ? -1 : 1
   );
@@ -421,19 +430,31 @@ export function verify(
     const headOperation = head.operations[group.operation];
     if (group.direction === "request") {
       const samples = recordedByOperation.get(group.operation) ?? [];
-      for (const sample of samples) checkRequest(group, sample);
+      steps.push(() => {
+        for (const sample of samples) checkRequest(group, sample);
+      });
       if (samples.length === 0 && baseOperation) {
         const focus = group.changes.flatMap(({ anchors }) => anchors.map(requestFocus));
-        const seen = new Set<string>();
-        runPlans(focus, options, (plan) => {
-          const sample = synthesizeRequest(base, baseOperation, plan, `s:${String(syntheticId + 1)}`);
-          if (sample === FAIL) return;
-          const key = canonicalJson(requestPayload(sample));
-          if (seen.has(key)) return;
-          seen.add(key);
-          syntheticId++;
-          if (checkRequest(group, sample)) result.synthetic.generated++;
-          else result.synthetic.discarded++;
+        const steer: Steer = (targets) => {
+          const generator = new SchemaGenerator(base, "request", { pick: () => 0 });
+          const schemas = [
+            ...Object.values(baseOperation.parameters).map((param) => param.schema),
+            ...Object.values(baseOperation.requestBody?.content ?? {}).map((media) => media.schema),
+          ];
+          return new Map(schemas.flatMap((schema) => [...generator.routes(schema, targets)]));
+        };
+        synthesize(focus, steer, () => {
+          const seen = new Set<string>();
+          return (plan) => {
+            const sample = synthesizeRequest(base, baseOperation, plan, `s:${String(syntheticId + 1)}`);
+            if (sample === FAIL) return;
+            const key = canonicalJson(requestPayload(sample));
+            if (seen.has(key)) return;
+            seen.add(key);
+            syntheticId++;
+            if (checkRequest(group, sample)) result.synthetic.generated++;
+            else result.synthetic.discarded++;
+          };
         });
       }
     } else if (baseOperation && headOperation) {
@@ -463,42 +484,51 @@ export function verify(
         const focus = slotChanges.flatMap(({ anchors }) =>
           anchors.flatMap((anchor) => (anchor.at === "schema" ? [anchor.nodes.head] : []))
         );
-        const seen = new Set<string>();
-        runPlans(focus, options, (plan) => {
-          const value = new SchemaGenerator(head, "response", plan).generate(headSchema);
-          if (value === FAIL) return;
-          const key = canonicalJson(value);
-          if (seen.has(key)) return;
-          seen.add(key);
-          syntheticId++;
-          if (headChecker.response(headOperation, status, mediaType, value, "/body").length > 0) {
-            result.synthetic.discarded++;
-            return;
-          }
-          result.synthetic.generated++;
-          const sample: RoutedSample = {
-            id: `s:${String(syntheticId)}`,
-            origin: "synthetic",
-            method: headOperation.method.toUpperCase(),
-            path: headOperation.path,
-            query: {},
-            headers: {},
-            redacted: [],
-            operation: group.operation,
-            pathParams: [],
-            response: { status: Number(status) || 200, headers: {}, body: { contentType: mediaType, value } },
+        const steer: Steer = (targets) =>
+          new SchemaGenerator(head, "response", { pick: () => 0 }).routes(headSchema, targets);
+        synthesize(focus, steer, () => {
+          const seen = new Set<string>();
+          return (plan) => {
+            const value = new SchemaGenerator(head, "response", plan).generate(headSchema);
+            if (value === FAIL) return;
+            const key = canonicalJson(value);
+            if (seen.has(key)) return;
+            seen.add(key);
+            syntheticId++;
+            if (headChecker.response(headOperation, status, mediaType, value, "/body").length > 0) {
+              result.synthetic.discarded++;
+              return;
+            }
+            result.synthetic.generated++;
+            const sample: RoutedSample = {
+              id: `s:${String(syntheticId)}`,
+              origin: "synthetic",
+              method: headOperation.method.toUpperCase(),
+              path: headOperation.path,
+              query: {},
+              headers: {},
+              redacted: [],
+              operation: group.operation,
+              pathParams: [],
+              response: { status: Number(status) || 200, headers: {}, body: { contentType: mediaType, value } },
+            };
+            const failures = baseChecker.response(baseOperation, status, mediaType, value, "/body");
+            const reached = (anchor: Anchor) =>
+              anchor.at === "schema" &&
+              anchor.slot.part === "response" &&
+              anchor.slot.status === status &&
+              anchor.slot.mediaType === mediaType;
+            record(group, sample, failures, reached, "base", responsePayload(sample), []);
           };
-          const failures = baseChecker.response(baseOperation, status, mediaType, value, "/body");
-          const reached = (anchor: Anchor) =>
-            anchor.at === "schema" &&
-            anchor.slot.part === "response" &&
-            anchor.slot.status === status &&
-            anchor.slot.mediaType === mediaType;
-          record(group, sample, failures, reached, "base", responsePayload(sample), []);
         });
       }
     }
   }
+
+  const { groups: planned } = result.budget;
+  const limit = Math.min(options.syntheticPerGroup, Math.floor(options.syntheticBudget / Math.max(1, planned)));
+  result.budget.perGroup = limit;
+  for (const step of steps) step(limit);
 
   // Recorded responses: checked against the new contract, for information only.
   for (const sample of recorded) {
@@ -524,6 +554,53 @@ export function verify(
     }
   }
   return result;
+}
+
+/** Bodies larger than this (UTF-8 bytes of canonical JSON) are left out of report examples. */
+const MAX_EXAMPLE_BODY_BYTES = 8192;
+/** Values at error pointers kept from an omitted body, when no larger than this. */
+const MAX_EXAMPLE_VALUE_BYTES = 1024;
+
+function utf8Bytes(value: JsonValue): number {
+  return new TextEncoder().encode(canonicalJson(value)).length;
+}
+
+/**
+ * A failing sample as shown in reports. A large body is replaced by its size and the values at the failing
+ * pointers: a change to a component shared by hundreds of operations would otherwise put hundreds of full
+ * generated responses (over 100 KB each on Stripe) into the report and its PR comment.
+ */
+function example(
+  sample: RoutedSample,
+  payload: JsonObject,
+  redacted: readonly string[],
+  failures: readonly Failure[]
+): EvidenceExample {
+  const errors = failures.map(({ pointer, keyword, message }) => ({ pointer, keyword, message }));
+  const shown: EvidenceExample = {
+    sample: sample.id,
+    origin: sample.origin,
+    ...(sample.line === undefined ? {} : { line: sample.line }),
+    payload,
+    redacted: [...redacted],
+    errors,
+  };
+  const body = payload.body;
+  if (body === undefined) return shown;
+  const bytes = utf8Bytes(body);
+  if (bytes <= MAX_EXAMPLE_BODY_BYTES) return shown;
+  const values: JsonObject = {};
+  for (const { pointer } of errors) {
+    const tokens = parsePointer(pointer);
+    if (tokens?.[0] !== "body") continue;
+    const found = getAtTokens(payload, tokens);
+    if (found.found && utf8Bytes(found.value) <= MAX_EXAMPLE_VALUE_BYTES) values[pointer] = found.value;
+  }
+  return {
+    ...shown,
+    payload: Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "body")),
+    bodyOmitted: { bytes, values },
+  };
 }
 
 function paramPresent(sample: RoutedSample, key: string): boolean {
@@ -557,23 +634,40 @@ function requestFocus(anchor: Anchor): string {
 
 const MAX_SWEEPS = 12;
 
+/** Directions towards target schema nodes (see SchemaGenerator.routes). */
+type Steer = (targets: ReadonlySet<string>) => Map<string, number>;
+
 /**
- * Runs generation plans for one group, until `syntheticPerGroup` plans have run:
+ * Runs generation plans for one group:
  *
- * 1. a baseline (the first variant everywhere, rotated by the seed);
- * 2. for each focus point (a node a change touches), every other variant of that point, with everything else as
- *    in the first plan that reached it;
+ * 1. a baseline (the first variant everywhere, rotated by the seed), and, if it misses a focus point (a node a
+ *    change touches), a plan steered towards the missed points;
+ * 2. for each focus point, every other variant of that point, with everything else as in the first plan that
+ *    reached it;
  * 3. sweeps in which every decision takes variant `round` (modulo its number of variants);
  * 4. a fill: every variant not yet taken at any point reached so far, in the same way as step 2.
  *
- * Steps 2 and 4 make sure each variant of each node that was reached is generated at least once (within the cap),
- * which the sweeps alone do not: a sweep that omits an optional property never reaches that property's node.
+ * Steps 1 and 2 are the change-directed samples and stop at `syntheticPerGroup`; steps 3 and 4 add coverage and
+ * stop at `limit` (the group's share of the budget). Steps 2 and 4 make sure each variant of each node that was
+ * reached is generated at least once (within the cap), which the sweeps alone do not: a sweep that omits an
+ * optional property never reaches that property's node. Returns whether `limit` cut steps 3 and 4 short.
  */
-function runPlans(focus: readonly string[], options: VerifyOptions, generate: (plan: ChoicePlan) => void): void {
+function runPlans(
+  focus: readonly string[],
+  options: VerifyOptions,
+  limit: number,
+  generate: (plan: ChoicePlan) => void,
+  steer: Steer
+): boolean {
   const plans: RecordingPlan[] = [];
   const taken = new Map<string, Set<number>>();
+  let cap = options.syntheticPerGroup;
+  let trimmed = false;
   const run = (strategy: (point: string, choices: number) => number) => {
-    if (plans.length >= options.syntheticPerGroup) return;
+    if (plans.length >= cap) {
+      if (plans.length < options.syntheticPerGroup) trimmed = true;
+      return;
+    }
     const plan = new RecordingPlan(strategy);
     generate(plan);
     plans.push(plan);
@@ -593,7 +687,13 @@ function runPlans(focus: readonly string[], options: VerifyOptions, generate: (p
     }
   };
   run((_, choices) => options.seed % choices);
+  const missed = new Set(focus.filter((point) => !plans.some((plan) => plan.seen.has(point))));
+  if (missed.size > 0) {
+    const routes = steer(missed);
+    if (routes.size > 0) run((point) => routes.get(point) ?? 0);
+  }
   for (const point of [...new Set(focus)].sort()) vary(point);
+  cap = Math.min(cap, limit);
   const widest = () => Math.max(1, ...plans.flatMap((plan) => [...plan.seen.values()].map((seen) => seen.choices)));
   for (let round = 1; round < widest() && round < MAX_SWEEPS; round++) {
     run((_, choices) => (round + options.seed) % choices);
@@ -601,6 +701,7 @@ function runPlans(focus: readonly string[], options: VerifyOptions, generate: (p
   for (let pass = 0; pass < 2; pass++) {
     for (const point of [...taken.keys()].sort()) vary(point);
   }
+  return trimmed;
 }
 
 export { isUnknown, matchMedia };

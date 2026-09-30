@@ -32,6 +32,11 @@ export const EvidenceExample = z.object({
   /** JSON pointers in `payload` whose values were redacted. */
   redacted: z.array(z.string()),
   errors: z.array(SampleError),
+  /**
+   * Set when the body was too large to include (for example a generated response of a big API): `payload` then has
+   * no `body`, `bytes` is its size, and `values` holds the value at each error pointer inside it (small ones only).
+   */
+  bodyOmitted: z.object({ bytes: Count, values: z.record(z.string(), z.json()) }).optional(),
 });
 export type EvidenceExample = z.infer<typeof EvidenceExample>;
 

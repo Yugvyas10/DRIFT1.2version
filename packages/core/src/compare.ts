@@ -186,6 +186,13 @@ export async function compare(input: CompareInput): Promise<Report> {
       message: `${String(verified.synthetic.generated)} synthetic samples were generated from the contracts; evidence from them is marked synthetic and has lower confidence.`,
     });
   }
+  if (verified.budget.trimmed > 0) {
+    diagnostics.push({
+      level: "warning",
+      code: "SYNTHETIC_BUDGET",
+      message: `${String(verified.budget.groups)} operations or responses needed synthetic samples, so broad-coverage samples stopped at ${String(verified.budget.perGroup)} for each (${String(verified.budget.trimmed)} were cut short); the samples aimed at the changes always ran. A change without failing evidence might have been proven with more samples.`,
+    });
+  }
   if (verified.unattributed.length > 0) {
     diagnostics.push({
       level: "warning",

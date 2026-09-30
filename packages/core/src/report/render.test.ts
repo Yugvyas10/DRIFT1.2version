@@ -72,7 +72,8 @@ function hostile(report: Report): Report {
               origin: "recorded",
               payload: { note: evil },
               redacted: [],
-              errors: [{ pointer: "/x", keyword: "enum", message: evil }],
+              errors: [{ pointer: "/body/x", keyword: "enum", message: evil }],
+              bodyOmitted: { bytes: 140_000, values: { "/body/x": evil } },
             },
           ],
         },
@@ -167,6 +168,15 @@ describe("HTML", () => {
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
     expect(escapeHtml(`<a href="x">'&'</a>`)).toBe("&lt;a href=&quot;x&quot;&gt;&#39;&amp;&#39;&lt;/a&gt;");
+  });
+});
+
+describe("examples with an omitted body", () => {
+  it("say so, with the size and the failing values, in every format", () => {
+    for (const format of ["console", "md", "html"] as const) {
+      expect(renderReport(hostile(report), format)).toMatch(/body omitted \(136\.7 KiB, too large for the report\)/);
+    }
+    expect(renderReport(hostile(report), "console")).toContain('values at the failing pointers: {"/body/x":"<script>');
   });
 });
 

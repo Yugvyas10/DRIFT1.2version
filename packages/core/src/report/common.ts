@@ -1,9 +1,18 @@
-import type { ClassifiedChange, Report, Severity } from "@drift/report-schema";
+import type { ClassifiedChange, EvidenceExample, Report, Severity } from "@drift/report-schema";
 
 export const SEVERITIES: readonly Severity[] = ["BREAKING", "RISKY", "SAFE"];
 
 export function plural(count: number, noun: string): string {
   return `${String(count)} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/** A note for an example whose body was too large to include, e.g. "body omitted (135.2 KiB, …)"; else undefined. */
+export function omittedBody(example: EvidenceExample): string | undefined {
+  const omitted = example.bodyOmitted;
+  if (!omitted) return undefined;
+  const values =
+    Object.keys(omitted.values).length > 0 ? `; values at the failing pointers: ${JSON.stringify(omitted.values)}` : "";
+  return `body omitted (${(omitted.bytes / 1024).toFixed(1)} KiB, too large for the report)${values}`;
 }
 
 /** Whether a change makes the gate fail under the report's `failOn`. */

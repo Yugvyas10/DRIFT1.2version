@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { compare } from "@drift/core";
+import { compare, omittedBody } from "@drift/core";
 import { ExitCode, Report, type ClassifiedChange } from "@drift/report-schema";
 import { absolute, displayPath } from "../fs-reader.ts";
 import { describeZod, UsageError } from "../inputs.ts";
@@ -67,6 +67,8 @@ export function renderExplanation(change: ClassifiedChange): string {
     const origin = example.line === undefined ? example.origin : `${example.origin}, line ${String(example.line)}`;
     text += `\nfailing sample ${String(index + 1)} (${origin}; redacted: ${example.redacted.length > 0 ? example.redacted.join(", ") : "nothing"})\n`;
     text += `${JSON.stringify(example.payload, null, 2)}\n`;
+    const omitted = omittedBody(example);
+    if (omitted) text += `${omitted}\n`;
     for (const error of example.errors) text += `  ✖ ${error.pointer}  ${error.keyword}: ${error.message}\n`;
   });
   return text;

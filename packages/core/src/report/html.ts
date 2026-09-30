@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ClassifiedChange, Report, Severity } from "@drift/report-schema";
-import { bySeverity, evidenceSummary, gateLine, plural, SEVERITIES, where } from "./common.ts";
+import { bySeverity, evidenceSummary, gateLine, omittedBody, plural, SEVERITIES, where } from "./common.ts";
 
 /** Escapes text for HTML element content and quoted attribute values. */
 export function escapeHtml(text: string): string {
@@ -47,6 +47,8 @@ function change(item: ClassifiedChange): string {
   if (example) {
     const origin = example.line === undefined ? example.origin : `${example.origin}, line ${String(example.line)}`;
     body += `<p class="muted">Failing sample (${e(origin)}, redacted)</p><pre>${e(JSON.stringify(example.payload, null, 2))}</pre>`;
+    const omitted = omittedBody(example);
+    if (omitted) body += `<p class="muted">${e(omitted)}</p>`;
     body += `<pre>${e(example.errors.map((error) => `${error.pointer} ${error.message}`).join("\n"))}</pre>`;
   }
   return `<details${item.severity === "BREAKING" ? " open" : ""}><summary><span class="${item.severity}">${item.severity}</span> ${e(item.message)}</summary>${body}</details>`;
