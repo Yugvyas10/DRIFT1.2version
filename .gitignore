@@ -4,6 +4,8 @@ node_modules/
 
 # build output
 dist/
+# ...except the Action's bundle: action.yml runs it, with no install step (CI checks it matches the source)
+!packages/github-action/dist/
 .next/
 out/
 *.tsbuildinfo

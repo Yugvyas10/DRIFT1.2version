@@ -18,6 +18,8 @@ catalog:
 allowBuilds:
   # Only verifies its prebuilt native binding, which pnpm installs from optionalDependencies.
   unrs-resolver: false
+  # Its postinstall only checks the platform binary, which pnpm installs from optionalDependencies.
+  esbuild: false
 
 minimumReleaseAgeExclude:
   - "@vitest/coverage-v8@5.0.2"

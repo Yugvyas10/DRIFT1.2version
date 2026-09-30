@@ -1,0 +1,81 @@
+name: DRIFT contract gate
+description: >-
+  Compares the old and new OpenAPI contract of a pull request, labels every change BREAKING (only with failing
+  evidence), RISKY or SAFE, comments on the pull request and fails the check per fail-on.
+author: DRIFT team
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  spec:
+    description: >-
+      Path of the OpenAPI contract in the repository (relative to working-directory). The head is this file; the
+      base is the same path at the pull request's base commit (or the commit before a push).
+    required: false
+  base:
+    description: Overrides the base contract, as a file or `<ref>:<path>` (e.g. `origin/main:openapi.yaml`).
+    required: false
+  head:
+    description: Overrides the head contract file.
+    required: false
+  traffic:
+    description: Recorded traffic (drift-traffic/v1 JSONL or HAR) used as evidence. Redacted before use.
+    required: false
+  rules:
+    description: A ruleset file replacing the default rules.
+    required: false
+  policy:
+    description: A policy file (escalations and expiring suppressions).
+    required: false
+  config:
+    description: A drift.config.json or drift.config.yaml (read from working-directory by default).
+    required: false
+  fail-on:
+    description: "`breaking` (default) or `risky`: which label fails the check."
+    required: false
+  comment:
+    description: Post or update one pull-request comment with the report. Needs `pull-requests write`.
+    required: false
+    default: "true"
+  sarif:
+    description: Upload the SARIF report to GitHub code scanning. Needs `security-events write`.
+    required: false
+    default: "false"
+  upload:
+    description: "Upload the run to the DRIFT platform. NOT BUILT YET: arrives in M5; until then it only logs a warning."
+    required: false
+    default: "false"
+  base-missing:
+    description: "`pass` (default) or `fail` when the contract does not exist at the base commit (a new API)."
+    required: false
+    default: pass
+  comment-key:
+    description: Tells this step's comment apart from other DRIFT steps in the same pull request (default the head path).
+    required: false
+  working-directory:
+    description: Directory to run in, relative to the workspace.
+    required: false
+    default: .
+  token:
+    description: Token for the comment and the SARIF upload.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  passed:
+    description: "`true` when the gate passed."
+  breaking:
+    description: Number of BREAKING changes.
+  risky:
+    description: Number of RISKY changes.
+  safe:
+    description: Number of SAFE changes.
+  semver:
+    description: Recommended version bump (major, minor or patch).
+  report-dir:
+    description: Directory with drift-report.json, .md, .html and .sarif (upload it with actions/upload-artifact).
+
+runs:
+  using: node24
+  main: dist/index.js
