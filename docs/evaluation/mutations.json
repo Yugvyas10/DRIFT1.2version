@@ -1,30 +1,33 @@
 {
   "kind": "drift-mutations/v1",
   "engineVersion": "0.0.0",
-  "generatedAt": "2026-09-28T17:35:39.160Z",
+  "generatedAt": "2026-09-30T04:45:30.352Z",
   "seeds": [
     0,
     1,
     2
   ],
   "specs": [
-    "petstore-v1"
+    "petstore-v1",
+    "github-3.0",
+    "github-3.1",
+    "stripe-3.0"
   ],
   "summary": {
     "breaking": {
-      "total": 7,
-      "proven": 7,
-      "flagged": 0,
+      "total": 52,
+      "proven": 42,
+      "flagged": 10,
       "missed": 0
     },
     "safe": {
-      "total": 6,
+      "total": 33,
       "falseBreaking": 0,
       "flagged": 0,
-      "clean": 6
+      "clean": 33
     },
     "precision": 1,
-    "recall": 1
+    "recall": 0.808
   },
   "results": [
     {
@@ -34,7 +37,7 @@
       "description": "description of GET /pets edited",
       "verdict": "SAFE",
       "changes": 1,
-      "ms": 25
+      "ms": 28
     },
     {
       "spec": "petstore-v1",
@@ -43,7 +46,7 @@
       "description": "description of POST /pets edited",
       "verdict": "SAFE",
       "changes": 1,
-      "ms": 12
+      "ms": 13
     },
     {
       "spec": "petstore-v1",
@@ -70,7 +73,7 @@
       "description": "GET /pets removed",
       "verdict": "BREAKING",
       "changes": 1,
-      "ms": 7
+      "ms": 8
     },
     {
       "spec": "petstore-v1",
@@ -79,7 +82,7 @@
       "description": "POST /pets removed",
       "verdict": "BREAKING",
       "changes": 1,
-      "ms": 7
+      "ms": 4
     },
     {
       "spec": "petstore-v1",
@@ -88,7 +91,7 @@
       "description": "GET /pets/{petId} removed",
       "verdict": "BREAKING",
       "changes": 1,
-      "ms": 4
+      "ms": 3
     },
     {
       "spec": "petstore-v1",
@@ -106,7 +109,7 @@
       "description": "maxLength none → 1 at /components/schemas/NewPet/properties/name",
       "verdict": "BREAKING",
       "changes": 1,
-      "ms": 10
+      "ms": 7
     },
     {
       "spec": "petstore-v1",
@@ -115,7 +118,7 @@
       "description": "maxLength none → 1 at /components/schemas/NewPet/properties/note",
       "verdict": "BREAKING",
       "changes": 1,
-      "ms": 9
+      "ms": 8
     },
     {
       "spec": "petstore-v1",
@@ -124,7 +127,7 @@
       "description": "maxLength none → 1 at /components/schemas/NewPet/properties/ownerEmail",
       "verdict": "BREAKING",
       "changes": 1,
-      "ms": 9
+      "ms": 8
     },
     {
       "spec": "petstore-v1",
@@ -133,7 +136,7 @@
       "description": "optional property driftOptional added at /components/schemas/NewPet",
       "verdict": "SAFE",
       "changes": 1,
-      "ms": 8
+      "ms": 7
     },
     {
       "spec": "petstore-v1",
@@ -142,11 +145,660 @@
       "description": "required property driftAdded added at /components/schemas/NewPet",
       "verdict": "BREAKING",
       "changes": 1,
-      "ms": 8
+      "ms": 10
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET / edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2746
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET /advisories edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2976
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET /advisories/{ghsa_id} edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2643
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "operation-added",
+      "label": "safe",
+      "description": "GET /drift-added added",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2731
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET / removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 3126
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET /advisories removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2679
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET /advisories/{ghsa_id} removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2632
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-bound-relaxed",
+      "label": "safe",
+      "description": "maximum 100 → 201 at /paths/~1advisories/get/parameters/16/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2663
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-bound-relaxed",
+      "label": "safe",
+      "description": "maximum 100 → 201 at /paths/~1agents~1repos~1{owner}~1{repo}~1tasks/get/parameters/2/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2936
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-bound-relaxed",
+      "label": "safe",
+      "description": "maximum 100 → 201 at /paths/~1agents~1tasks/get/parameters/0/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2617
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/code-quality-setup-update/properties/ai_findings_option",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2622
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/code-quality-setup-update/properties/languages/items",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 3047
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/code-quality-setup-update/properties/runner_label",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2649
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"disabled\" at /components/schemas/code-quality-setup-update/properties/ai_findings_option",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2621
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"go\" at /components/schemas/code-quality-setup-update/properties/languages/items",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 3023
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"standard\" at /components/schemas/code-quality-setup-update/properties/runner_type",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2676
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /components/schemas/actions-artifact-and-log-retention",
+      "verdict": "SAFE",
+      "changes": 2,
+      "ms": 2640
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /components/schemas/actions-fork-pr-workflows-private-repos-request",
+      "verdict": "SAFE",
+      "changes": 2,
+      "ms": 2635
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /components/schemas/actions-set-default-workflow-permissions",
+      "verdict": "SAFE",
+      "changes": 2,
+      "ms": 2935
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /components/schemas/actions-artifact-and-log-retention",
+      "verdict": "BREAKING",
+      "changes": 2,
+      "ms": 2642
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /components/schemas/actions-fork-pr-workflows-private-repos-request",
+      "verdict": "BREAKING",
+      "changes": 2,
+      "ms": 2638
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /components/schemas/actions-set-default-workflow-permissions",
+      "verdict": "BREAKING",
+      "changes": 2,
+      "ms": 3181
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/actions-hosted-runner/properties/status",
+      "verdict": "BREAKING",
+      "changes": 6,
+      "ms": 2668
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/actions-hosted-runner-curated-image/properties/source",
+      "verdict": "BREAKING",
+      "changes": 2,
+      "ms": 2627
+    },
+    {
+      "spec": "github-3.0",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/actions-policy/properties/source_type",
+      "verdict": "BREAKING",
+      "changes": 8,
+      "ms": 2847
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET / edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2578
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET /advisories edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2907
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET /advisories/{ghsa_id} edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2555
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "operation-added",
+      "label": "safe",
+      "description": "GET /drift-added added",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2587
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET / removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2990
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET /advisories removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2609
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET /advisories/{ghsa_id} removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2573
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-bound-relaxed",
+      "label": "safe",
+      "description": "maximum 100 → 201 at /paths/~1advisories/get/parameters/16/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2610
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-bound-relaxed",
+      "label": "safe",
+      "description": "maximum 100 → 201 at /paths/~1agents~1repos~1{owner}~1{repo}~1tasks/get/parameters/2/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2621
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-bound-relaxed",
+      "label": "safe",
+      "description": "maximum 100 → 201 at /paths/~1agents~1tasks/get/parameters/0/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2569
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/code-quality-setup-update/properties/ai_findings_option",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2576
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/code-quality-setup-update/properties/languages/items",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2941
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /components/schemas/code-quality-setup-update/properties/runner_type",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2587
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"disabled\" at /components/schemas/code-quality-setup-update/properties/ai_findings_option",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2590
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"go\" at /components/schemas/code-quality-setup-update/properties/languages/items",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2975
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"standard\" at /components/schemas/code-quality-setup-update/properties/runner_type",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2615
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /components/schemas/actions-artifact-and-log-retention",
+      "verdict": "SAFE",
+      "changes": 2,
+      "ms": 2592
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /components/schemas/actions-fork-pr-workflows-private-repos-request",
+      "verdict": "SAFE",
+      "changes": 2,
+      "ms": 2629
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /components/schemas/actions-set-default-workflow-permissions",
+      "verdict": "SAFE",
+      "changes": 2,
+      "ms": 2913
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /components/schemas/actions-artifact-and-log-retention",
+      "verdict": "BREAKING",
+      "changes": 2,
+      "ms": 2628
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /components/schemas/actions-fork-pr-workflows-private-repos-request",
+      "verdict": "BREAKING",
+      "changes": 2,
+      "ms": 2577
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /components/schemas/actions-set-default-workflow-permissions",
+      "verdict": "BREAKING",
+      "changes": 2,
+      "ms": 3024
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/actions-hosted-runner/properties/status",
+      "verdict": "BREAKING",
+      "changes": 6,
+      "ms": 2637
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/actions-hosted-runner-curated-image/properties/source",
+      "verdict": "BREAKING",
+      "changes": 2,
+      "ms": 2604
+    },
+    {
+      "spec": "github-3.1",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/actions-hosted-runner-pool-image/properties/source",
+      "verdict": "BREAKING",
+      "changes": 6,
+      "ms": 2956
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of GET /v1/account edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 1876
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of POST /v1/account_links edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 1847
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "description-edited",
+      "label": "safe",
+      "description": "description of POST /v1/account_sessions edited",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 1866
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "operation-added",
+      "label": "safe",
+      "description": "GET /drift-added added",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 1897
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "GET /v1/account removed",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 1998
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "POST /v1/account_links removed",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 715
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "operation-removed",
+      "label": "breaking",
+      "description": "POST /v1/account_sessions removed",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 674
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength 5000 → 1 at /paths/~1v1~1account/get/parameters/0/schema/items",
+      "verdict": "BREAKING",
+      "changes": 1,
+      "ms": 2015
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength 5000 → 1 at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema/properties/account",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 1885
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-bound-tightened",
+      "label": "breaking",
+      "description": "maxLength none → 1 at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema/properties/collect",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 1869
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"currently_due\" at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema/properties/collect",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 686
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"eventually_due\" at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema/properties/collection_options/properties/fields",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 672
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-enum-value-removed",
+      "label": "breaking",
+      "description": "removed enum value \"include\" at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema/properties/collection_options/properties/future_requirements",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 663
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /paths/~1v1~1account/get/requestBody/content/application~1x-www-form-urlencoded/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 2090
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 1887
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-optional-field-added",
+      "label": "safe",
+      "description": "optional property driftOptional added at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema/properties/collection_options",
+      "verdict": "SAFE",
+      "changes": 1,
+      "ms": 1873
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /paths/~1v1~1account/get/requestBody/content/application~1x-www-form-urlencoded/schema",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 1862
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 2077
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "request-required-field-added",
+      "label": "breaking",
+      "description": "required property driftAdded added at /paths/~1v1~1account_links/post/requestBody/content/application~1x-www-form-urlencoded/schema/properties/collection_options",
+      "verdict": "RISKY",
+      "changes": 1,
+      "ms": 1884
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/account/properties/business_type",
+      "verdict": "BREAKING",
+      "changes": 612,
+      "ms": 168591
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/account/properties/external_accounts/properties/object",
+      "verdict": "BREAKING",
+      "changes": 612,
+      "ms": 90345
+    },
+    {
+      "spec": "stripe-3.0",
+      "operator": "response-enum-value-added",
+      "label": "breaking",
+      "description": "response enum value \"drift_new_value\" added at /components/schemas/account/properties/object",
+      "verdict": "BREAKING",
+      "changes": 612,
+      "ms": 135226
     }
   ],
   "skipped": [
     "petstore-v1: request-enum-value-removed (no suitable place)",
-    "petstore-v1: response-enum-value-added (no suitable place)"
+    "petstore-v1: response-enum-value-added (no suitable place)",
+    "stripe-3.0: request-bound-relaxed (no suitable place)"
   ]
 }

@@ -2,7 +2,7 @@
 
 **Status: APPROVED 2026-09-26** (roles assigned; all other recommendations in §10 accepted as written). This file wins over `MASTER_PROMPT.md` wherever they differ. Decisions are recorded in §10.
 
-**Current milestone: M3 — CLI + report formats + first bench run: complete, performance measured; the mutation run on the real-world specs is re-running after a Verify fix; awaiting review (2026-09-30). M0–M2: approved 2026-09-28.**
+**Current milestone: M3 — CLI + report formats + first bench run: complete, first full benchmark run published in `docs/EVALUATION.md`; awaiting review (2026-09-30). M0–M2: approved 2026-09-28.**
 
 Related: [`INVENTORY.md`](INVENTORY.md) (current state) · [`adr/`](adr/) (decisions) · [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (full specification).
 
@@ -306,12 +306,13 @@ Owners: P4 (CLI, formats, bench), P1 (HTML template).
     - the mutation benchmark (DRIFT only), with 9 operators and single-side component detection;
     - `EVALUATION.md` rendered only from `docs/evaluation/*.json`, with the CI step `evaluation:check`;
     - the manual workflow **Benchmarks**.
-  - **First benchmark run (2026-09-29),** on a GitHub-hosted runner: the Benchmarks workflow also starts when a pull request gets the label `run-benchmarks`, so it ran on this branch before merging. The performance results are committed (1M lines in 5.3 s, peak RSS 322 MiB, under the 512 MiB ceiling). The job then hit its 60-minute limit in the mutation benchmark on stripe-3.0.
-  - **Fix found by that run (2026-09-30).** One enum value added to Stripe's `account` component reaches all 612 operations. Verify generated up to 48 responses for each of 964 response groups (over 20 minutes per mutant), and each change kept up to three full generated responses (a 247 MiB report once all were proven). Now:
+  - **First benchmark run (2026-09-29),** on a GitHub-hosted runner: the Benchmarks workflow also starts when a pull request gets the label `run-benchmarks`, so it ran on this branch before merging. The performance benchmark finished; the job then hit its 60-minute limit in the mutation benchmark on stripe-3.0.
+  - **Fix found by that run (2026-09-30).** One enum value added to Stripe's `account` component reaches all 612 operations. Verify generated up to 48 responses for each of 964 response groups, and each change kept up to three full generated responses, so once all were proven the report grew to hundreds of MiB. Now:
     - a **synthetic budget** (4,096 samples per comparison, counted, not timed) is shared out between the groups; the change-directed samples always run, broad-coverage ones stop at the group's share, and the report says so (`SYNTHETIC_BUDGET`);
     - a **steered plan** reaches changed nodes that the baseline misses (Stripe's expandable fields generate an id string first);
     - **example bodies over 8 KiB** are left out of reports, keeping their size and the values at the failing pointers (`bodyOmitted` in `drift-report/v1`).
-      Locally, each of the three Stripe mutants now finishes in 53–99 s with all 612 changes proven BREAKING and a 2–4 MiB report. The mutation run on the real-world specs is pending a new Benchmarks run.
+  - **Benchmark fix (2026-09-30).** The mutation generator counted schemas used only by webhooks as request schemas; DRIFT does not compare webhooks, so those mutants changed nothing it sees. Webhook-only schemas are no longer mutation sites.
+  - **Results:** `docs/EVALUATION.md`, from Benchmarks run [36669431087](https://github.com/Yugvyas10/DRIFT1.2version/actions/runs/36669431087) (commit `9276c87`): performance and the labelled mutations on all four specs. Every breaking mutant DRIFT did not prove is RISKY, and each of them is a Stripe form-encoded request body (known limitation).
   - Deviations:
     - Ingest is not cached (its key needs the parsed documents, which is most of its cost).
     - SAFE changes are not written to SARIF.

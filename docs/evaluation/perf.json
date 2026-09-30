@@ -8,7 +8,7 @@
     "cores": 4,
     "memoryGiB": 15.6
   },
-  "generatedAt": "2026-09-29T14:21:49.238Z",
+  "generatedAt": "2026-09-30T04:35:06.629Z",
   "config": {
     "corpusSizes": [
       1000,
@@ -25,8 +25,8 @@
     "runs": [
       {
         "ms": 102,
-        "peakRssMiB": 128,
-        "peakHeapMiB": 28,
+        "peakRssMiB": 133,
+        "peakHeapMiB": 36,
         "lines": 1000,
         "fileMiB": 0.1,
         "linesPerSecond": 9804,
@@ -34,32 +34,32 @@
         "withinCeiling": true
       },
       {
-        "ms": 168,
-        "peakRssMiB": 156,
-        "peakHeapMiB": 60,
+        "ms": 166,
+        "peakRssMiB": 164,
+        "peakHeapMiB": 66,
         "lines": 10000,
         "fileMiB": 0.7,
-        "linesPerSecond": 59524,
+        "linesPerSecond": 60241,
         "kept": 4000,
         "withinCeiling": true
       },
       {
-        "ms": 656,
-        "peakRssMiB": 251,
-        "peakHeapMiB": 102,
+        "ms": 650,
+        "peakRssMiB": 265,
+        "peakHeapMiB": 109,
         "lines": 100000,
         "fileMiB": 7.4,
-        "linesPerSecond": 152439,
+        "linesPerSecond": 153846,
         "kept": 4000,
         "withinCeiling": true
       },
       {
-        "ms": 5339,
-        "peakRssMiB": 322,
-        "peakHeapMiB": 165,
+        "ms": 5343,
+        "peakRssMiB": 330,
+        "peakHeapMiB": 157,
         "lines": 1000000,
         "fileMiB": 73.6,
-        "linesPerSecond": 187301,
+        "linesPerSecond": 187161,
         "kept": 4000,
         "withinCeiling": true
       }
@@ -67,14 +67,14 @@
   },
   "cache": {
     "cold": {
-      "ms": 610,
-      "peakRssMiB": 325,
-      "peakHeapMiB": 130
+      "ms": 613,
+      "peakRssMiB": 343,
+      "peakHeapMiB": 135
     },
     "warm": {
-      "ms": 7,
-      "peakRssMiB": 326,
-      "peakHeapMiB": 94
+      "ms": 13,
+      "peakRssMiB": 343,
+      "peakHeapMiB": 90
     },
     "lines": 100000
   },
@@ -83,20 +83,20 @@
       "id": "github-3.0",
       "operations": 1224,
       "ingest": {
-        "ms": 6656,
-        "peakRssMiB": 915,
-        "peakHeapMiB": 463
+        "ms": 6722,
+        "peakRssMiB": 955,
+        "peakHeapMiB": 520
       },
       "selfCompare": {
-        "ms": 132,
-        "peakRssMiB": 915,
-        "peakHeapMiB": 463,
+        "ms": 118,
+        "peakRssMiB": 955,
+        "peakHeapMiB": 520,
         "changes": 0
       },
       "mutatedCompare": {
-        "ms": 113,
-        "peakRssMiB": 1581,
-        "peakHeapMiB": 1336,
+        "ms": 109,
+        "peakRssMiB": 1614,
+        "peakHeapMiB": 1376,
         "changes": 2,
         "breaking": 2,
         "mutation": "required property driftAdded added at /components/schemas/actions-artifact-and-log-retention"
@@ -106,20 +106,20 @@
       "id": "github-3.1",
       "operations": 1224,
       "ingest": {
-        "ms": 6585,
-        "peakRssMiB": 1606,
-        "peakHeapMiB": 1305
+        "ms": 6470,
+        "peakRssMiB": 1838,
+        "peakHeapMiB": 1347
       },
       "selfCompare": {
-        "ms": 98,
-        "peakRssMiB": 1606,
-        "peakHeapMiB": 490,
+        "ms": 101,
+        "peakRssMiB": 1838,
+        "peakHeapMiB": 583,
         "changes": 0
       },
       "mutatedCompare": {
-        "ms": 109,
-        "peakRssMiB": 1687,
-        "peakHeapMiB": 1330,
+        "ms": 108,
+        "peakRssMiB": 1871,
+        "peakHeapMiB": 1121,
         "changes": 2,
         "breaking": 2,
         "mutation": "required property driftAdded added at /components/schemas/actions-artifact-and-log-retention"
@@ -129,20 +129,20 @@
       "id": "stripe-3.0",
       "operations": 612,
       "ingest": {
-        "ms": 2403,
-        "peakRssMiB": 1687,
-        "peakHeapMiB": 1292
+        "ms": 2321,
+        "peakRssMiB": 1919,
+        "peakHeapMiB": 1363
       },
       "selfCompare": {
-        "ms": 190,
-        "peakRssMiB": 1687,
-        "peakHeapMiB": 150,
+        "ms": 192,
+        "peakRssMiB": 1919,
+        "peakHeapMiB": 1383,
         "changes": 0
       },
       "mutatedCompare": {
-        "ms": 1405,
-        "peakRssMiB": 1728,
-        "peakHeapMiB": 413,
+        "ms": 1373,
+        "peakRssMiB": 1840,
+        "peakHeapMiB": 605,
         "changes": 1,
         "breaking": 0,
         "mutation": "required property driftAdded added at /paths/~1v1~1account/get/requestBody/content/application~1x-www-form-urlencoded/schema"

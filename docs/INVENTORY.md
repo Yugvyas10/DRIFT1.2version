@@ -42,7 +42,6 @@ The legacy app was removed from product paths in M0 and is preserved at tag **`l
 
 | Item                                           | Where it is mentioned                                         | Label shown                                                             | Arrives                                      |
 | ---------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------- |
-| Mutation results on the real-world fixtures    | `docs/EVALUATION.md`                                          | "Specs: `petstore-v1`"                                                  | next Benchmarks run (M3 follow-up)           |
 | Evidence for form-encoded and multipart bodies | core module doc, Known limitations                            | "form, XML and binary bodies are not checked"                           | M8 or earlier (owner's call)                 |
 | GitHub Action, PR comment, dogfooding          | PLAN M4                                                       | README-only `packages/github-action`                                    | M4                                           |
 | Validation worker pool                         | core module doc                                               | "Verify runs on the main thread"                                        | after the first perf run, if it shows a need |
