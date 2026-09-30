@@ -1,147 +1,131 @@
-import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
-import { createInterface } from "node:readline";
-import {
-  compare,
-  DEFAULT_LIMITS,
-  ingestSpec,
-  parseDataText,
-  parseRuleset,
-  Policy,
-  readHar,
-  readJsonl,
-  type CompareInput,
-  type Ruleset,
-  type TrafficInput,
-} from "@drift/core";
-import { ExitCode, type FailOn } from "@drift/report-schema";
-import { absolute, createFsReader, displayPath } from "../fs-reader.ts";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { compare, REPORT_FILES, REPORT_FORMATS, renderReport, type CompareInput, type ReportFormat } from "@drift/core";
+import { ExitCode, type FailOn, type Report } from "@drift/report-schema";
+import { createFsCache } from "../cache.ts";
+import { ConfigError, loadConfig } from "../config.ts";
+import { displayPath } from "../fs-reader.ts";
+import { loadPolicy, loadRuleset, loadSpecs, loadTraffic, UsageError } from "../inputs.ts";
 import type { CliIo } from "../program.ts";
-import { renderDiagnostics, renderReport } from "../render.ts";
 
-export interface CompareOptions {
-  base: string;
-  head: string;
+/** Flags shared by `compare` and `explain`. Anything left unset comes from drift.config, then from defaults. */
+export interface CompareFlags {
+  base?: string;
+  head?: string;
   traffic?: string;
   rules?: string;
   policy?: string;
-  format: "text" | "json";
+  format?: string;
+  out?: string;
   failOn?: FailOn;
-  seed: string;
+  seed?: string;
   asOf?: string;
   refRoot?: string;
+  config?: string;
+  /** A directory, or false for `--no-cache`. */
+  cache?: string | false;
 }
 
-/** Largest HAR file read (HAR is one JSON document, so it cannot be streamed). JSONL has no size limit. */
-const MAX_HAR_BYTES = 256 * 1024 * 1024;
+export const DEFAULT_CACHE_DIR = ".drift/cache";
 
-class UsageError extends Error {}
-
-async function sha256File(path: string): Promise<string> {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(path)) hash.update(chunk as Buffer);
-  return hash.digest("hex");
-}
-
-async function loadTraffic(path: string, shown: string): Promise<TrafficInput> {
-  const hash = await sha256File(path);
-  if (path.toLowerCase().endsWith(".har")) {
-    if ((await stat(path)).size > MAX_HAR_BYTES) throw new UsageError(`${shown}: HAR file larger than 256 MiB`);
-    let document: unknown;
-    try {
-      document = JSON.parse(await readFile(path, "utf8"));
-    } catch {
-      throw new UsageError(`${shown}: not valid JSON (HAR files are JSON documents)`);
+function parseFormats(value: string): ReportFormat[] {
+  const formats = value.split(",").map((format) => format.trim());
+  for (const format of formats) {
+    if (!(REPORT_FORMATS as readonly string[]).includes(format)) {
+      throw new UsageError(`drift: unknown format "${format}" (choose from ${REPORT_FORMATS.join(", ")})`);
     }
-    return { kind: "har", file: shown, hash, entries: readHar(document) };
   }
-  const lines = createInterface({ input: createReadStream(path, "utf8"), crlfDelay: Infinity });
-  return { kind: "jsonl", file: shown, hash, entries: readJsonl(lines) };
+  return [...new Set(formats)] as ReportFormat[];
 }
 
-async function loadData(path: string, shown: string): Promise<unknown> {
-  const parsed = parseDataText(await readFile(path, "utf8"), shown, DEFAULT_LIMITS);
-  if (!parsed.ok) throw new UsageError(renderDiagnostics(parsed.diagnostics).trimEnd());
-  return parsed.value;
+/** Merges flags, drift.config and defaults, and loads every input. Throws UsageError for bad input. */
+export async function prepareCompare(flags: CompareFlags, cwd: string) {
+  const shown = displayPath(cwd);
+  let loaded: Awaited<ReturnType<typeof loadConfig>>;
+  try {
+    loaded = await loadConfig(cwd, flags.config, shown);
+  } catch (error) {
+    if (error instanceof ConfigError) throw new UsageError(error.message);
+    throw error;
+  }
+  const config = loaded?.config;
+  const configDir = loaded?.dir ?? cwd;
+  // A flag is relative to the working directory; a config value to the config file's directory.
+  const pick = (flag: string | undefined, fromConfig: string | undefined) =>
+    flag !== undefined
+      ? { value: flag, dir: cwd }
+      : fromConfig !== undefined
+        ? { value: fromConfig, dir: configDir }
+        : undefined;
+  const path = (entry: { value: string; dir: string } | undefined) => entry && resolve(entry.dir, entry.value);
+
+  const base = pick(flags.base, config?.base);
+  const head = pick(flags.head, config?.head);
+  if (!base || !head) throw new UsageError("drift: --base and --head are required (or set them in drift.config)");
+  const refRoot = path(pick(flags.refRoot, config?.refRoot));
+  const formats = flags.format !== undefined ? parseFormats(flags.format) : (config?.formats ?? ["console"]);
+  const out = path(pick(flags.out, config?.out));
+  if (!out && formats.length > 1) throw new UsageError("drift: several formats need --out <dir>");
+
+  const seed = flags.seed !== undefined ? Number(flags.seed) : (config?.seed ?? 0);
+  if (!Number.isSafeInteger(seed)) throw new UsageError("drift: --seed must be an integer");
+  const asOf = flags.asOf ?? new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) throw new UsageError("drift: --as-of must be a date such as 2026-09-28");
+
+  const input: CompareInput = { ...(await loadSpecs(base, head, refRoot)), asOf, seed };
+  const rules = path(pick(flags.rules, config?.rules));
+  if (rules) input.ruleset = await loadRuleset(rules, shown(rules));
+  const policy = path(pick(flags.policy, config?.policy));
+  if (policy) input.policy = await loadPolicy(policy, shown(policy));
+  const traffic = path(pick(flags.traffic, config?.traffic));
+  if (traffic) input.traffic = await loadTraffic(traffic, shown(traffic));
+  const failOn = flags.failOn ?? config?.failOn;
+  if (failOn) input.failOn = failOn;
+  if (flags.cache !== false && config?.cache !== false) {
+    const dir =
+      path(pick(typeof flags.cache === "string" ? flags.cache : undefined, config?.cache)) ??
+      resolve(configDir, DEFAULT_CACHE_DIR);
+    input.cache = createFsCache(dir);
+  }
+  return { input, formats, out, shown };
 }
 
-function describeZod(error: unknown, shown: string): string {
-  const issues = (error as { issues?: { path: PropertyKey[]; message: string }[] }).issues;
-  if (!issues) return `${shown}: ${error instanceof Error ? error.message : String(error)}`;
-  return issues
-    .map((issue) => `${shown}: ${issue.path.length > 0 ? `${issue.path.map(String).join(".")}: ` : ""}${issue.message}`)
-    .join("\n");
+export function cacheLine(report: Report): string {
+  const reused = report.stages.filter((stage) => stage.cached).map((stage) => stage.stage);
+  return reused.length === 0 ? "" : `cache  reused ${reused.join(", ")} (inputs unchanged)\n`;
 }
 
 /**
- * `drift compare --base <old> --head <new> [--traffic <file>]`: the full pipeline with evidence and the gate.
- * Exit 0 when the gate passes, 1 when it fails, 2 for invalid specs, rules, policy or traffic files.
+ * `drift compare`: the full pipeline with evidence and the gate (PLAN §4.6).
+ * Exit 0 when the gate passes, 1 when it fails, 2 for bad input (specs, rules, policy, traffic, config, flags).
  */
-export async function compareCommand(options: CompareOptions, io: CliIo, cwd: string): Promise<ExitCode> {
-  const shown = displayPath(cwd);
-  const ingestOptions = {
-    reader: createFsReader(),
-    displayPath: shown,
-    ...(options.refRoot === undefined ? {} : { refRoot: absolute(cwd, options.refRoot) }),
-  };
-  const [base, head] = await Promise.all([
-    ingestSpec(absolute(cwd, options.base), ingestOptions),
-    ingestSpec(absolute(cwd, options.head), ingestOptions),
-  ]);
-  if (!base.spec || !head.spec) {
-    io.stderr(renderDiagnostics([...base.diagnostics, ...head.diagnostics].filter((d) => d.severity === "error")));
-    io.stderr("✖ cannot compare: fix the errors above first (drift validate <spec> shows all diagnostics)\n");
-    return ExitCode.UsageError;
-  }
-
-  const seed = Number(options.seed);
-  if (!Number.isSafeInteger(seed)) {
-    io.stderr(`drift: --seed must be an integer\n`);
-    return ExitCode.UsageError;
-  }
-  const asOf = options.asOf ?? new Date().toISOString().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
-    io.stderr(`drift: --as-of must be a date such as 2026-09-28\n`);
-    return ExitCode.UsageError;
-  }
-
-  const input: CompareInput = { base: base.spec, head: head.spec, asOf, seed };
+export async function compareCommand(flags: CompareFlags, io: CliIo, cwd: string): Promise<ExitCode> {
+  let prepared: Awaited<ReturnType<typeof prepareCompare>>;
   try {
-    if (options.rules !== undefined) {
-      const path = absolute(cwd, options.rules);
-      const value = await loadData(path, shown(path));
-      try {
-        input.ruleset = parseRuleset(value) satisfies Ruleset;
-      } catch (error) {
-        throw new UsageError(describeZod(error, shown(path)));
-      }
-    }
-    if (options.policy !== undefined) {
-      const path = absolute(cwd, options.policy);
-      const parsed = Policy.safeParse(await loadData(path, shown(path)));
-      if (!parsed.success) throw new UsageError(describeZod(parsed.error, shown(path)));
-      input.policy = parsed.data;
-    }
-    if (options.traffic !== undefined) {
-      const path = absolute(cwd, options.traffic);
-      input.traffic = await loadTraffic(path, shown(path));
-    }
+    prepared = await prepareCompare(flags, cwd);
   } catch (error) {
-    if (!(error instanceof UsageError)) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code === "ENOENT" || code === "EISDIR" || code === "EACCES") {
-        io.stderr(`drift: cannot read ${(error as NodeJS.ErrnoException).path ?? "file"} (${code})\n`);
-        return ExitCode.UsageError;
-      }
-      throw error;
-    }
+    if (!(error instanceof UsageError)) throw error;
     io.stderr(`${error.message}\n`);
     return ExitCode.UsageError;
   }
-  if (options.failOn !== undefined) input.failOn = options.failOn;
-
+  const { input, formats, out, shown } = prepared;
   const report = await compare(input);
-  io.stdout(options.format === "json" ? `${JSON.stringify(report, null, 2)}\n` : renderReport(report));
+  const color = io.color === true;
+  if (!out) {
+    const [format = "console"] = formats;
+    io.stdout(renderReport(report, format, { color: color && format === "console" }));
+    if (format === "console") io.stdout(cacheLine(report));
+  } else {
+    await mkdir(out, { recursive: true });
+    const written: string[] = [];
+    for (const format of formats) {
+      const file = join(out, REPORT_FILES[format]);
+      await writeFile(file, renderReport(report, format));
+      written.push(shown(file));
+    }
+    io.stdout(renderReport(report, "console", { color }));
+    io.stdout(cacheLine(report));
+    io.stdout(`wrote ${written.join(", ")}\n`);
+  }
   return report.gate.passed ? ExitCode.Pass : ExitCode.GateFailed;
 }

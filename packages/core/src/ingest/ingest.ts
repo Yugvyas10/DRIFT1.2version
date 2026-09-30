@@ -1,7 +1,8 @@
 import type { Diagnostic } from "@drift/report-schema";
 import { contentHash } from "../hash/content-hash.ts";
 import { buildIR } from "./build-ir.ts";
-import { loadDocumentSet } from "./documents.ts";
+import { loadDocumentSet, type LoadedDocument } from "./documents.ts";
+import { parsePointer } from "../util/json-pointer.ts";
 import type { SpecIR } from "./ir.ts";
 import type { IngestOptions } from "./types.ts";
 import { detectVersion, validateStructure, type OasLine } from "./validate.ts";
@@ -20,6 +21,11 @@ export interface IngestedSpec {
    * Ingest stage (ADR-0006). Formatting and YAML-vs-JSON do not change it; any content change does.
    */
   sourceHash: string;
+  /**
+   * Line and column of a location (`#/pointer` or `relative/file.yaml#/pointer`, as in change records), in the
+   * file's display path. Positions are computed on demand (ADR-0003).
+   */
+  locate: (location: string) => { file: string; line: number; column: number } | undefined;
 }
 
 export interface IngestResult {
@@ -61,7 +67,21 @@ export async function ingestSpec(entryPath: string, options: IngestOptions): Pro
     sourceHash: contentHash(
       Object.fromEntries([...loaded.set.documents.values()].map((document) => [document.relative, document.value]))
     ),
+    locate: locator([...loaded.set.documents.values()]),
   });
+}
+
+function locator(documents: readonly LoadedDocument[]): IngestedSpec["locate"] {
+  const byRelative = new Map(documents.map((document) => [document.relative, document]));
+  return (location) => {
+    const hash = location.indexOf("#");
+    if (hash === -1) return undefined;
+    const document = byRelative.get(location.slice(0, hash));
+    const tokens = parsePointer(location.slice(hash + 1), true);
+    if (!document || !tokens) return undefined;
+    const position = document.positions.locate(tokens);
+    return position && { file: document.display, line: position.line, column: position.column };
+  };
 }
 
 export function hasErrors(diagnostics: readonly Diagnostic[]): boolean {
