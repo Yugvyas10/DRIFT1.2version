@@ -2,7 +2,7 @@
 
 **Status: APPROVED 2026-09-26** (roles assigned; all other recommendations in §10 accepted as written). This file wins over `MASTER_PROMPT.md` wherever they differ. Decisions are recorded in §10.
 
-**Current milestone: M3 — CLI + report formats + first bench run: complete, first full benchmark run published in `docs/EVALUATION.md`; awaiting review (2026-09-30). M0–M2: approved 2026-09-28.**
+**Current milestone: M4 — GitHub Action + dogfooding: complete, awaiting review (2026-09-30). M0–M3: approved (M3 on 2026-09-30).**
 
 Related: [`INVENTORY.md`](INVENTORY.md) (current state) · [`adr/`](adr/) (decisions) · [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (full specification).
 
@@ -336,6 +336,22 @@ Owners: P4 (Action), P2 (permissions review), P3 (DRIFT API spec with P2).
   - a PR in the sample repo that removes a request enum value fails the check, and its comment shows the rule, rationale and failing payload;
   - an additive PR passes;
   - DRIFT's CI shows the dogfood job.
+
+- **Status: complete, awaiting review (2026-09-30),** on branch `rebuild/m4-action` (stacked on M3), PR [#5](https://github.com/Yugvyas10/DRIFT1.2version/pull/5).
+  - **Acceptance, on GitHub:** the sample repository [`The-Singularity44/drift-sample-api`](https://github.com/The-Singularity44/drift-sample-api) runs the Action pinned to an M4 commit.
+    - [PR 1](https://github.com/The-Singularity44/drift-sample-api/pull/1) removes the request enum value `overnight`: the check fails, and the comment shows the rule, its rationale and the failing recorded request.
+    - [PR 2](https://github.com/The-Singularity44/drift-sample-api/pull/2) adds an optional field and an endpoint: the check passes.
+    - DRIFT's CI has the job `dogfood`, which runs the Action from the same commit on `apps/web/openapi/drift-api.yaml`.
+  - Built as planned: `action.yml` on `node24`, bundled with esbuild (the bundle is committed and CI checks it matches the source); job summary; one PR comment, matched by marker, key and author; optional SARIF upload; `fail-on`; `upload` logs "not built yet" until M5. Permissions and branch protection are documented in `packages/github-action/README.md`.
+  - `apps/web/openapi/drift-api.yaml`: the design of the M5 ingestion API (runs, completion, artifact URLs, run list, health), to be reviewed by P3 and P2.
+  - Found while dogfooding, and fixed in core:
+    - the generator could not build strings for `pattern`s such as commit hashes, so a request with one could never be generated and no change in it proven. Strings are now built from the pattern itself;
+    - `renderMarkdown` takes a `maxLength` (GitHub comments hold 65,536 characters) and says how many changes it left out;
+    - "unverified (no recorded traffic)" now reads "no recorded request reached it".
+  - Deviations:
+    - The Action fetches the base commit itself (`git fetch --depth=1`), so a default shallow checkout works.
+    - A contract that does not exist at the base passes with a notice (`base-missing: pass`), so adding a new API does not fail the check.
+    - The sample repository's branch protection (required check) is documented, not yet switched on: it is a settings change for the owner.
 
 ### M5 — DB, auth, orgs/RBAC, API keys, ingestion API, object storage (size 1.3)
 
