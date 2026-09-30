@@ -40,6 +40,8 @@ jobs:
         run: pnpm turbo run typecheck lint test build
       - name: docs/EVALUATION.md matches the committed benchmark results
         run: pnpm --filter @drift/bench run evaluation:check
+      - name: The committed Action bundle matches its source
+        run: pnpm --filter @drift/github-action run bundle:check
       - name: Audit production dependencies
         run: pnpm audit --prod --audit-level high
 
@@ -108,3 +110,23 @@ jobs:
           name: fixture-check
           path: packages/bench/results/fixtures.json
           if-no-files-found: ignore
+
+  dogfood:
+    # DRIFT checks its own API contract on every pull request, with the Action from this commit (PLAN M4).
+    name: DRIFT on its own API (dogfood)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # One PR comment. A pull request from a fork gets a read-only token: the Action then only warns.
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The Action fetches the base commit itself; this repository is public, so that needs no stored token.
+          persist-credentials: false
+      - name: DRIFT contract gate
+        uses: ./packages/github-action
+        with:
+          spec: apps/web/openapi/drift-api.yaml
