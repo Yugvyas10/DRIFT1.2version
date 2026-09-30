@@ -36,7 +36,7 @@ export { DEFAULT_POLICY, DEFAULT_RULESET, parseRuleset, Policy, type Ruleset } f
 export { REPORT_FILES, REPORT_FORMATS, renderReport, type ReportFormat } from "./report/render.ts";
 export { omittedBody } from "./report/common.ts";
 export { renderConsole, type ConsoleOptions } from "./report/console.ts";
-export { escapeMarkdown, MARKDOWN_MARKER, renderMarkdown } from "./report/markdown.ts";
+export { escapeMarkdown, MARKDOWN_MARKER, renderMarkdown, type MarkdownOptions } from "./report/markdown.ts";
 export { escapeHtml, renderHtml } from "./report/html.ts";
 export { renderSarif } from "./report/sarif.ts";
 export { escapeXml, renderJunit } from "./report/junit.ts";

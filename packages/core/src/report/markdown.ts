@@ -47,42 +47,95 @@ function details(change: ClassifiedChange): string {
   return `${text}\n`;
 }
 
-function table(changes: readonly ClassifiedChange[]): string {
-  let text = "| Operation | Direction | Change | Evidence |\n| --- | --- | --- | --- |\n";
-  for (const change of changes) {
-    text += `| ${inline(change.operation)} | ${change.direction} | ${escapeMarkdown(change.message)} | ${escapeMarkdown(evidenceSummary(change))} |\n`;
-  }
-  return text;
+const TABLE_HEAD = "| Operation | Direction | Change | Evidence |\n| --- | --- | --- | --- |\n";
+
+function row(change: ClassifiedChange): string {
+  return `| ${inline(change.operation)} | ${change.direction} | ${escapeMarkdown(change.message)} | ${escapeMarkdown(evidenceSummary(change))} |\n`;
+}
+
+export interface MarkdownOptions {
+  /**
+   * Longest result, in UTF-16 code units (a GitHub comment holds 65,536). A report that does not fit keeps its
+   * header and footer, lists changes in order (BREAKING in full, then RISKY and SAFE rows) while they fit, and
+   * says how many of each it left out. At least the header, the note and the footer are always returned.
+   */
+  maxLength?: number;
+  /** Where the full report can be found, for the note on a shortened report. */
+  fullReport?: string;
 }
 
 /** The Markdown report: a PR comment or job summary. BREAKING changes in full, the rest in collapsed tables. */
-export function renderMarkdown(report: Report): string {
+export function renderMarkdown(report: Report, options: MarkdownOptions = {}): string {
   const s = report.summary;
   const icon = report.gate.passed ? "✅" : "❌";
-  let text = `${MARKDOWN_MARKER}\n## ${icon} DRIFT: contract gate ${report.gate.passed ? "passed" : "failed"}\n\n`;
-  text += `${escapeMarkdown(gateLine(report))}\n\n`;
-  text += `| BREAKING | RISKY | SAFE | Suppressed | Semver |\n| --- | --- | --- | --- | --- |\n`;
-  text += `| ${String(s.breaking)} | ${String(s.risky)} | ${String(s.safe)} | ${String(s.suppressed)} | ${report.semver} |\n\n`;
-  text += `Comparing ${inline(report.base.file)} (${escapeMarkdown(report.base.version)}) with ${inline(report.head.file)} (${escapeMarkdown(report.head.version)}).`;
+  let head = `${MARKDOWN_MARKER}\n## ${icon} DRIFT: contract gate ${report.gate.passed ? "passed" : "failed"}\n\n`;
+  head += `${escapeMarkdown(gateLine(report))}\n\n`;
+  head += `| BREAKING | RISKY | SAFE | Suppressed | Semver |\n| --- | --- | --- | --- | --- |\n`;
+  head += `| ${String(s.breaking)} | ${String(s.risky)} | ${String(s.safe)} | ${String(s.suppressed)} | ${report.semver} |\n\n`;
+  head += `Comparing ${inline(report.base.file)} (${escapeMarkdown(report.base.version)}) with ${inline(report.head.file)} (${escapeMarkdown(report.head.version)}).`;
   const corpus = report.corpus;
-  text +=
+  head +=
     corpus.source.kind === "none"
       ? " No traffic was given: evidence comes from **synthetic** samples only.\n"
       : ` Traffic: ${String(corpus.recorded.read)} records read, ${String(corpus.recorded.sampled)} kept; ${String(corpus.synthetic.generated)} synthetic samples.\n`;
 
-  const breaking = bySeverity(report, "BREAKING");
-  if (breaking.length > 0) text += `\n### BREAKING (${String(breaking.length)})\n\n${breaking.map(details).join("")}`;
-  for (const severity of ["RISKY", "SAFE"] as const) {
-    const changes = bySeverity(report, severity);
-    if (changes.length === 0) continue;
-    text += `\n<details${severity === "RISKY" && report.gate.failOn === "risky" ? " open" : ""}><summary><strong>${severity} (${String(changes.length)})</strong></summary>\n\n${table(changes)}\n</details>\n`;
-  }
+  let tail = "";
   if (report.unattributed.length > 0) {
-    text += "\n> [!WARNING]\n> Some samples fail under the new contract for a reason no detected change explains:";
+    tail += "\n> [!WARNING]\n> Some samples fail under the new contract for a reason no detected change explains:";
     for (const item of report.unattributed)
-      text += ` ${inline(item.operation)} (${item.direction}, ${String(item.count)})`;
-    text += "\n";
+      tail += ` ${inline(item.operation)} (${item.direction}, ${String(item.count)})`;
+    tail += "\n";
   }
-  text += `\n<sub>DRIFT ${escapeMarkdown(report.engine.version)} · rules ${escapeMarkdown(report.rules.version)} · synthetic evidence is marked as such and never counts as recorded.</sub>\n`;
-  return text;
+  tail += `\n<sub>DRIFT ${escapeMarkdown(report.engine.version)} · rules ${escapeMarkdown(report.rules.version)} · synthetic evidence is marked as such and never counts as recorded.</sub>\n`;
+
+  const breaking = bySeverity(report, "BREAKING");
+  const tables = (["RISKY", "SAFE"] as const).map((severity) => ({ severity, changes: bySeverity(report, severity) }));
+  const body = (shown: { breaking: number; RISKY: number; SAFE: number }) => {
+    let text = "";
+    if (breaking.length > 0) {
+      text += `\n### BREAKING (${String(breaking.length)})\n\n${breaking.slice(0, shown.breaking).map(details).join("")}`;
+    }
+    for (const { severity, changes } of tables) {
+      if (changes.length === 0) continue;
+      const open = severity === "RISKY" && report.gate.failOn === "risky" ? " open" : "";
+      const rows = shown[severity] > 0 ? `${TABLE_HEAD}${changes.slice(0, shown[severity]).map(row).join("")}` : "";
+      text += `\n<details${open}><summary><strong>${severity} (${String(changes.length)})</strong></summary>\n\n${rows}\n</details>\n`;
+    }
+    return text;
+  };
+  const all = {
+    breaking: breaking.length,
+    RISKY: tables[0]?.changes.length ?? 0,
+    SAFE: tables[1]?.changes.length ?? 0,
+  };
+  const full = head + body(all) + tail;
+  const max = options.maxLength;
+  if (max === undefined || full.length <= max) return full;
+
+  // Shortened: add changes in order while the result, with its note, still fits.
+  const note = (shown: typeof all) => {
+    const left = [
+      [all.breaking - shown.breaking, "BREAKING"],
+      [all.RISKY - shown.RISKY, "RISKY"],
+      [all.SAFE - shown.SAFE, "SAFE"],
+    ].filter(([count]) => (count as number) > 0);
+    const where = options.fullReport === undefined ? "" : ` ${escapeMarkdown(options.fullReport)}`;
+    return `\n> [!NOTE]\n> Shortened to fit: ${left.map(([count, label]) => `${String(count)} ${String(label)}`).join(", ")} ${left.length === 1 && left[0]?.[0] === 1 ? "change is" : "changes are"} not listed here.${where}\n`;
+  };
+  const shown = { breaking: 0, RISKY: 0, SAFE: 0 };
+  const fits = (candidate: typeof all) => (head + body(candidate) + note(candidate) + tail).length <= max;
+  for (const key of ["breaking", "RISKY", "SAFE"] as const) {
+    // The largest count that fits (binary search: the length grows with the count), so a big report renders
+    // O(log n) times rather than once per change.
+    let low = 0;
+    let high = all[key];
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2);
+      if (fits({ ...shown, [key]: mid })) low = mid;
+      else high = mid - 1;
+    }
+    shown[key] = low;
+    if (low < all[key]) break; // keep the order: nothing after a severity that did not fit completely
+  }
+  return head + body(shown) + note(shown) + tail;
 }
