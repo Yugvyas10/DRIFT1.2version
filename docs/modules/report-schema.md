@@ -28,7 +28,7 @@ The single contract shared by the engine, CLI, Action, worker and web. When the 
   - `status`: `failing`, `passing`, `no_samples` or `not_verifiable`;
   - `checked` and `failed`, each split into recorded and synthetic;
   - `unknown`: samples whose only failures were at redacted values;
-  - `examples`: redacted failing samples with their errors and the redacted pointers.
+  - `examples`: redacted failing samples with their errors and the redacted pointers. When a body is too large for a report (over 8 KiB), `payload` has no `body` and `bodyOmitted` gives its size and the values at the failing pointers.
 - `unattributed`: failures no change explains. `nonConformance`: recorded traffic that was already invalid.
 - `summary`, `semver`, `gate`, `stages` (the content-addressed key of every stage output) and `diagnostics`.
 

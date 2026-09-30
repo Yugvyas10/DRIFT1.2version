@@ -115,10 +115,12 @@ rules + policy ─────────────▶ classify ──▶ BRE
 
 **Synthetic samples** use no randomness. Every schema node offers a short list of variants: each enum value, the typical value and both bounds of a number, the shortest and longest strings, format examples, all properties or only the required ones or one extra, each `oneOf`/`anyOf` branch, and so on. A _plan_ picks one variant per node. For each group (an operation's requests, or one response status and media type), plans run in this order:
 
-1. a baseline;
+1. a baseline, and, when it misses a node a change touches, one plan **steered** there: `SchemaGenerator.routes` walks the schema graph back from the changed nodes and picks, at each decision on the way, the first variant that leads there (for example the object branch of Stripe's expandable `anyOf: [id, object]` fields);
 2. every variant of each node a change touches (the "focus" points, from the change anchors);
 3. sweeps;
-4. a fill, so that every variant of every node reached is generated at least once, within a cap of 48 per group.
+4. a fill, so that every variant of every node reached is generated at least once.
+
+Steps 1–2 stop at 48 per group. Steps 3–4 stop at the group's share of the **synthetic budget**: 4,096 samples per comparison, divided evenly between the groups before any sample is generated (at most 48 each). It is counted in samples, not time, so a report is still a function of its inputs. A change to a component shared by hundreds of operations therefore costs a few samples per operation instead of 48, and the report says so (`SYNTHETIC_BUDGET`).
 
 This makes samples change-directed without per-change code. For a removed enum value, the old schema offers that value; for a tightened bound, it offers the old bound. Every sample is validated against the contract it was generated from and discarded if that contract rejects it, so the generator's shortcuts (for example with `pattern`) can never produce false evidence.
 
@@ -135,6 +137,7 @@ This makes samples change-directed without per-change code. For a removed enum v
     Failures no change explains are reported as `unattributed` instead of being hidden.
 - **Redaction and evidence:** a failure at a redacted value or inside one is _unknown_, never failing (risk R6). So is a failure above one, for keywords that look at nested values (`oneOf`, `enum`, `uniqueItems`, …).
 - **Validators** (`validators.ts`): Ajv 2020, compiled once per (operation, direction, part, media type) per contract and cached, with a counter so tests can assert this. Components are added once per direction. `readOnly` properties are not required in requests and `writeOnly` ones not in responses. A schema that cannot be compiled is noted in the report, not fatal.
+- **Examples in reports:** up to three failing samples per change. A body over 8 KiB is left out and replaced by `bodyOmitted`: its size and the value at each error pointer (values up to 1 KiB). Without this, one change to Stripe's `account` put 1,836 full generated responses into the report (247 MiB).
 - **Wire values** (`wire.ts`): query, path, header and cookie values are text on the wire. Each contract decodes them with its own schema (numbers, booleans, arrays from repeated keys or commas), as its server would.
 
 ## Stage 5 — Classify (`src/classify/`)
@@ -211,7 +214,9 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 
 - Not in the IR yet: 3.1 `webhooks`, callbacks, links and response headers. Only the root `servers` are used for routing; path- and operation-level `servers` are not.
 - Verify runs on the main thread. The worker pool of PLAN §4.4 moves to M3, where the performance benchmark can show whether it pays off.
-- Bodies are validated for JSON and `text/*` media types only; form, XML and binary bodies are not checked.
+- Bodies are validated for JSON and `text/*` media types only; form, XML and binary bodies are not checked. Stripe sends every request body as `application/x-www-form-urlencoded`, so request-body changes there stay RISKY (found by the first benchmark run).
+- Generated long strings stop at 1,024 characters, so a `maxLength` tightened from 5,000 to 2,000 cannot be proven.
+- Below depth 8 the generator takes the first variant everywhere, so a steered plan cannot reach a changed node deeper than that; such a change stays RISKY unless recorded traffic reaches it.
 - A change of `items` to a referenced component attributes failures only when they are reported under `…/items` of the node; failures elsewhere show up as unattributed.
 - Response evidence is always synthetic, because recorded responses come from the old server.
 - `$ref` to `#anchor` fragments and `$id`-based references are rejected (`REF_UNSUPPORTED`).
@@ -236,6 +241,7 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 - **Renaming `/users/{id}` to `/users/{userId}` — is that breaking?** No. The operation key erases parameter names, and path parameters are matched by position, so it is one SAFE `path.param.renamed`.
 - **Why is adding an enum value RISKY in a response but SAFE in a request?** A server accepting a new value cannot break a client, but a client that validates responses strictly can reject a value it has never seen. The table is in `@drift/rules` and is checked for this request/response symmetry by a test.
 - **What if the same component is used in five operations?** It is compared once per direction (memoised), and the change is reported once per operation that reaches it, with that operation in the change id. So the impact index is exact.
+- **What if one change reaches hundreds of operations?** The first benchmark run found this: adding an enum value to Stripe's `account` touches all 612 operations, and generating 48 responses for each of 964 response groups took over 20 minutes. Synthetic samples now share a fixed budget (counted in samples, so reports stay deterministic). The samples aimed at the change always run, and a steered plan reaches the changed node through fields that would otherwise generate an id string. The same mutant now takes 53–99 s locally, with all 612 changes proven, and a regression test builds a smaller spec of the same shape.
 - **How do you avoid infinite recursion on `Node.children: Node[]`?** Components stay references in the IR. The differ tracks the reference pairs it has open and stops when it meets one again.
 - **And how do you avoid exponential time on specs like Stripe's, where hundreds of components refer to each other?** That was a real bug, found by the fixtures job: the first version cached only results that no cycle had cut short, and in a dense cycle almost nothing qualified. Now the differ finds strongly connected components as it goes (Tarjan). Every pair in a cycle reaches every other, so they share one complete result, cached when the cycle's first pair finishes. A regression test with 40 components linked five ways each runs in well under a second.
 - **Why does `allOf` merging not change behaviour?** It only merges when it is provably equivalent: object-only keywords, no conflicting property definitions, and a non-empty type intersection. Anything else keeps the `allOf`, and the differ compares it member by member.
