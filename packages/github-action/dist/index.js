@@ -68232,7 +68232,7 @@ function evidenceSummary(change2) {
       break;
   }
   const confidence = change2.confidence === null ? "structural only" : `confidence ${change2.confidence.toFixed(2)}`;
-  return `${text}; ${confidence}${change2.unverified ? "; unverified (no recorded traffic)" : ""}`;
+  return `${text}; ${confidence}${change2.unverified ? "; unverified (no recorded request reached it)" : ""}`;
 }
 function where(change2) {
   const p = change2.position;

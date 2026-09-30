@@ -202,7 +202,7 @@
           "ruleIndex": 4,
           "level": "error",
           "message": {
-            "text": "BREAKING: Response 200 body (application/json): Enum value \"adopted\" was added (GET /pets). Evidence: 2 of 8 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)."
+            "text": "BREAKING: Response 200 body (application/json): Enum value \"adopted\" was added (GET /pets). Evidence: 2 of 8 samples fail (synthetic); confidence 0.80; unverified (no recorded request reached it)."
           },
           "locations": [
             {
@@ -240,7 +240,7 @@
           "ruleIndex": 4,
           "level": "error",
           "message": {
-            "text": "BREAKING: Response 200 body (application/json): Enum value \"adopted\" was added (GET /pets/{}). Evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)."
+            "text": "BREAKING: Response 200 body (application/json): Enum value \"adopted\" was added (GET /pets/{}). Evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded request reached it)."
           },
           "locations": [
             {
@@ -354,7 +354,7 @@
           "ruleIndex": 4,
           "level": "error",
           "message": {
-            "text": "BREAKING: Response 201 body (application/json): Enum value \"adopted\" was added (POST /pets). Evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)."
+            "text": "BREAKING: Response 201 body (application/json): Enum value \"adopted\" was added (POST /pets). Evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded request reached it)."
           },
           "locations": [
             {
