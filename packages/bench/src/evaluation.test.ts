@@ -78,6 +78,18 @@ describe("mutations", () => {
     expect(mutate(document as never, "request-enum-value-removed", 0)?.description).toMatch(
       /components\/schemas\/Kind$/
     );
+    // Regression (first Benchmarks run): a component only webhooks use is not a site, since DRIFT skips webhooks.
+    const hook = {
+      post: { requestBody: { content: { "application/json": { schema: { $ref: "#/components/schemas/Hook" } } } } },
+    };
+    const hooks = {
+      ...document,
+      paths: {},
+      webhooks: { event: hook },
+      "x-webhooks": { event: hook },
+      components: { schemas: { Hook: { type: "string", enum: ["x", "y"] } } },
+    };
+    expect(mutate(hooks as never, "request-enum-value-removed", 0)).toBeUndefined();
     expect(mutate(document as never, "response-enum-value-added", 0)?.description).toMatch(/Out\/properties\/kind$/);
     expect(mutate({ openapi: "3.0.3" }, "operation-added", 0)).toBeUndefined();
   });

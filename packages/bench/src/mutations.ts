@@ -41,8 +41,13 @@ function* objects(value: Json, path: string[] = []): Generator<[JsonMap, string[
   }
 }
 
-/** Where a schema sits: under a request body or parameter (request side) or a response. */
+/**
+ * Where a schema sits: under a request body or parameter (request side) or a response, of an operation under
+ * `paths` or a reusable component. Webhooks (`webhooks`, `x-webhooks`) do not count: DRIFT does not compare them
+ * (a known limitation), so a mutation there would be labelled breaking yet change nothing DRIFT sees.
+ */
 function side(path: string[]): "request" | "response" | undefined {
+  if (path[0] !== "paths" && path[0] !== "components") return undefined;
   if (path.includes("responses")) return "response";
   if (path.includes("requestBody") || path.includes("parameters")) return "request";
   return undefined;
