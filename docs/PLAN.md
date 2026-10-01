@@ -351,7 +351,8 @@ Owners: P4 (Action), P2 (permissions review), P3 (DRIFT API spec with P2).
   - Deviations:
     - The Action fetches the base commit itself (`git fetch --depth=1`), so a default shallow checkout works.
     - A contract that does not exist at the base passes with a notice (`base-missing: pass`), so adding a new API does not fail the check.
-    - The sample repository's branch protection (required check) is documented, not yet switched on: it is a settings change for the owner.
+    - The sample repository's `main` requires the check "DRIFT contract gate" (branch protection, admins included, switched on 2026-10-01): GitHub reports PR 1 as blocked and PR 2 as mergeable.
+    - The sample repository pins the Action to a commit of this branch (`f9d4209`). After M0–M4 are merged it must be re-pinned to a commit on `master`, through a pull request there (direct pushes to its `main` are now rejected).
 
 ### M5 — DB, auth, orgs/RBAC, API keys, ingestion API, object storage (size 1.3)
 
