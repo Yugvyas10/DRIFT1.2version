@@ -68,6 +68,7 @@ Commander's parse errors map to 2. The tests cover every code.
 - `src/inputs.ts`: loading specs (file or git), traffic, rules and policy, with every failure as a usage error.
 - `src/git.ts`: git revisions as specs. `src/config.ts`: `drift.config`. `src/cache.ts`: the file-system stage cache, with atomic writes (temporary file, then rename).
 - `src/commands/explain.ts`, `rules.ts`, `corpus.ts`: the M3 commands.
+- `src/index.ts` also exports `prepareCompare` and `UsageError`, so the GitHub Action prepares its inputs exactly as `drift compare` does (flags, then `drift.config`, then defaults).
 - `src/fs-reader.ts`: the file-system `SpecReader`; diagnostic paths are shown relative to the working directory.
 - `src/render.ts`: text rendering of diagnostics, changes and reports (labels, rule, evidence and the first failing sample).
 - Golden tests:

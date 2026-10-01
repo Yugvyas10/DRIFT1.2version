@@ -11,7 +11,7 @@ import { ingestSpec } from "../ingest/ingest.ts";
 import type { SpecReader } from "../ingest/types.ts";
 import { escapeHtml } from "./html.ts";
 import { escapeXml } from "./junit.ts";
-import { codeBlock, escapeMarkdown, MARKDOWN_MARKER } from "./markdown.ts";
+import { codeBlock, escapeMarkdown, MARKDOWN_MARKER, renderMarkdown } from "./markdown.ts";
 import { REPORT_FORMATS, renderReport } from "./render.ts";
 
 const dir = fileURLToPath(new URL("../../../../examples/petstore/", import.meta.url));
@@ -191,6 +191,31 @@ describe("Markdown", () => {
     expect(outsideCode).not.toMatch(/<\/details> &/);
     expect(outsideCode).not.toContain("*bold*");
     expect(escapeMarkdown("a|b [c](d) <e> `f`")).toBe("a\\|b \\[c\\]\\(d\\) &lt;e\\> \\`f\\`");
+  });
+
+  it("fits a length limit by listing fewer changes, in order, and says how many it left out", () => {
+    const full = renderMarkdown(report);
+    expect(renderMarkdown(report, { maxLength: full.length })).toBe(full);
+    const s = report.summary;
+    expect(s.breaking).toBeGreaterThan(1);
+
+    // Room for about one BREAKING change: the rest are counted, not listed.
+    const oneBreaking = full.indexOf("\n- **", full.indexOf("### BREAKING") + 20);
+    const short = renderMarkdown(report, { maxLength: oneBreaking + 900, fullReport: "See the job summary." });
+    expect(short.length).toBeLessThanOrEqual(oneBreaking + 900);
+    expect(short.startsWith(`${MARKDOWN_MARKER}\n`)).toBe(true);
+    expect(short).toContain(`### BREAKING (${String(s.breaking)})`);
+    // The hint is escaped like any other text (it is Markdown-escaped, so its full stop is too).
+    expect(short).toContain(
+      `Shortened to fit: ${String(s.breaking - 1)} BREAKING, ${String(s.risky)} RISKY, ${String(s.safe)} SAFE changes are not listed here. See the job summary\\.`
+    );
+    expect(short).not.toContain("| Operation |"); // nothing after a severity that did not fit completely
+    expect(short).toContain("<sub>DRIFT ");
+
+    // Too small for anything: the header, the note and the footer still come back.
+    const minimal = renderMarkdown(report, { maxLength: 10 });
+    expect(minimal).toContain(`${String(s.breaking)} BREAKING`);
+    expect(minimal).not.toContain("\n- **");
   });
 
   it("uses code fences longer than any backtick run in the content", () => {

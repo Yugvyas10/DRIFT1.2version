@@ -42,7 +42,7 @@ export function evidenceSummary(change: ClassifiedChange): string {
       break;
   }
   const confidence = change.confidence === null ? "structural only" : `confidence ${change.confidence.toFixed(2)}`;
-  return `${text}; ${confidence}${change.unverified ? "; unverified (no recorded traffic)" : ""}`;
+  return `${text}; ${confidence}${change.unverified ? "; unverified (no recorded request reached it)" : ""}`;
 }
 
 /** `file:line:col`, or the location itself when its position is unknown. */
