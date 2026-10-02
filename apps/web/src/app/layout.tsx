@@ -17,6 +17,10 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+// Every page is rendered per request: the Content-Security-Policy carries a fresh nonce (src/proxy.ts), and a
+// prerendered page could not have it on its scripts.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL(env.APP_URL),
   title: {

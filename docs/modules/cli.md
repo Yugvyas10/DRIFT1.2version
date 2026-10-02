@@ -19,6 +19,8 @@ drift compare --base origin/main:openapi.yaml --head openapi.yaml    # the old c
 drift explain <change-id> [--report drift-report.json | compare options] [--format text|json]
 drift rules list [--rules <file>] [--format text|json]
 drift corpus inspect <traffic> [--spec <openapi>] [--format text|json]
+DRIFT_API_KEY=drift_… drift compare --base <old> --head <new> --upload --project <slug> \
+  [--api-url <url> | DRIFT_API_URL] [--commit <sha>] [--branch <name>] [--pr <number>]   # send the run to the platform
 ```
 
 - **Formats:** one format prints to stdout; several need `--out <dir>`, which writes `drift-report.{txt,json,html,md,sarif,junit.xml}` and still prints the console report. Colour is used only on a terminal and never with `NO_COLOR` (`FORCE_COLOR` turns it on).
@@ -68,7 +70,12 @@ Commander's parse errors map to 2. The tests cover every code.
 - `src/inputs.ts`: loading specs (file or git), traffic, rules and policy, with every failure as a usage error.
 - `src/git.ts`: git revisions as specs. `src/config.ts`: `drift.config`. `src/cache.ts`: the file-system stage cache, with atomic writes (temporary file, then rename).
 - `src/commands/explain.ts`, `rules.ts`, `corpus.ts`: the M3 commands.
-- `src/index.ts` also exports `prepareCompare` and `UsageError`, so the GitHub Action prepares its inputs exactly as `drift compare` does (flags, then `drift.config`, then defaults).
+- `src/upload.ts`: `--upload`. `POST /api/v1/runs`, a PUT of each report file (JSON, Markdown, HTML, SARIF) to its pre-signed URL, then `…/complete`.
+  - The API key comes from `DRIFT_API_KEY` only (a flag would put it in shell history and process lists) and is never printed.
+  - It is sent over HTTPS only (plain HTTP is allowed for `localhost`), requests to the API never follow redirects, and it is not sent to the storage URLs.
+  - The `Idempotency-Key` is the hash of the request, so a re-run of the same job returns the same run.
+  - The commit is `--commit`, `GITHUB_SHA`, or `git rev-parse HEAD`. A failed upload prints the reason and exits 2; the report above it stands.
+- `src/index.ts` also exports `prepareCompare`, `UsageError` and `uploadReport`, so the GitHub Action prepares its inputs exactly as `drift compare` does (flags, then `drift.config`, then defaults).
 - `src/fs-reader.ts`: the file-system `SpecReader`; diagnostic paths are shown relative to the working directory.
 - `src/render.ts`: text rendering of diagnostics, changes and reports (labels, rule, evidence and the first failing sample).
 - Golden tests:

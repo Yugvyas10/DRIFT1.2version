@@ -21,6 +21,10 @@
     "src",
     "next.config.ts",
     "vitest.config.ts",
+    "vitest.integration.config.ts",
+    "test",
+    "e2e",
+    "playwright.config.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
