@@ -26,6 +26,15 @@ export interface IngestedSpec {
    * file's display path. Positions are computed on demand (ADR-0003).
    */
   locate: (location: string) => { file: string; line: number; column: number } | undefined;
+  /** The files this spec was loaded from: each one's path relative to the root ("" for the root) and display path. */
+  documents: readonly SpecDocument[];
+  /** True when the spec was restored from a snapshot instead of being ingested (the Ingest stage was a cache hit). */
+  cached?: boolean;
+}
+
+export interface SpecDocument {
+  relative: string;
+  display: string;
 }
 
 export interface IngestResult {
@@ -68,10 +77,14 @@ export async function ingestSpec(entryPath: string, options: IngestOptions): Pro
       Object.fromEntries([...loaded.set.documents.values()].map((document) => [document.relative, document.value]))
     ),
     locate: locator([...loaded.set.documents.values()]),
+    documents: [...loaded.set.documents.values()].map(({ relative, display }) => ({ relative, display })),
   });
 }
 
-function locator(documents: readonly LoadedDocument[]): IngestedSpec["locate"] {
+/** Maps a change location to a line and column, through each file's (lazily built) position index. */
+export function locator(
+  documents: readonly Pick<LoadedDocument, "relative" | "display" | "positions">[]
+): IngestedSpec["locate"] {
   const byRelative = new Map(documents.map((document) => [document.relative, document]));
   return (location) => {
     const hash = location.indexOf("#");
