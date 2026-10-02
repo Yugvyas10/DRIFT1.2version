@@ -14,6 +14,14 @@ catalog:
   vitest: 5.0.2
   zod: 4.6.5
 
+# Patched versions of transitive dependencies with open advisories (`pnpm audit` in CI). Remove an entry when
+# the package that pulls it in ships the fix itself.
+overrides:
+  # Via prisma > @prisma/config (GHSA-ggr8-5vv4-36mx). Prisma only calls `deepmerge`, unchanged in 8.x.
+  deepmerge-ts: 8.0.2
+  # Via the prisma CLI (GHSA-3f6p-5ww8-9rcr and a zlib advisory). DRIFT uses Postgres and never loads it.
+  mysql2: 3.24.5
+
 # Lifecycle scripts are blocked unless listed here (supply-chain hardening).
 allowBuilds:
   # Only verifies its prebuilt native binding, which pnpm installs from optionalDependencies.
