@@ -15,6 +15,10 @@ export interface CliIo {
   stderr: (text: string) => void;
   /** Whether stdout may use ANSI colours (decided by the binary: a terminal, and no NO_COLOR). */
   color?: boolean;
+  /** Environment variables (DRIFT_API_KEY, DRIFT_API_URL, CI variables). The binary passes `process.env`. */
+  env?: Readonly<Record<string, string | undefined>>;
+  /** HTTP client for `--upload`. The binary passes the global `fetch`. */
+  fetch?: typeof globalThis.fetch;
 }
 
 const formatOption = () => new Option("--format <format>", "output format").choices(["text", "json"]).default("text");
@@ -85,6 +89,12 @@ export function createProgram(io: CliIo, result: { exitCode: ExitCode }, cwd: st
       .description("compare two specs with evidence and gate the result (exit 1 when the gate fails)")
       .option("--format <list>", `report formats, comma-separated: ${REPORT_FORMATS.join(", ")} (default: console)`)
       .option("--out <dir>", "write every format to <dir>/drift-report.* (needed for more than one format)")
+      .option("--upload", "upload the run to the DRIFT platform (needs DRIFT_API_KEY, --project and an API URL)")
+      .option("--project <slug>", "the platform project to upload to")
+      .option("--api-url <url>", "base URL of the DRIFT platform (default: DRIFT_API_URL)")
+      .option("--commit <sha>", "the commit this run is for (default: GITHUB_SHA, or git rev-parse HEAD)")
+      .option("--branch <name>", "the branch this run is for (default: from the CI environment)")
+      .option("--pr <number>", "the pull request this run is for")
   ).action(async (options: CompareFlags) => {
     result.exitCode = await compareCommand(options, io, cwd);
   });
