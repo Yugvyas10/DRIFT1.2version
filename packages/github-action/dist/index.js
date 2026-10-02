@@ -35990,6 +35990,9 @@ var ExitCode;
   ExitCode3[ExitCode3["Success"] = 0] = "Success";
   ExitCode3[ExitCode3["Failure"] = 1] = "Failure";
 })(ExitCode || (ExitCode = {}));
+function setSecret(secret) {
+  issueCommand("add-mask", {}, secret);
+}
 function getInput(name, options) {
   const val = process.env[`INPUT_${name.replace(/ /g, "_").toUpperCase()}`] || "";
   if (options && options.required && !val) {
@@ -40189,116 +40192,6 @@ function getOctokit(token, options, ...additionalPlugins) {
   const GitHubWithPlugins = GitHub.plugin(...additionalPlugins);
   return new GitHubWithPlugins(getOctokitOptions(token, options));
 }
-
-// src/github.ts
-function createGitHubApi(token, repo, fetch2) {
-  const octokit = getOctokit(token, fetch2 ? { request: { fetch: fetch2 } } : {});
-  return {
-    async login() {
-      try {
-        return (await octokit.rest.users.getAuthenticated()).data.login;
-      } catch {
-        return void 0;
-      }
-    },
-    async listComments(issue3) {
-      const comments = await octokit.paginate(octokit.rest.issues.listComments, {
-        ...repo,
-        issue_number: issue3,
-        per_page: 100
-      });
-      return comments.map((comment2) => ({ id: comment2.id, body: comment2.body, login: comment2.user?.login }));
-    },
-    async createComment(issue3, body) {
-      await octokit.rest.issues.createComment({ ...repo, issue_number: issue3, body });
-    },
-    async updateComment(id, body) {
-      await octokit.rest.issues.updateComment({ ...repo, comment_id: id, body });
-    },
-    async uploadSarif({ commitSha, ref, sarif }) {
-      await octokit.rest.codeScanning.uploadSarif({ ...repo, commit_sha: commitSha, ref, sarif, tool_name: "DRIFT" });
-    }
-  };
-}
-
-// src/git.ts
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-var run = promisify(execFile);
-var systemGit = {
-  async has(cwd, object2) {
-    try {
-      await run("git", ["cat-file", "-e", object2], { cwd });
-      return true;
-    } catch {
-      return false;
-    }
-  },
-  async fetch(cwd, sha) {
-    await run("git", ["fetch", "--no-tags", "--depth=1", "origin", sha], { cwd });
-  }
-};
-function isSha(value) {
-  return /^[0-9a-f]{7,64}$/.test(value);
-}
-
-// src/inputs.ts
-var InputError = class extends Error {
-};
-function boolean(get, name, fallback) {
-  const value = get(name).trim();
-  if (value === "") return fallback;
-  if (value === "true") return true;
-  if (value === "false") return false;
-  throw new InputError(`drift: input "${name}" must be true or false, not "${value}"`);
-}
-function choice(get, name, values) {
-  const value = get(name).trim();
-  if (value === "") return void 0;
-  if (!values.includes(value)) {
-    throw new InputError(`drift: input "${name}" must be one of ${values.join(", ")}, not "${value}"`);
-  }
-  return value;
-}
-function commentKey(value) {
-  return value.replace(/[^A-Za-z0-9._/-]/g, "_").slice(0, 200);
-}
-function parseInputs(get) {
-  const optional2 = (name) => {
-    const value = get(name).trim();
-    return value === "" ? void 0 : value;
-  };
-  const spec = optional2("spec");
-  const head = optional2("head");
-  const inputs = {
-    comment: boolean(get, "comment", true),
-    sarif: boolean(get, "sarif", false),
-    upload: boolean(get, "upload", false),
-    baseMissing: choice(get, "base-missing", ["pass", "fail"]) ?? "pass",
-    commentKey: commentKey(optional2("comment-key") ?? head ?? spec ?? "drift"),
-    workingDirectory: optional2("working-directory") ?? "."
-  };
-  const failOn = choice(get, "fail-on", ["breaking", "risky"]);
-  if (failOn) inputs.failOn = failOn;
-  for (const [key, name] of [
-    ["base", "base"],
-    ["traffic", "traffic"],
-    ["rules", "rules"],
-    ["policy", "policy"],
-    ["config", "config"]
-  ]) {
-    const value = optional2(name);
-    if (value !== void 0) inputs[key] = value;
-  }
-  if (spec !== void 0) inputs.spec = spec;
-  if (head !== void 0) inputs.head = head;
-  return inputs;
-}
-
-// src/run.ts
-import { mkdir as mkdir3, writeFile as writeFile3 } from "node:fs/promises";
-import { join as join4, resolve as resolve5 } from "node:path";
-import { gzipSync } from "node:zlib";
 
 // ../cli/dist/commands/compare.js
 import { join as join3, resolve as resolve4 } from "node:path";
@@ -44511,7 +44404,7 @@ __export(external_exports, {
   base64: () => base642,
   base64url: () => base64url2,
   bigint: () => bigint2,
-  boolean: () => boolean3,
+  boolean: () => boolean2,
   catch: () => _catch2,
   check: () => check,
   cidrv4: () => cidrv42,
@@ -46316,7 +46209,7 @@ __export(regexes_exports, {
   base64: () => base64,
   base64url: () => base64url,
   bigint: () => bigint,
-  boolean: () => boolean2,
+  boolean: () => boolean,
   browserEmail: () => browserEmail,
   cidrv4: () => cidrv4,
   cidrv6: () => cidrv6,
@@ -46453,7 +46346,7 @@ var string = (params) => {
 var bigint = /^-?\d+n?$/;
 var integer = /^-?\d+$/;
 var number = /^-?\d+(?:\.\d+)?$/;
-var boolean2 = /^(?:true|false)$/i;
+var boolean = /^(?:true|false)$/i;
 var _null = /^null$/i;
 var _undefined = /^undefined$/i;
 var lowercase = /^[^A-Z]*$/;
@@ -47607,7 +47500,7 @@ var $ZodNumberFormat = /* @__PURE__ */ $constructor("$ZodNumberFormat", (inst, d
 });
 var $ZodBoolean = /* @__PURE__ */ $constructor("$ZodBoolean", (inst, def) => {
   $ZodType.init(inst, def);
-  inst._zod.pattern = boolean2;
+  inst._zod.pattern = boolean;
   inst._zod.parse = (payload, _ctx) => {
     if (def.coerce)
       try {
@@ -61420,7 +61313,7 @@ __export(schemas_exports2, {
   base64: () => base642,
   base64url: () => base64url2,
   bigint: () => bigint2,
-  boolean: () => boolean3,
+  boolean: () => boolean2,
   catch: () => _catch2,
   check: () => check,
   cidrv4: () => cidrv42,
@@ -62249,7 +62142,7 @@ var ZodBoolean = /* @__PURE__ */ $constructor("ZodBoolean", (inst, def) => {
   ZodType.init(inst, def);
   inst._zod.processJSONSchema = (ctx, json2, params) => booleanProcessor(inst, ctx, json2, params);
 });
-function boolean3(params) {
+function boolean2(params) {
   return _boolean(ZodBoolean, params);
 }
 var ZodBigInt = /* @__PURE__ */ $constructor(
@@ -63062,7 +62955,7 @@ var stringbool = (...args) => _stringbool({
 }, ...args);
 function json(params) {
   const jsonSchema = lazy(() => {
-    return union([string2(params), number2(), boolean3(), _null3(), array(jsonSchema), record(string2(), jsonSchema)]);
+    return union([string2(params), number2(), boolean2(), _null3(), array(jsonSchema), record(string2(), jsonSchema)]);
   });
   return jsonSchema;
 }
@@ -64059,7 +63952,7 @@ function output(schema) {
 var coerce_exports = {};
 __export(coerce_exports, {
   bigint: () => bigint3,
-  boolean: () => boolean4,
+  boolean: () => boolean3,
   date: () => date4,
   number: () => number3,
   string: () => string3
@@ -64070,7 +63963,7 @@ function string3(params) {
 function number3(params) {
   return _coercedNumber(ZodNumber, params);
 }
-function boolean4(params) {
+function boolean3(params) {
   return _coercedBoolean(ZodBoolean, params);
 }
 function bigint3(params) {
@@ -68801,11 +68694,11 @@ import { readFile as readFile4, stat as stat3 } from "node:fs/promises";
 import { createInterface } from "node:readline";
 
 // ../cli/dist/git.js
-import { execFile as execFile2 } from "node:child_process";
+import { execFile } from "node:child_process";
 import { existsSync as existsSync4 } from "node:fs";
 import { isAbsolute, posix as posix2, relative as relative2, resolve as resolve3, sep as sep2 } from "node:path";
-import { promisify as promisify2 } from "node:util";
-var run2 = promisify2(execFile2);
+import { promisify } from "node:util";
+var run = promisify(execFile);
 var MAX_BYTES = 256 * 1024 * 1024;
 var GitError = class extends Error {
 };
@@ -68823,7 +68716,7 @@ function parseGitSpec(argument, cwd) {
   return { ref, path: path2 };
 }
 async function git(cwd, args) {
-  const { stdout } = await run2("git", args, { cwd, maxBuffer: MAX_BYTES, encoding: "utf8" });
+  const { stdout } = await run("git", args, { cwd, maxBuffer: MAX_BYTES, encoding: "utf8" });
   return stdout;
 }
 async function createGitSource(cwd, spec) {
@@ -68948,6 +68841,102 @@ async function loadPolicy(path2, shown) {
   if (!parsed.success)
     throw new UsageError(describeZod(parsed.error, shown));
   return parsed.data;
+}
+
+// ../cli/dist/upload.js
+var UploadError = class extends Error {
+};
+var ARTIFACTS = [
+  { kind: "report-json", format: "json", contentType: "application/json" },
+  { kind: "report-md", format: "md", contentType: "text/markdown" },
+  { kind: "report-html", format: "html", contentType: "text/html" },
+  { kind: "report-sarif", format: "sarif", contentType: "application/sarif+json" }
+];
+var TIMEOUT_MS = 6e4;
+function checkedApiUrl(value) {
+  let url2;
+  try {
+    url2 = new URL(value);
+  } catch {
+    throw new UploadError(`drift: "${value}" is not a URL (set --api-url or DRIFT_API_URL)`);
+  }
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(url2.hostname) || url2.hostname.endsWith(".localhost");
+  if (url2.protocol !== "https:" && !(url2.protocol === "http:" && local)) {
+    throw new UploadError("drift: the API URL must use https (plain http is only allowed for localhost)");
+  }
+  return url2;
+}
+async function problemOf(response) {
+  try {
+    const body = await response.json();
+    const parts = [body.title, body.detail].filter((part) => typeof part === "string");
+    if (parts.length > 0)
+      return parts.join(": ");
+  } catch {
+  }
+  return response.statusText || "request failed";
+}
+async function uploadReport(report, options) {
+  const base = checkedApiUrl(options.apiUrl);
+  const files = ARTIFACTS.map((artifact) => {
+    const content = renderReport(report, artifact.format);
+    return { ...artifact, content, sha256: sha256Hex(content), size: Buffer.byteLength(content) };
+  });
+  const body = {
+    project: options.project,
+    trigger: options.trigger,
+    commit: options.commit,
+    ...options.branch === void 0 ? {} : { branch: options.branch },
+    ...options.pullRequest === void 0 ? {} : { pullRequest: options.pullRequest },
+    report,
+    artifacts: files.map(({ kind, sha256, size, contentType }) => ({ kind, sha256, size, contentType }))
+  };
+  const api = async (path2, init) => {
+    let response;
+    try {
+      response = await options.fetch(new URL(path2, base), {
+        ...init,
+        redirect: "error",
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        headers: { ...init.headers, authorization: `Bearer ${options.apiKey}` }
+      });
+    } catch (error63) {
+      throw new UploadError(`drift: could not reach ${base.origin} (${error63 instanceof Error ? error63.message : "request failed"})`);
+    }
+    if (!response.ok) {
+      throw new UploadError(`drift: upload refused by ${base.origin}: ${String(response.status)} ${await problemOf(response)}`);
+    }
+    return response;
+  };
+  const created = await api("/api/v1/runs", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "idempotency-key": `drift-cli:${sha256Hex(canonicalJson(body))}`
+    },
+    body: JSON.stringify(body)
+  });
+  const { run: run3, uploads } = await created.json();
+  for (const upload of uploads) {
+    const file2 = files.find((candidate) => candidate.kind === upload.kind);
+    if (!file2)
+      continue;
+    let stored;
+    try {
+      stored = await options.fetch(upload.url, {
+        method: "PUT",
+        headers: { "content-type": file2.contentType },
+        body: file2.content,
+        signal: AbortSignal.timeout(TIMEOUT_MS)
+      });
+    } catch (error63) {
+      throw new UploadError(`drift: could not store ${upload.kind} (${error63 instanceof Error ? error63.message : "request failed"})`);
+    }
+    if (!stored.ok)
+      throw new UploadError(`drift: could not store ${upload.kind}: ${String(stored.status)}`);
+  }
+  await api(`/api/v1/runs/${encodeURIComponent(run3.id)}/complete`, { method: "POST" });
+  return { runId: run3.id, replayed: created.status === 200 };
 }
 
 // ../cli/dist/commands/compare.js
@@ -72378,6 +72367,127 @@ function useColor() {
 // ../../node_modules/.pnpm/commander@15.0.0/node_modules/commander/index.js
 var program = new Command2();
 
+// src/github.ts
+function createGitHubApi(token, repo, fetch2) {
+  const octokit = getOctokit(token, fetch2 ? { request: { fetch: fetch2 } } : {});
+  return {
+    async login() {
+      try {
+        return (await octokit.rest.users.getAuthenticated()).data.login;
+      } catch {
+        return void 0;
+      }
+    },
+    async listComments(issue3) {
+      const comments = await octokit.paginate(octokit.rest.issues.listComments, {
+        ...repo,
+        issue_number: issue3,
+        per_page: 100
+      });
+      return comments.map((comment2) => ({ id: comment2.id, body: comment2.body, login: comment2.user?.login }));
+    },
+    async createComment(issue3, body) {
+      await octokit.rest.issues.createComment({ ...repo, issue_number: issue3, body });
+    },
+    async updateComment(id, body) {
+      await octokit.rest.issues.updateComment({ ...repo, comment_id: id, body });
+    },
+    async uploadSarif({ commitSha, ref, sarif }) {
+      await octokit.rest.codeScanning.uploadSarif({ ...repo, commit_sha: commitSha, ref, sarif, tool_name: "DRIFT" });
+    }
+  };
+}
+
+// src/git.ts
+import { execFile as execFile2 } from "node:child_process";
+import { promisify as promisify2 } from "node:util";
+var run2 = promisify2(execFile2);
+var systemGit = {
+  async has(cwd, object2) {
+    try {
+      await run2("git", ["cat-file", "-e", object2], { cwd });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  async fetch(cwd, sha) {
+    await run2("git", ["fetch", "--no-tags", "--depth=1", "origin", sha], { cwd });
+  }
+};
+function isSha(value) {
+  return /^[0-9a-f]{7,64}$/.test(value);
+}
+
+// src/inputs.ts
+var InputError = class extends Error {
+};
+function boolean4(get, name, fallback) {
+  const value = get(name).trim();
+  if (value === "") return fallback;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new InputError(`drift: input "${name}" must be true or false, not "${value}"`);
+}
+function choice(get, name, values) {
+  const value = get(name).trim();
+  if (value === "") return void 0;
+  if (!values.includes(value)) {
+    throw new InputError(`drift: input "${name}" must be one of ${values.join(", ")}, not "${value}"`);
+  }
+  return value;
+}
+function commentKey(value) {
+  return value.replace(/[^A-Za-z0-9._/-]/g, "_").slice(0, 200);
+}
+function parseInputs(get) {
+  const optional2 = (name) => {
+    const value = get(name).trim();
+    return value === "" ? void 0 : value;
+  };
+  const spec = optional2("spec");
+  const head = optional2("head");
+  const inputs = {
+    comment: boolean4(get, "comment", true),
+    sarif: boolean4(get, "sarif", false),
+    upload: boolean4(get, "upload", false),
+    baseMissing: choice(get, "base-missing", ["pass", "fail"]) ?? "pass",
+    commentKey: commentKey(optional2("comment-key") ?? head ?? spec ?? "drift"),
+    workingDirectory: optional2("working-directory") ?? "."
+  };
+  const failOn = choice(get, "fail-on", ["breaking", "risky"]);
+  if (failOn) inputs.failOn = failOn;
+  for (const [key, name] of [
+    ["base", "base"],
+    ["traffic", "traffic"],
+    ["rules", "rules"],
+    ["policy", "policy"],
+    ["config", "config"]
+  ]) {
+    const value = optional2(name);
+    if (value !== void 0) inputs[key] = value;
+  }
+  if (inputs.upload) {
+    for (const [key, name] of [
+      ["project", "project"],
+      ["apiUrl", "api-url"],
+      ["apiKey", "api-key"]
+    ]) {
+      const value = optional2(name);
+      if (value === void 0) throw new InputError(`drift: input "upload" needs the input "${name}"`);
+      inputs[key] = value;
+    }
+  }
+  if (spec !== void 0) inputs.spec = spec;
+  if (head !== void 0) inputs.head = head;
+  return inputs;
+}
+
+// src/run.ts
+import { mkdir as mkdir3, writeFile as writeFile3 } from "node:fs/promises";
+import { join as join4, resolve as resolve5 } from "node:path";
+import { gzipSync } from "node:zlib";
+
 // src/comment.ts
 var ACTIONS_BOT = "github-actions[bot]";
 var COMMENT_LIMIT = 65536;
@@ -72468,9 +72578,7 @@ ${escapeMarkdown(message)} The gate passes (base-missing: pass).
   await deps.summary(renderMarkdown(report, { maxLength: SUMMARY_LIMIT, fullReport: `The full report is in ${out}.` }));
   if (inputs.comment) await comment(deps, report);
   if (inputs.sarif) await uploadSarif(deps, report);
-  if (inputs.upload) {
-    log.warning("upload: not built yet. The DRIFT platform's ingestion API arrives in M5; nothing was sent anywhere.");
-  }
+  if (inputs.upload) await uploadRun(deps, report);
   deps.setOutput("passed", String(report.gate.passed));
   if (report.gate.passed) return { passed: true };
   const s = report.summary;
@@ -72521,16 +72629,49 @@ async function uploadSarif(deps, report) {
     );
   }
 }
+async function uploadRun(deps, report) {
+  const { project, apiUrl, apiKey } = deps.inputs;
+  if (!deps.upload || project === void 0 || apiUrl === void 0 || apiKey === void 0) {
+    deps.log.warning("upload: not configured, so nothing was sent");
+    return;
+  }
+  const pr = deps.event.pullRequest;
+  try {
+    const done = await deps.upload(report, {
+      apiUrl,
+      apiKey,
+      project,
+      // The commit that was written, not the temporary merge commit GitHub checks out for a pull request.
+      commit: pr?.headSha ?? deps.event.sha,
+      ...deps.event.branch === void 0 ? {} : { branch: deps.event.branch },
+      ...pr ? { pullRequest: pr.number } : {},
+      trigger: "ci"
+    });
+    deps.setOutput("run-id", done.runId);
+    deps.log.info(`Uploaded run ${done.runId}${done.replayed ? " (already uploaded: same run)" : ""}`);
+  } catch (error63) {
+    deps.log.warning(`upload: ${error63 instanceof Error ? error63.message : String(error63)}`);
+  }
+}
 
 // src/main.ts
 async function main() {
   const inputs = parseInputs((name) => getInput(name));
   const token = getInput("token");
+  if (inputs.apiKey !== void 0) setSecret(inputs.apiKey);
   const pr = context2.payload.pull_request;
   const event = { eventName: context2.eventName, sha: context2.sha, ref: context2.ref };
   if (typeof pr?.number === "number" && typeof pr.base?.sha === "string") {
-    event.pullRequest = { number: pr.number, baseSha: pr.base.sha };
+    event.pullRequest = {
+      number: pr.number,
+      baseSha: pr.base.sha,
+      ...typeof pr.head?.sha === "string" ? { headSha: pr.head.sha } : {}
+    };
   }
+  const branch = [process.env.GITHUB_HEAD_REF, process.env.GITHUB_REF_NAME].find(
+    (name) => name !== void 0 && name !== ""
+  );
+  if (branch !== void 0) event.branch = branch;
   const before = context2.payload.before;
   if (typeof before === "string") event.before = before;
   const result = await runAction({
@@ -72544,7 +72685,8 @@ async function main() {
     summary: async (markdown) => {
       await summary.addRaw(markdown, true).write();
     },
-    setOutput
+    setOutput,
+    upload: (report, options) => uploadReport(report, { ...options, fetch: globalThis.fetch })
   });
   if (!result.passed) setFailed(result.failure ?? "DRIFT: the contract gate failed");
 }
