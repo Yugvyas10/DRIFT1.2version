@@ -1,0 +1,43 @@
+{
+  "name": "@drift/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Prisma schema, migrations and client for the DRIFT platform.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "prisma"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run --coverage",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:check": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pg": "8.20.0",
+    "@vitest/coverage-v8": "catalog:",
+    "prisma": "7.10.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
