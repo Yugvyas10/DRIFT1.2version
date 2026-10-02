@@ -44,9 +44,12 @@ Setup (once): Node 24+, `npm install -g pnpm@12.6.0`, Docker. Then:
 - Local services: `docker compose -f infra/docker-compose.yml up -d --wait` (stop: `... down`, add `-v` to wipe data)
 - Full check: `pnpm turbo run typecheck lint test build`
 - Format: `pnpm format` (CI runs `pnpm format:check`)
+- Database: `DATABASE_URL=postgresql://drift:drift-local-only@localhost:5432/drift pnpm --filter @drift/db run migrate:deploy` (apply migrations) · after changing `schema.prisma`: `... run migrate:dev`
 - Web dev server: `pnpm --filter @drift/web dev` → http://localhost:3000
+- Web integration tests (real Postgres and S3 in containers; needs Docker): `pnpm --filter @drift/web run test:integration`
+- Web end-to-end tests: `pnpm turbo run build --filter=@drift/web --filter=@drift/cli && pnpm --filter @drift/web run test:e2e` (first time: `pnpm --filter @drift/web exec playwright install chromium`)
 - Worker: `pnpm --filter @drift/worker dev`
-- CLI (paths relative to `packages/cli`): `pnpm --filter @drift/cli exec drift validate <spec>` · `... drift diff --base <old> --head <new>` · `... drift compare --base <old|ref:path> --head <new> [--traffic <file>] [--policy <file>] [--format console,json,html,md,sarif,junit --out <dir>] [--no-cache]` · `... drift explain <id> --report <json>` · `... drift rules list` · `... drift corpus inspect <traffic>`. Use `--no-cache` while changing engine code.
+- CLI (paths relative to `packages/cli`): `pnpm --filter @drift/cli exec drift validate <spec>` · `... drift diff --base <old> --head <new>` · `... drift compare --base <old|ref:path> --head <new> [--traffic <file>] [--policy <file>] [--format console,json,html,md,sarif,junit --out <dir>] [--no-cache] [--upload --project <slug> --api-url <url>, with DRIFT_API_KEY]` · `... drift explain <id> --report <json>` · `... drift rules list` · `... drift corpus inspect <traffic>`. Use `--no-cache` while changing engine code.
 - Golden files: `UPDATE_GOLDEN=1 pnpm --filter @drift/core test` (and `--filter @drift/cli`, `@drift/report-schema`, `@drift/rules` for the published JSON Schemas), then review the diff.
 - Real-world fixtures: `pnpm --filter @drift/bench run fixtures:fetch && pnpm --filter @drift/bench run fixtures:check`
 - Secret scan: `sh scripts/secret-scan.sh` (full history; the pre-commit hook scans staged changes)
