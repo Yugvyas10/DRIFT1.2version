@@ -120,7 +120,15 @@ export function createS3Store(settings: S3Settings, now: () => Date = () => new 
       return { size, sha256: hash.digest("hex") };
     },
     async ping() {
-      await client.send(new HeadBucketCommand({ Bucket: settings.bucket }));
+      try {
+        await client.send(new HeadBucketCommand({ Bucket: settings.bucket }));
+      } catch (error) {
+        // A HEAD response has no body, so the SDK can only say "UnknownError"; the status says what went wrong
+        // (403: wrong credentials, 404: no such bucket).
+        const status = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+        if (status === undefined) throw error;
+        throw new Error(`the bucket answered HTTP ${String(status)}`, { cause: error });
+      }
     },
   };
 }

@@ -42,6 +42,8 @@ describe("object store", () => {
     expect(get.expiresAt.getTime()).toBeLessThan(put.expiresAt.getTime());
     await expect(store.ping()).resolves.toBeUndefined();
     const elsewhere = createS3Store({ ...inject("s3"), bucket: "no-such-bucket" });
-    await expect(elsewhere.ping()).rejects.toThrow();
+    await expect(elsewhere.ping()).rejects.toThrow("the bucket answered HTTP 404");
+    const wrongKey = createS3Store({ ...inject("s3"), secretAccessKey: "not-the-secret" });
+    await expect(wrongKey.ping()).rejects.toThrow("the bucket answered HTTP 403");
   });
 });

@@ -69,6 +69,12 @@ jobs:
     name: Local services and worker smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # docker compose reads S3_* from the environment, so the workflow's build placeholders would configure the
+    # object store; the local defaults are used for both the services and the worker instead.
+    env:
+      S3_BUCKET: drift-artifacts
+      S3_ACCESS_KEY_ID: drift
+      S3_SECRET_ACCESS_KEY: drift-local-only
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -88,9 +94,6 @@ jobs:
           REDIS_URL: redis://localhost:6379
           DATABASE_URL: postgresql://drift:drift-local-only@localhost:5432/drift
           S3_ENDPOINT: http://localhost:8333
-          S3_BUCKET: drift-artifacts
-          S3_ACCESS_KEY_ID: drift
-          S3_SECRET_ACCESS_KEY: drift-local-only
       - name: Service status
         if: always()
         run: docker compose -f infra/docker-compose.yml ps
