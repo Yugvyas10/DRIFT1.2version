@@ -13,5 +13,6 @@ One document per package, each written and defended by the package owner. Every 
 | [bench](bench.md)                       | P4                                                        |
 | [web](web.md)                           | P1 (UI) · P2 (auth, RBAC, keys)                           |
 | [worker](worker.md)                     | P3                                                        |
+| [platform](platform.md)                 | P3                                                        |
 | [infra](infra.md)                       | P3                                                        |
 | [tooling](tooling.md) (monorepo and CI) | P4                                                        |

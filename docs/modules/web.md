@@ -1,6 +1,6 @@
 # @drift/web — dashboard and REST API
 
-**Owners:** UI P1 (Prathamesh Yewale); auth, RBAC and API keys P2 (Yug Vyas); ingestion API and storage P3 (Tanishq Chavan). **Status:** M5 — sign-in, organisations and roles, API keys, the run upload API with object storage, and a minimal run list. The run canvas and live runs arrive in M6–M7.
+**Owners:** UI P1 (Prathamesh Yewale); auth, RBAC and API keys P2 (Yug Vyas); ingestion API and storage P3 (Tanishq Chavan). **Status:** M6 — sign-in, organisations and roles, API keys, the run upload API with object storage (M5); server-side runs and re-runs queued to the worker, live run events over SSE, Redis rate limits, request logs and traces, and a minimal live run page (M6). The run canvas arrives in M7.
 
 ## Run it
 
@@ -11,27 +11,32 @@ DATABASE_URL=postgresql://drift:drift-local-only@localhost:5432/drift pnpm --fil
 pnpm --filter @drift/web dev   # http://localhost:3000
 ```
 
-Register at `/register`, create an organisation, a project and an API key, then:
+Register at `/register`, create an organisation, a project and an API key, then upload a run compared locally, or run one on the platform (start the worker first: `docs/modules/worker.md`):
 
 ```bash
 DRIFT_API_KEY=drift_… pnpm --filter @drift/cli exec drift compare --base ../../examples/petstore/v1.yaml \
   --head ../../examples/petstore/v2-breaking.yaml --upload --project <slug> --api-url http://localhost:3000
+DRIFT_API_KEY=drift_… pnpm --filter @drift/cli exec drift run --base ../../examples/petstore/v1.yaml \
+  --head ../../examples/petstore/v2-breaking.yaml --project <slug> --api-url http://localhost:3000
+curl -N -H "authorization: Bearer drift_…" http://localhost:3000/api/v1/runs/<run-id>/events
 ```
 
 ## Layout
 
-| Path                              | Role                                                                                                                                                                                                                       |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `openapi/drift-api.yaml`          | The API's contract (23 operations). DRIFT's CI runs DRIFT on it, and the integration tests check every response against it.                                                                                                |
-| `src/server/auth/require-auth.ts` | **The one way in.** `authenticate` (API key or session, checked against the database), `authorize` (organisation and permission), `requireAuth` (both).                                                                    |
-| `src/server/auth/`                | `permissions.ts` (roles → permissions), `api-key.ts`, `password.ts` (bcrypt, cost 12), `session.ts` (reads next-auth's cookie), `options.ts` (next-auth configuration).                                                    |
-| `src/server/services/`            | Organisations, projects, keys, members and invitations, suppressions, audit, runs, users. Each takes an `Actor`, filters by `actor.orgId`, and writes its audit entry in the same transaction.                             |
-| `src/server/api/`                 | `handlers.ts`: every operation as `(request, params) → Response`. `routes.ts`: the route table and dispatcher.                                                                                                             |
-| `src/server/storage.ts`           | S3-compatible storage through the AWS SDK: pre-signed PUT and GET URLs, and `inspect` (the server reads an object and hashes it).                                                                                          |
-| `src/server/context.ts`           | The only file that reads the environment: the live database client, object store, session reader and API.                                                                                                                  |
-| `src/app/api/v1/[...path]`        | One catch-all route that dispatches through the route table. `src/app/api/auth/[...nextauth]` is next-auth.                                                                                                                |
-| `src/proxy.ts`                    | Before every page: redirect to `/login` without a session cookie (for `/dashboard`, `/settings`), and set the Content-Security-Policy with a fresh nonce.                                                                  |
-| `src/app/`                        | Pages: `/login`, `/register`, `/dashboard` (organisations), `/dashboard/[org]` (projects), `/dashboard/[org]/[project]` (run list), `/settings/[org]/keys`, `/members`, `/audit`. `actions.ts`: the forms' server actions. |
+| Path                              | Role                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openapi/drift-api.yaml`          | The API's contract (27 operations, version 0.3.0). DRIFT's CI runs DRIFT on it, and the integration tests check every response against it.                                                                                                                                                                                  |
+| `openapi/drift-policy.yaml`       | The dogfood policy: suppresses, with a reason and an expiry, the response changes of 0.3.0 that DRIFT itself labels BREAKING (see "Breaking changes in 0.3.0").                                                                                                                                                             |
+| `src/server/auth/require-auth.ts` | **The one way in.** `authenticate` (API key or session, checked against the database), `authorize` (organisation and permission), `requireAuth` (both).                                                                                                                                                                     |
+| `src/server/auth/`                | `permissions.ts` (roles → permissions), `api-key.ts`, `password.ts` (bcrypt, cost 12), `session.ts` (reads next-auth's cookie), `options.ts` (next-auth configuration).                                                                                                                                                     |
+| `src/server/services/`            | Organisations, projects, keys, members and invitations, suppressions, audit, runs, server runs and re-runs (`server-runs.ts`), users. Each takes an `Actor`, filters by `actor.orgId`, and writes its audit entry in the same transaction.                                                                                  |
+| `src/server/api/`                 | `handlers.ts`: every operation as `(request, params) → Response`. `routes.ts`: the route table and dispatcher, which gives each request an id (`x-request-id`), a span and a log line. `events.ts`: the SSE stream.                                                                                                         |
+| `src/server/rate-limit.ts`        | Rate limits in Redis (rate-limiter-flexible): API calls per key or user, sign-in per email, registration per address.                                                                                                                                                                                                       |
+| `src/server/context.ts`           | The only file that reads the environment: the live database client, Redis, queue, event hub, object store (`@drift/platform`), session reader, rate limits and API.                                                                                                                                                         |
+| `src/instrumentation.ts`          | Starts OpenTelemetry tracing when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.                                                                                                                                                                                                                                                     |
+| `src/app/api/v1/[...path]`        | One catch-all route that dispatches through the route table. `src/app/api/auth/[...nextauth]` is next-auth.                                                                                                                                                                                                                 |
+| `src/proxy.ts`                    | Before every page: redirect to `/login` without a session cookie (for `/dashboard`, `/settings`), and set the Content-Security-Policy with a fresh nonce.                                                                                                                                                                   |
+| `src/app/`                        | Pages: `/login`, `/register`, `/dashboard` (organisations), `/dashboard/[org]` (projects), `/dashboard/[org]/[project]` (run list), `/dashboard/[org]/[project]/runs/[runId]` (run page: status, gate, the six stages live, re-run), `/settings/[org]/keys`, `/members`, `/audit`. `actions.ts`: the forms' server actions. |
 
 ## Authentication and authorisation
 
@@ -50,21 +55,30 @@ DRIFT_API_KEY=drift_… pnpm --filter @drift/cli exec drift compare --base ../..
 
 The same key with the same body returns the same run (200); with a different body, 409. An artifact the organisation already stored is reused without an upload. Artifacts are read back through signed GET URLs that last 5 minutes.
 
+## Server-side runs, re-runs and live events (M6)
+
+- **`POST /api/v1/projects/{project}/runs`** (`Idempotency-Key`, `runs:write`): two contracts and optional traffic, described by name, SHA-256 and size; optional policy, ruleset (`rules`), fail-on and seed (body up to 512 KiB). Files the organisation already stored are not uploaded again; when nothing is missing, the run is queued at once. Otherwise the client PUTs the files and calls `complete`, which verifies them and queues the run.
+- **`POST /api/v1/runs/{id}/rerun`**: a **child run** (`parentRunId`) with the same contracts and a new corpus (`traffic`, or `null` for none), policy, rules, fail-on or seed. Anything left out is inherited. Its unchanged stages are cache hits in the worker. The run page's Re-run button calls the same service (fail-on and "without traffic").
+- **`GET /api/v1/runs/{id}/stages`**: each stage's latest attempt, in pipeline order.
+- **`GET /api/v1/runs/{id}/events`** (`text/event-stream`): subscribe to live events, replay the run's stream (everything, or after `Last-Event-ID`), release what arrived meanwhile without duplicates, then stream live; a comment every 15 s keeps proxies from closing it; it ends after the final event. A run whose history has expired gets its final event from the database. Queuing publishes `run.queued` with the request's trace context in the job.
+- **Rate limits** (SECURITY T16): 600 API calls a minute per key or user, 10 sign-ins per 5 minutes per email, 20 registrations an hour per address (the last `X-Forwarded-For` entry). Over the limit: 429 with `Retry-After`. When Redis is down the limits let requests through and `/readyz` reports it.
+- **Health:** `/healthz` is liveness only; `/readyz` checks the database, Redis (2 s) and storage and answers 503 when one is down.
+
 ## Tests
 
-| Run                                             | What                                                                                                                                                                                                                                    |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm --filter @drift/web test`                 | Unit: env validation, HTTP helpers, permissions, keys, passwords, the session reader, CSP, and the route table against the contract (same operations, both ways).                                                                       |
-| `pnpm --filter @drift/web run test:integration` | The API against **real Postgres and S3** in containers (Testcontainers; needs Docker). Requests go through the same dispatcher as production, and **every exchange is checked against `drift-api.yaml`** with core's `ContractChecker`. |
-| `pnpm --filter @drift/web run test:e2e`         | Playwright against the built app: register → organisation → project → key shown once → the real `drift compare --upload` → run in the list; revoke → 401; sign out everywhere; CSP; axe accessibility checks.                           |
+| Run                                             | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm --filter @drift/web test`                 | Unit: env validation, HTTP helpers, permissions, keys, passwords, the session reader, CSP, and the route table against the contract (same operations, both ways).                                                                                                                                                                                                                                                                                                                                |
+| `pnpm --filter @drift/web run test:integration` | The API against **real Postgres, Redis and S3** in containers (Testcontainers; needs Docker). Requests go through the same dispatcher as production, and **every exchange is checked against `drift-api.yaml`** with core's `ContractChecker`. M6 adds server runs (uploads, queuing, idempotency, validation), re-runs (corpus, rules, 413), stages, the SSE stream (replay, live, `Last-Event-ID`, expired history, heartbeat, access) and rate limits (429 with `Retry-After`, failing open). |
+| `pnpm --filter @drift/web run test:e2e`         | Playwright against the built app **and the built worker**: register → organisation → project → key shown once → the real `drift compare --upload` → run in the list; the real `drift run` (the worker runs it, the CLI follows it live) → run page → Re-run in the browser with all six stages cached; revoke → 401; sign out everywhere; CSP; axe accessibility checks.                                                                                                                         |
 
 ## Known limitations
 
 - **No email is sent.** An invitation's token is shown once to the inviter, who passes it on. There is no password reset yet.
-- **Sign-in and registration are not rate limited** until M6 (Redis-backed, SECURITY T16).
 - **GitHub sign-in** is implemented and its account rule is tested, but it is not exercised end to end: that needs a GitHub OAuth app.
-- The run list is minimal (no filters, no run page). Suppressions are stored and audited; applying them to uploaded runs server-side comes with server-side runs in M6.
-- `readyz` checks the database and object storage; Redis joins in M6.
+- The run list and run page are minimal (no filters, no canvas, no inspector): M7. The page re-runs with the same contracts only; a new corpus is uploaded with `drift rerun <id> --traffic <file>`.
+- Stored suppressions apply to **server-side** runs (the worker adds them to the policy). An uploaded report was classified on the client, so they do not change it.
+- **Breaking changes in 0.3.0.** Making `gate`, `summary` and `semver` optional on a run (a queued server-side run has none yet) and adding statuses and artifact kinds are BREAKING by DRIFT's own response rules. `openapi/drift-policy.yaml` suppresses exactly those, with a reason and an expiry (2026-12-31); the CI dogfood step uses it. The alternative is a separate resource for server-side runs.
 
 ## Questions an examiner might ask
 
@@ -73,4 +87,6 @@ The same key with the same body returns the same run (200); with a different bod
 - **Can a client claim an upload it never made?** No. `complete` reads the object from storage and compares its size and SHA-256 with what was announced; a test uploads different bytes and gets 409.
 - **How do you know the API matches its contract?** A unit test compares the route table with the contract's operations in both directions, and the integration harness validates every request and response with the engine's own validators; an undocumented status or field fails the test.
 - **What stops another site from submitting forms as a signed-in user?** The API only accepts `application/json` bodies (a cross-site form cannot send that without a CORS preflight, and no CORS is allowed), the session cookie is `SameSite=Lax`, and Next.js checks the origin of server actions.
+- **How does a browser follow a run without polling?** `EventSource` on `/api/v1/runs/{id}/events` with the session cookie. If the connection drops, the browser reconnects with `Last-Event-ID` and gets only what it missed: the endpoint subscribes before it replays, so nothing published in between is lost or sent twice (tested).
+- **What if Redis is down?** `/readyz` answers 503 within about half a second (the web app's Redis client fails fast instead of waiting); rate limits let requests through. Verified by stopping the Redis container; the same worker process carried on with the next run once Redis was back.
 - **Why validate env in `next.config.ts`?** A missing variable should stop the process at startup with a clear message that names the variable and never its value.

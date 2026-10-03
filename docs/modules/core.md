@@ -5,7 +5,7 @@
 - Stage 1 Ingest, 3 Corpus, 4 Verify: P3 (Tanishq Chavan).
 - Stage 2 Diff, 5 Classify, 6 Report & Gate: P4 (Pruthvi Gangapure).
 
-**Status:** M4 — all six stages are implemented. `compare` runs them in order, reuses cached stage outputs, and produces a `drift-report/v1` report that `renderReport` turns into console, Markdown, HTML, SARIF or JUnit.
+**Status:** M6 — all six stages are implemented. `compare` runs them in order, reuses cached stage outputs, reports each stage's start and finish (`onStage`, for live runs), and produces a `drift-report/v1` report that `renderReport` turns into console, Markdown, HTML, SARIF or JUnit. Ingest results can be snapshotted and revived, so the platform caches them by file hash.
 
 ## Purpose
 
@@ -13,21 +13,22 @@ The pure engine that compares two OpenAPI contracts and, from M2, backs each lab
 
 ## Public API
 
-| Export                                                                         | What it does                                                                                                                             |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `ingestSpec(path, { reader, refRoot?, limits?, displayPath? })`                | Stage 1. Returns `{ spec?, diagnostics }`; `spec` only when there are no errors. Never throws for bad input.                             |
-| `diffSpecs(baseIR, headIR)`                                                    | Stage 2. Returns `{ changes, impact, anchors }`: sorted `Change` records, operation → change ids, and where each change sits (internal). |
-| `compare({ base, head, traffic?, ruleset?, policy?, failOn?, asOf, seed? })`   | Runs Diff → Corpus → Verify → Classify and returns a schema-validated `drift-report/v1` report.                                          |
-| `readJsonl(lines)`, `readHar(document)`                                        | Traffic readers: an async stream of `drift-traffic/v1` lines, or a HAR 1.2 document.                                                     |
-| `buildCorpus`, `verify`, `classify`, `assess`                                  | Stages 3–5, exported for tests, the worker and the M6 re-runs.                                                                           |
-| `redactSample`, `detect`, `DEFAULT_REDACTION`                                  | Redaction and the secret/PII detectors.                                                                                                  |
-| `stageKey(stage, inputs)`, `specSummary(spec)`                                 | Content-addressed stage keys (ADR-0006) and report summaries.                                                                            |
-| `parseDataText`, `parseRuleset`, `Policy`, `DEFAULT_RULESET`, `DEFAULT_POLICY` | Safe YAML/JSON parsing and the rules/policy loaders, re-exported so callers depend on core only.                                         |
-| `SpecReader`, `IngestLimits`, `DEFAULT_LIMITS`                                 | The file adapter the caller provides, and the resource limits.                                                                           |
-| `SpecIR`, `OperationIR`, `NormalizedSchema`, …                                 | IR types.                                                                                                                                |
-| `canonicalJson`, `contentHash`, `sha256Hex`                                    | RFC 8785 canonical JSON and hashing (ADR-0006).                                                                                          |
-| `changeId`                                                                     | The stable change id function.                                                                                                           |
-| `ENGINE_NAME`, `ENGINE_VERSION`                                                | Engine identity, kept equal to package.json by a test.                                                                                   |
+| Export                                                                                         | What it does                                                                                                                                                                                                                          |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ingestSpec(path, { reader, refRoot?, limits?, displayPath? })`                                | Stage 1. Returns `{ spec?, diagnostics }`; `spec` only when there are no errors. Never throws for bad input.                                                                                                                          |
+| `diffSpecs(baseIR, headIR)`                                                                    | Stage 2. Returns `{ changes, impact, anchors }`: sorted `Change` records, operation → change ids, and where each change sits (internal).                                                                                              |
+| `compare({ base, head, traffic?, ruleset?, policy?, failOn?, asOf, seed?, cache?, onStage? })` | Runs Diff → Corpus → Verify → Classify and returns a schema-validated `drift-report/v1` report. `onStage` is told when each stage starts and finishes (`StageEvent`: stage, key, cached); it is awaited and cannot change the result. |
+| `snapshotSpec(spec)`, `reviveSpec(snapshot, sources)`                                          | An ingested contract as JSON (`drift-spec-snapshot/v1`), and back. Revive checks the snapshot's shape and that its IR still hashes to its spec hash; anything else is a cache miss.                                                   |
+| `readJsonl(lines)`, `readHar(document)`                                                        | Traffic readers: an async stream of `drift-traffic/v1` lines, or a HAR 1.2 document.                                                                                                                                                  |
+| `buildCorpus`, `verify`, `classify`, `assess`                                                  | Stages 3–5, exported for tests, the worker and the M6 re-runs.                                                                                                                                                                        |
+| `redactSample`, `detect`, `DEFAULT_REDACTION`                                                  | Redaction and the secret/PII detectors.                                                                                                                                                                                               |
+| `stageKey(stage, inputs)`, `specSummary(spec)`                                                 | Content-addressed stage keys (ADR-0006) and report summaries.                                                                                                                                                                         |
+| `parseDataText`, `parseRuleset`, `Policy`, `DEFAULT_RULESET`, `DEFAULT_POLICY`                 | Safe YAML/JSON parsing and the rules/policy loaders, re-exported so callers depend on core only.                                                                                                                                      |
+| `SpecReader`, `IngestLimits`, `DEFAULT_LIMITS`                                                 | The file adapter the caller provides, and the resource limits.                                                                                                                                                                        |
+| `SpecIR`, `OperationIR`, `NormalizedSchema`, …                                                 | IR types.                                                                                                                                                                                                                             |
+| `canonicalJson`, `contentHash`, `sha256Hex`                                                    | RFC 8785 canonical JSON and hashing (ADR-0006).                                                                                                                                                                                       |
+| `changeId`                                                                                     | The stable change id function.                                                                                                                                                                                                        |
+| `ENGINE_NAME`, `ENGINE_VERSION`                                                                | Engine identity, kept equal to package.json by a test.                                                                                                                                                                                |
 
 ## Data flow
 
@@ -187,8 +188,8 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 - Before running Diff, Corpus, Verify or Classify, it looks the stage up by its key. A hit is reused and marked `cached: true` in `stages`.
 - Traffic is an `open()` function, called only on a Corpus miss, so a cached re-run does not read the traffic file at all.
 - A damaged entry is a miss, and is recomputed and overwritten.
-- The CLI's adapter is `.drift/cache/` (see cli.md); object storage follows in M5.
-- Ingest is not cached: its key (the hash of the parsed documents) is only known after parsing, which is most of its cost.
+- The CLI's adapter is `.drift/cache/` (see cli.md). The worker's adapter is object storage, per organisation (`orgs/<org>/stages/<key>.json`, see worker.md).
+- In the CLI, Ingest is not cached: its key (the hash of the parsed documents) is only known after parsing, which is most of its cost. The worker knows each uploaded file's SHA-256 before parsing, so it caches Ingest under `stageKey("ingest.file", { sha256, name })` as a snapshot, and marks the stage `cached` in the report (`IngestedSpec.cached`).
 
 ## Tests
 
@@ -210,7 +211,8 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
   - SARIF, with and without traffic, is valid against the official schema, and so is the CLI's golden `examples/petstore/expected.sarif`.
   - The HTML has no scripts or external URLs, and its CSP hash matches its stylesheet.
   - A report whose every string is hostile (script tags, Markdown links, backtick fences, control characters) is neutralised in every format.
-- **Cache:** a second run reuses Diff, Corpus, Verify and Classify without opening the traffic; a new policy re-runs only Classify; damaged entries are recomputed.
+- **Cache:** a second run reuses Diff, Corpus, Verify and Classify without opening the traffic; a new policy re-runs only Classify; damaged entries are recomputed. `onStage` sees every stage start and finish in order, with `cached` matching the report.
+- **Snapshots (`ingest/snapshot.test.ts`):** a revived contract gives the same report as a freshly ingested one, including source positions; damaged, foreign-format or tampered snapshots are refused.
 - **Pipeline (`compare.test.ts`):** the M2 acceptance runs on `examples/petstore` (BREAKING with a redacted recorded payload; synthetic evidence without traffic; an additive change passes), the redaction canary (no planted secret reaches the report), determinism, stage keys and HAR input.
 
 ## Known limitations
@@ -232,6 +234,7 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 
 - **A pull request controls the spec. Could it inject script into the HTML report or the PR comment?** Every value is escaped for its format. The HTML page has no scripts, and its CSP (`default-src 'none'` plus one hashed stylesheet) would block injected ones anyway. In Markdown, links, HTML and emphasis are escaped, and payloads sit in fences that are always longer than any backtick run inside them. A test builds a report whose every string is hostile and checks each format.
 - **Why is SAFE left out of SARIF?** Code scanning is a list of problems to fix. SAFE changes stay in every other format.
+- **Why does the worker cache Ingest but the CLI does not?** The worker's inputs are single uploaded files whose SHA-256 is known up front, so it can look up a snapshot before parsing. A revived snapshot must still hash to its own spec hash, so a tampered entry is recomputed, not trusted.
 - **Can the cache return a stale result?** Only if the engine code changes without its version changing. Keys hash every input, the engine version, and the rules and policy hashes. The CLI docs tell developers to use `--no-cache` while editing the engine.
 
 - **How do you know which change a failing sample proves?** The diff records the pair of schema nodes each change was found at. Ajv reports the node that rejected the value, and attribution checks that node, the part of the message and the keyword (for a removed enum value, also the value itself). Anything that fails without a matching change is reported as unattributed, so the mechanism cannot silently blame the wrong change.

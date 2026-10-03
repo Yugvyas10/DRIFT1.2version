@@ -41,15 +41,15 @@ Setup (once): Node 24+, `npm install -g pnpm@12.6.0`, Docker. Then:
 
 - Install: `pnpm install`
 - Env files (web and worker refuse to start without them): `cp apps/web/.env.example apps/web/.env.local && cp apps/worker/.env.example apps/worker/.env`
-- Local services: `docker compose -f infra/docker-compose.yml up -d --wait` (stop: `... down`, add `-v` to wipe data)
+- Local services: `docker compose -f infra/docker-compose.yml up -d --wait` (stop: `... down`, add `-v` to wipe data; add `--profile tracing` for Jaeger at http://localhost:16686, with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`)
 - Full check: `pnpm turbo run typecheck lint test build`
 - Format: `pnpm format` (CI runs `pnpm format:check`)
 - Database: `DATABASE_URL=postgresql://drift:drift-local-only@localhost:5432/drift pnpm --filter @drift/db run migrate:deploy` (apply migrations) · after changing `schema.prisma`: `... run migrate:dev`
 - Web dev server: `pnpm --filter @drift/web dev` → http://localhost:3000
-- Web integration tests (real Postgres and S3 in containers; needs Docker): `pnpm --filter @drift/web run test:integration`
-- Web end-to-end tests: `pnpm turbo run build --filter=@drift/web --filter=@drift/cli && pnpm --filter @drift/web run test:e2e` (first time: `pnpm --filter @drift/web exec playwright install chromium`)
-- Worker: `pnpm --filter @drift/worker dev`
-- CLI (paths relative to `packages/cli`): `pnpm --filter @drift/cli exec drift validate <spec>` · `... drift diff --base <old> --head <new>` · `... drift compare --base <old|ref:path> --head <new> [--traffic <file>] [--policy <file>] [--format console,json,html,md,sarif,junit --out <dir>] [--no-cache] [--upload --project <slug> --api-url <url>, with DRIFT_API_KEY]` · `... drift explain <id> --report <json>` · `... drift rules list` · `... drift corpus inspect <traffic>`. Use `--no-cache` while changing engine code.
+- Integration tests (real Postgres, Redis and S3 in containers; needs Docker): `pnpm --filter @drift/web run test:integration` · `... @drift/worker run test:integration` · `... @drift/platform run test:integration` (build dependencies first: `pnpm turbo run build --filter=@drift/worker^...`)
+- Web end-to-end tests: `pnpm turbo run build --filter=@drift/web --filter=@drift/cli --filter=@drift/worker && pnpm --filter @drift/web run test:e2e` (first time: `pnpm --filter @drift/web exec playwright install chromium`)
+- Worker: `pnpm --filter @drift/worker dev` (built: `... start`; `... run check` probes the database, Redis and storage and exits)
+- CLI (paths relative to `packages/cli`): `pnpm --filter @drift/cli exec drift validate <spec>` · `... drift diff --base <old> --head <new>` · `... drift compare --base <old|ref:path> --head <new> [--traffic <file>] [--policy <file>] [--format console,json,html,md,sarif,junit --out <dir>] [--no-cache] [--upload --project <slug> --api-url <url>, with DRIFT_API_KEY]` · `... drift explain <id> --report <json>` · `... drift rules list` · `... drift corpus inspect <traffic>` · on the platform (worker running, DRIFT_API_KEY): `... drift run --base <old> --head <new> --project <slug> --api-url <url> [--traffic <file>]` · `... drift rerun <run-id> [--traffic <file> | --no-traffic] [--rules <file>]` · events: `curl -N -H "authorization: Bearer $DRIFT_API_KEY" <url>/api/v1/runs/<id>/events`. Use `--no-cache` while changing engine code.
 - Golden files: `UPDATE_GOLDEN=1 pnpm --filter @drift/core test` (and `--filter @drift/cli`, `@drift/report-schema`, `@drift/rules` for the published JSON Schemas), then review the diff.
 - Real-world fixtures: `pnpm --filter @drift/bench run fixtures:fetch && pnpm --filter @drift/bench run fixtures:check`
 - Secret scan: `sh scripts/secret-scan.sh` (full history; the pre-commit hook scans staged changes)
