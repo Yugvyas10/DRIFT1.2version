@@ -157,4 +157,28 @@ describe("run queue", () => {
     expect(redisTarget("redis://user:hunter2@cache.internal:6380/0")).toBe("cache.internal:6380");
     expect(redisTarget("rediss://cache.internal")).toBe("cache.internal:6379");
   });
+
+  it("fails a command fast when Redis is down, for the web app; the worker's client waits for it instead", async () => {
+    const web = createRedis("redis://127.0.0.1:9", { failFast: true });
+    web.on("error", () => undefined);
+    await expect(web.ping()).rejects.toThrow();
+    web.disconnect();
+
+    const worker = createRedis("redis://127.0.0.1:9");
+    worker.on("error", () => undefined);
+    const pending = worker.ping().then(
+      () => "answered",
+      () => "failed"
+    );
+    const outcome = await Promise.race([
+      pending,
+      new Promise((resolve) =>
+        setTimeout(() => {
+          resolve("waiting");
+        }, 500)
+      ),
+    ]);
+    expect(outcome).toBe("waiting");
+    worker.disconnect();
+  });
 });

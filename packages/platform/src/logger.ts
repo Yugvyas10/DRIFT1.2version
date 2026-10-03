@@ -50,5 +50,16 @@ export function describeError(error: unknown): { name: string; message: string; 
     const code = (error as NodeJS.ErrnoException).code;
     return { name: error.name, message: error.message, ...(typeof code === "string" ? { code } : {}) };
   }
+  // Some libraries reject or emit plain objects (an ioredis or BullMQ error during an outage). Only their
+  // `name`, `message` and `code` are kept, never the rest: it could hold a command and its arguments.
+  if (typeof error === "object" && error !== null) {
+    const fields = error as { name?: unknown; message?: unknown; code?: unknown };
+    const code = typeof fields.code === "string" ? fields.code : undefined;
+    return {
+      name: typeof fields.name === "string" ? fields.name : "NonError",
+      message: typeof fields.message === "string" ? fields.message : (code ?? "an object that is not an Error"),
+      ...(code === undefined ? {} : { code }),
+    };
+  }
   return { name: "NonError", message: String(error) };
 }

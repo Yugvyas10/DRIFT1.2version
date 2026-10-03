@@ -70,5 +70,21 @@ describe("createLogger", () => {
     });
     expect(JSON.stringify(lines[0])).not.toContain("hunter2");
     expect(describeError("plain")).toEqual({ name: "NonError", message: "plain" });
+    expect(
+      describeError({ message: "Connection is closed.", code: "ECONNREFUSED", args: ["AUTH", "hunter2"] })
+    ).toEqual({
+      name: "NonError",
+      message: "Connection is closed.",
+      code: "ECONNREFUSED",
+    });
+    expect(describeError({ name: "ReplyError", code: "NOAUTH" })).toEqual({
+      name: "ReplyError",
+      message: "NOAUTH",
+      code: "NOAUTH",
+    });
+    expect(describeError({ command: { args: ["hunter2"] } })).toEqual({
+      name: "NonError",
+      message: "an object that is not an Error",
+    });
   });
 });
