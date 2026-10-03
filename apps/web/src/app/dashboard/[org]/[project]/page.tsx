@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Shell } from "@/components/shell";
 import { ui } from "@/components/ui";
@@ -9,7 +10,7 @@ import { listRuns, type RunView } from "@/server/services/runs";
 
 export const metadata: Metadata = { title: "Runs" };
 
-/** The minimal run list of M5: one row per uploaded run, newest first. The run canvas arrives in M7. */
+/** The minimal run list (M5, with links to the live run page of M6): newest first. The run canvas arrives in M7. */
 export default async function ProjectPage({ params }: { params: Promise<{ org: string; project: string }> }) {
   const { org, project } = await params;
   const user = await pageUser();
@@ -28,7 +29,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ org: s
         <div className={ui.panel}>
           <p>No runs yet. Upload one from CI or your machine:</p>
           <pre className="mt-3 overflow-x-auto font-mono text-xs text-muted-foreground">
-            {`DRIFT_API_KEY=drift_… drift compare --base <old> --head <new> --upload --project ${project}`}
+            {`DRIFT_API_KEY=drift_… drift compare --base <old> --head <new> --upload --project ${project}\n# or run it on the platform:\nDRIFT_API_KEY=drift_… drift run --base <old> --head <new> --project ${project}`}
           </pre>
         </div>
       ) : (
@@ -64,20 +65,26 @@ export default async function ProjectPage({ params }: { params: Promise<{ org: s
               {runs.map((run) => (
                 <tr key={run.id} data-testid="run" className="border-b border-border/60">
                   <td className={ui.td}>
-                    <time dateTime={run.createdAt}>{run.createdAt.replace("T", " ").slice(0, 16)} UTC</time>
+                    <Link className="hover:text-primary" href={`/dashboard/${org}/${project}/runs/${run.id}`}>
+                      <time dateTime={run.createdAt}>{run.createdAt.replace("T", " ").slice(0, 16)} UTC</time>
+                    </Link>
                   </td>
                   <td className={`font-mono ${ui.td}`}>
                     {run.commit.slice(0, 7)}
                     {run.pullRequest !== undefined && ` · PR ${String(run.pullRequest)}`}
                   </td>
                   <td className={ui.td}>
-                    <span className={run.gate.passed ? "text-safe" : "text-breaking"}>
-                      {run.gate.passed ? "passed" : "failed"}
-                    </span>
+                    {run.gate === undefined ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <span className={run.gate.passed ? "text-safe" : "text-breaking"}>
+                        {run.gate.passed ? "passed" : "failed"}
+                      </span>
+                    )}
                   </td>
-                  <td className={`text-breaking ${ui.td}`}>{run.summary.breaking}</td>
-                  <td className={`text-risky ${ui.td}`}>{run.summary.risky}</td>
-                  <td className={`text-safe ${ui.td}`}>{run.summary.safe}</td>
+                  <td className={`text-breaking ${ui.td}`}>{run.summary?.breaking ?? "—"}</td>
+                  <td className={`text-risky ${ui.td}`}>{run.summary?.risky ?? "—"}</td>
+                  <td className={`text-safe ${ui.td}`}>{run.summary?.safe ?? "—"}</td>
                   <td className={ui.td}>{run.status}</td>
                 </tr>
               ))}
