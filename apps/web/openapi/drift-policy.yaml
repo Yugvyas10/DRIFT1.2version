@@ -1,0 +1,25 @@
+# The policy DRIFT's own CI applies to DRIFT's own API contract (the dogfood job, .github/workflows/ci.yml).
+#
+# API 0.3.0 (M6, server-side runs) changes what run-returning operations answer: a run has the new states
+# `queued` and `running`, a `mode`, and no gate result until it has finished. By DRIFT's rules those are breaking
+# response changes, and DRIFT reports them as such. They are accepted here, explicitly, because the API is
+# unreleased (0.x) and nothing but this repository's own CLI and web app calls it; both changed in the same
+# pull request. Each acceptance has a reason and expires, so it cannot outlive that situation.
+format: drift-policy/v1
+suppressions:
+  - ruleId: DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED
+    operation: "* /api/v1/*runs*"
+    reason: "API 0.3.0, unreleased: runs gain the states queued and running, and input artifact kinds. The only clients (the drift CLI and the web app) are updated in the same pull request."
+    expiresAt: "2026-12-31"
+  - ruleId: DRIFT-RES-SCHEMA-PROPERTY-MADE-OPTIONAL
+    operation: "* /api/v1/*runs*"
+    reason: "API 0.3.0, unreleased: a server-side run has no gate, summary or semver until it finishes. The only clients are updated in the same pull request."
+    expiresAt: "2026-12-31"
+  - ruleId: DRIFT-RES-SCHEMA-PROPERTY-ADDED-REQUIRED
+    operation: "* /api/v1/*runs*"
+    reason: "API 0.3.0, unreleased: runs gain the required field mode. The only clients are updated in the same pull request."
+    expiresAt: "2026-12-31"
+  - ruleId: DRIFT-RES-SCHEMA-PROPERTY-ADDED-OPTIONAL
+    operation: "* /api/v1/*runs*"
+    reason: "API 0.3.0, unreleased: runs gain the optional fields parentRunId and error, in a closed schema. The only clients are updated in the same pull request."
+    expiresAt: "2026-12-31"
