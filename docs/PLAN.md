@@ -457,6 +457,18 @@ Owners: P1 (screens, design system, a11y), P2 (settings, keys, members, audit sc
   - axe checks pass (no serious or critical issues) on key screens;
   - a CI grep/lint guard finds no module-level data arrays in `apps/web/app/(product)/**`.
 
+- **Status: complete, awaiting review (2026-10-03),** on branch `rebuild/m7-ui` (stacked on M6).
+  - **Acceptance:**
+    - Playwright covers login, create project, upload run (`drift compare --upload`), server run (`drift run`), the canvas, re-running a stage, the diff, a change, suppressing it, the project policy and the wizard: `e2e/upload-flow.spec.ts` and `e2e/run-canvas.spec.ts` (6 tests) against the built app and worker. The re-run uploads a traffic file in the browser and checks that Ingest and Diff are cache hits and recorded evidence appears; a second re-run from Classify picks up the saved policy (gate "fails on risky") and the suppression.
+    - axe (WCAG 2 A and AA) reports no violations on the landing, docs, about, sign-in, overview, keys, run list, run canvas, diff, change and settings pages. It found one real problem (scrollable code blocks not reachable by keyboard), fixed. At 375 px the diff and the signed-in header (a long email address) made pages scroll sideways; both fixed, and the e2e test checks the width.
+    - ESLint `no-restricted-syntax` in `apps/web/eslint.config.mjs` rejects module-level arrays (also `as const`, `satisfies`, and objects of arrays) in `src/app/(product)/**`; `src/lib/no-fake-data.test.ts` proves it reports them there and allows them elsewhere. CI runs it with `lint`.
+  - Built: the signed-in pages moved into the `(product)` route group (URLs unchanged); overview with each project's latest run; run list with filters and pages (also on the API: `status`, `gate`, `mode`, `branch`, additive); the run canvas (live over SSE, keyboard tabs) with one inspector per stage read from the `Stage` rows and the stored report; re-run from Corpus, Verify, Classify or Report & Gate with browser uploads up to 25 MiB; side-by-side diff located with core's `ingestSpec`; change detail; suppressions added and removed (audited); a project policy used by server-side runs (run policy > project policy > default, in the worker); the GitHub Action wizard; docs and about pages; DEMO organisations (`Organization.demo`, a banner, `demo:seed` running the built CLI on `examples/petstore`).
+  - Deviations:
+    - **No 3D hero.** The landing page keeps a plain hero; porting the legacy 3D scene (three.js) adds a large dependency for decoration. It can be added to the landing page later without touching the product pages.
+    - **Policies are not in the REST API.** The project policy is set from the settings page (a server action over the same service). An API operation can be added when a client needs it.
+    - **The side-by-side diff needs the contracts in storage,** so it exists for server-side runs only; uploaded runs carry only their report.
+    - **Q13 (hosting) is still open.** It was due by M6. The definition of done stays `docker compose` locally; the team still has to choose where (if anywhere) the web app and worker are deployed.
+
 ### M8 — GitHub App, full mutation benchmark vs oasdiff, perf benchmark, EVALUATION.md (size 1.3)
 
 Owners: P4 (App, bench), P3 (webhook → queue plumbing), P2 (App permissions, webhook security).

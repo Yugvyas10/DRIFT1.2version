@@ -73,21 +73,28 @@ const Options = z.object({
 });
 
 /**
- * The run's policy with the project's stored suppressions added (`POST .../suppressions`): each accepts one change
- * id until its expiry, with its reason, exactly like a suppression in the policy file. Expired ones are ignored
- * by Classify and reported.
+ * The policy a run is classified with:
+ *
+ * - the run's own policy (`--policy`, or the API's `policy`), else the project's stored policy (set on the
+ *   project's settings page), else the engine's default;
+ * - plus the project's stored suppressions (`POST .../suppressions`, or "Suppress this change"): each accepts one
+ *   change id until its expiry, with its reason, exactly like a suppression in a policy file. Expired ones are
+ *   ignored by Classify and reported.
  */
 async function effectivePolicy(
   db: Db,
   run: { orgId: string; projectId: string },
   policy: Policy | undefined
 ): Promise<Policy | undefined> {
-  const stored = await db.suppression.findMany({
-    where: { orgId: run.orgId, projectId: run.projectId },
-    orderBy: { createdAt: "asc" },
-  });
-  if (stored.length === 0) return policy;
-  const base = policy ?? DEFAULT_POLICY;
+  const [projectPolicy, stored] = await Promise.all([
+    policy
+      ? Promise.resolve(undefined)
+      : db.policy.findFirst({ where: { orgId: run.orgId, projectId: run.projectId }, orderBy: { createdAt: "desc" } }),
+    db.suppression.findMany({ where: { orgId: run.orgId, projectId: run.projectId }, orderBy: { createdAt: "asc" } }),
+  ]);
+  const chosen = policy ?? (projectPolicy ? Policy.parse(projectPolicy.document) : undefined);
+  if (stored.length === 0) return chosen;
+  const base = chosen ?? DEFAULT_POLICY;
   return {
     ...base,
     suppressions: [
