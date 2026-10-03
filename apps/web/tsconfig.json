@@ -24,6 +24,7 @@
     "vitest.integration.config.ts",
     "test",
     "e2e",
+    "scripts",
     "playwright.config.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"

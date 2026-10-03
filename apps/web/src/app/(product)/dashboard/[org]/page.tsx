@@ -9,15 +9,45 @@ import { can } from "@/server/auth/actor";
 import { db } from "@/server/context";
 import { pageActor, pageUser } from "@/server/page";
 import { listProjects } from "@/server/services/projects";
+import { latestRuns, type RunView } from "@/server/services/runs";
 
 export const metadata: Metadata = { title: "Projects" };
+
+/** A project's newest run, in one line, linking to its canvas. */
+function LatestRun({ org, project, run }: { org: string; project: string; run: RunView | undefined }) {
+  if (!run) return <p className="mt-3 text-sm text-muted-foreground">No runs yet.</p>;
+  return (
+    <p className="mt-3 text-sm" data-testid="latest-run">
+      Latest:{" "}
+      <Link className="hover:text-primary" href={`/dashboard/${org}/${project}/runs/${run.id}`}>
+        {run.gate === undefined ? (
+          run.status
+        ) : (
+          <span className={run.gate.passed ? "text-safe" : "text-breaking"}>
+            gate {run.gate.passed ? "passed" : "failed"}
+          </span>
+        )}
+      </Link>
+      {run.summary !== undefined && (
+        <span className="text-muted-foreground">
+          {" "}
+          · {run.summary.breaking} breaking, {run.summary.risky} risky, {run.summary.safe} safe
+        </span>
+      )}
+      <span className="block text-xs text-muted-foreground">
+        <time dateTime={run.createdAt}>{run.createdAt.replace("T", " ").slice(0, 16)} UTC</time> · commit{" "}
+        <span className="font-mono">{run.commit.slice(0, 7)}</span>
+      </span>
+    </p>
+  );
+}
 
 export default async function OrgPage({ params }: { params: Promise<{ org: string }> }) {
   const { org } = await params;
   const user = await pageUser();
   const actor = await pageActor(org, "projects:read");
   if (!actor) notFound();
-  const projects = await listProjects(db, actor);
+  const [projects, latest] = await Promise.all([listProjects(db, actor), latestRuns(db, actor)]);
   return (
     <Shell user={user} org={org} title="Projects">
       {projects.length === 0 ? (
@@ -33,6 +63,7 @@ export default async function OrgPage({ params }: { params: Promise<{ org: strin
                 {project.slug}
                 {project.repo !== undefined && ` · ${project.repo}`}
               </p>
+              <LatestRun org={org} project={project.slug} run={latest.get(project.slug)} />
             </li>
           ))}
         </ul>
