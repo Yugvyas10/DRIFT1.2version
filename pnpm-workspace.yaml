@@ -38,6 +38,9 @@ allowBuilds:
   cpu-features: false
   protobufjs: false
   ssh2: false
+  # A dependency of bullmq (through msgpackr). Its script builds an optional native decoder; the JavaScript
+  # one is used without it.
+  msgpackr-extract: false
 
 minimumReleaseAgeExclude:
   - "@vitest/coverage-v8@5.0.2"

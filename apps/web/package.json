@@ -18,14 +18,14 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1144.0",
-    "@aws-sdk/s3-request-presigner": "3.1144.0",
     "@drift/core": "workspace:*",
     "@drift/db": "workspace:*",
+    "@drift/platform": "workspace:*",
     "@drift/report-schema": "workspace:*",
     "bcryptjs": "3.0.3",
     "next": "16.3.6",
     "next-auth": "4.24.15",
+    "rate-limiter-flexible": "11.2.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "catalog:"
