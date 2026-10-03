@@ -1,36 +1,24 @@
-import { Redis } from "ioredis";
-import { pino } from "pino";
+import { createDb } from "@drift/db";
+import { createLogger, createRedis, createS3Store, startTracing } from "@drift/platform";
+import { createRunWorker } from "./queue-worker.ts";
 import { runWorker } from "./worker.ts";
 
-process.exitCode = await runWorker(process.env, {
-  createRedis: (redisUrl) => {
-    const client = new Redis(redisUrl, {
-      lazyConnect: true,
-      connectTimeout: 5_000,
-      maxRetriesPerRequest: 1,
-      retryStrategy: () => null,
-    });
-    // ioredis emits the real cause (e.g. ECONNREFUSED) as an "error" event and rejects connect()
-    // with a generic "Connection is closed." Keep the cause so runWorker can log it; the listener
-    // also stops ioredis printing an "unhandled error event" to stderr.
-    let lastError: unknown;
-    client.on("error", (error: unknown) => {
-      lastError = error;
-    });
-    return {
-      ping: async () => {
-        try {
-          await client.connect();
-        } catch (error) {
-          throw lastError ?? error;
-        }
-        return client.ping();
-      },
-      disconnect: () => {
-        client.disconnect();
-      },
-    };
+process.exitCode = await runWorker(process.argv.slice(2), process.env, {
+  createLogger: (level) => createLogger({ service: "drift-worker", level }),
+  connect: (env, s3) => {
+    const redis = createRedis(env.REDIS_URL);
+    // Without a listener ioredis prints every reconnect error; the probes and the queue report failures instead.
+    redis.on("error", () => undefined);
+    return { db: createDb(env.DATABASE_URL), redis, store: createS3Store(s3) };
   },
-  createLogger: (level) => pino({ level, base: { service: "drift-worker" } }),
+  startTracing: (endpoint) => startTracing({ service: "drift-worker", endpoint }),
+  startRunWorker: createRunWorker,
+  stopSignal: () =>
+    new Promise((resolve) => {
+      for (const signal of ["SIGTERM", "SIGINT"] as const)
+        process.once(signal, () => {
+          resolve(signal);
+        });
+    }),
   writeStderr: (text) => process.stderr.write(text),
 });
