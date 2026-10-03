@@ -78,7 +78,7 @@ The same key with the same body returns the same run (200); with a different bod
 - **GitHub sign-in** is implemented and its account rule is tested, but it is not exercised end to end: that needs a GitHub OAuth app.
 - The run list and run page are minimal (no filters, no canvas, no inspector): M7. The page re-runs with the same contracts only; a new corpus is uploaded with `drift rerun <id> --traffic <file>`.
 - Stored suppressions apply to **server-side** runs (the worker adds them to the policy). An uploaded report was classified on the client, so they do not change it.
-- **Breaking changes in 0.3.0.** Making `gate`, `summary` and `semver` optional on a run (a queued server-side run has none yet) and adding statuses and artifact kinds are BREAKING by DRIFT's own response rules. `openapi/drift-policy.yaml` suppresses exactly those, with a reason and an expiry (2026-12-31); the CI dogfood step uses it. The alternative is a separate resource for server-side runs.
+- **Breaking changes in 0.3.0.** Making `gate`, `summary` and `semver` optional on a run (a queued server-side run has none yet) and adding statuses and artifact kinds are BREAKING by DRIFT's own response rules. `openapi/drift-policy.yaml` suppresses exactly those, with a reason and an expiry (2026-12-31); the CI dogfood step uses it. The team chose this over a separate resource for server-side runs (2026-10-03).
 
 ## Questions an examiner might ask
 
