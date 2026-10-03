@@ -5,6 +5,7 @@ import { compareCommand, type CompareFlags } from "./commands/compare.ts";
 import { corpusInspectCommand } from "./commands/corpus.ts";
 import { explainCommand, type ExplainFlags } from "./commands/explain.ts";
 import { rulesListCommand } from "./commands/rules.ts";
+import { rerunCommand, runCommand, type RerunFlags, type RunFlags } from "./commands/run.ts";
 import { diffCommand } from "./commands/diff.ts";
 import { validateCommand } from "./commands/validate.ts";
 import { CLI_VERSION } from "./version.ts";
@@ -27,7 +28,8 @@ const refRootOption = () =>
 
 /**
  * Builds the `drift` command tree. Commands are added milestone by milestone (PLAN §6):
- * `validate` and `diff` in M1, `compare` in M2, `explain`, `rules list` and `corpus inspect` in M3.
+ * `validate` and `diff` in M1, `compare` in M2, `explain`, `rules list` and `corpus inspect` in M3, `run` and
+ * `rerun` (server-side runs on the platform) in M6.
  * Each command stores its exit code in `result`; `runCli` returns it.
  */
 export function createProgram(io: CliIo, result: { exitCode: ExitCode }, cwd: string): Command {
@@ -108,6 +110,48 @@ export function createProgram(io: CliIo, result: { exitCode: ExitCode }, cwd: st
       .addOption(formatOption())
   ).action(async (id: string, options: ExplainFlags) => {
     result.exitCode = await explainCommand(id, options, io, cwd);
+  });
+
+  const serverOptions = (command: Command) =>
+    command
+      .option("--policy <file>", "project policy: fail-on, escalations and suppressions (drift-policy/v1)")
+      .option("--rules <file>", "a complete ruleset (drift-rules/v1, YAML or JSON) instead of the default one")
+      .addOption(
+        new Option("--fail-on <level>", "fail the gate on BREAKING (default) or on RISKY too").choices([
+          "breaking",
+          "risky",
+        ])
+      )
+      .option("--seed <n>", "seed for sampling and synthetic samples (deterministic; default 0)")
+      .option("--api-url <url>", "base URL of the DRIFT platform (default: DRIFT_API_URL)")
+      .option("--no-wait", "start the run and exit without following it");
+
+  serverOptions(
+    program
+      .command("run")
+      .description("compare two specs on the DRIFT platform: upload them, follow the run live, gate on its result")
+      .option("--base <spec>", "the old contract: a file, or <git-ref>:<path> (a single file)")
+      .option("--head <spec>", "the new contract (a file or <git-ref>:<path>)")
+      .option("--traffic <file>", "recorded traffic: drift-traffic/v1 JSONL, or a .har file")
+      .option("--project <slug>", "the platform project")
+      .option("--commit <sha>", "the commit this run is for (default: GITHUB_SHA, or git rev-parse HEAD)")
+      .option("--branch <name>", "the branch this run is for (default: from the CI environment)")
+      .option("--pr <number>", "the pull request this run is for")
+  ).action(async (options: RunFlags) => {
+    result.exitCode = await runCommand(options, io, cwd);
+  });
+
+  serverOptions(
+    program
+      .command("rerun")
+      .description(
+        "run a platform run again with new traffic, policy, rules, fail-on or seed (a child run; cached stages are reused)"
+      )
+      .argument("<run-id>", "the run to re-run")
+      .option("--traffic <file>", "new recorded traffic (default: the run's own)")
+      .option("--no-traffic", "re-run without traffic")
+  ).action(async (runId: string, options: RerunFlags) => {
+    result.exitCode = await rerunCommand(runId, options, io, cwd);
   });
 
   const rules = program.command("rules").description("inspect classification rules");

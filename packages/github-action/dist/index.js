@@ -4961,8 +4961,8 @@ var require_file = __commonJS({
     var { kState } = require_symbols2();
     var { webidl } = require_webidl();
     var FileLike = class _FileLike {
-      constructor(blobLike, fileName, options = {}) {
-        const n = fileName;
+      constructor(blobLike, fileName2, options = {}) {
+        const n = fileName2;
         const t = options.type;
         const d = options.lastModified ?? Date.now();
         this[kState] = {
@@ -44280,7 +44280,8 @@ async function ingestSpec(entryPath, options) {
     ir: built.ir,
     specHash: contentHash(built.ir),
     sourceHash: contentHash(Object.fromEntries([...loaded.set.documents.values()].map((document) => [document.relative, document.value]))),
-    locate: locator([...loaded.set.documents.values()])
+    locate: locator([...loaded.set.documents.values()]),
+    documents: [...loaded.set.documents.values()].map(({ relative: relative3, display }) => ({ relative: relative3, display }))
   });
 }
 function locator(documents) {
@@ -67965,24 +67966,38 @@ async function compare2(input2) {
   const verifyOptions = { ...DEFAULT_VERIFY_OPTIONS, seed };
   const diagnostics = [];
   const stages = [
-    { stage: "ingest.base", hash: stageKey("ingest.base", { source: input2.base.sourceHash }), cached: false },
-    { stage: "ingest.head", hash: stageKey("ingest.head", { source: input2.head.sourceHash }), cached: false }
+    {
+      stage: "ingest.base",
+      hash: stageKey("ingest.base", { source: input2.base.sourceHash }),
+      cached: input2.base.cached === true
+    },
+    {
+      stage: "ingest.head",
+      hash: stageKey("ingest.head", { source: input2.head.sourceHash }),
+      cached: input2.head.cached === true
+    }
   ];
   const stage = async (name, inputs, run3) => {
     const hash2 = stageKey(name, inputs);
+    await input2.onStage?.({ stage: name, status: "started", hash: hash2 });
+    const finish = async (value2, cached2) => {
+      stages.push({ stage: name, hash: hash2, cached: cached2 });
+      await input2.onStage?.({ stage: name, status: "finished", hash: hash2, cached: cached2 });
+      return { hash: hash2, value: value2 };
+    };
     const hit = input2.cache ? await input2.cache.get(hash2) : void 0;
     if (hit !== void 0) {
+      let cached2;
       try {
-        const value2 = JSON.parse(hit);
-        stages.push({ stage: name, hash: hash2, cached: true });
-        return { hash: hash2, value: value2 };
+        cached2 = { value: JSON.parse(hit) };
       } catch {
       }
+      if (cached2)
+        return finish(cached2.value, true);
     }
     const value = await run3();
     await input2.cache?.put(hash2, JSON.stringify(value));
-    stages.push({ stage: name, hash: hash2, cached: false });
-    return { hash: hash2, value };
+    return finish(value, false);
   };
   const diff = await stage("diff", { base: input2.base.specHash, head: input2.head.specHash }, () => diffSpecs(input2.base.ir, input2.head.ir));
   const affected = new Set(Object.keys(diff.value.impact));
@@ -72366,6 +72381,10 @@ function useColor() {
 
 // ../../node_modules/.pnpm/commander@15.0.0/node_modules/commander/index.js
 var program = new Command2();
+
+// ../cli/dist/commands/run.js
+var MAX_SPEC_BYTES = 20 * 1024 * 1024;
+var MAX_TRAFFIC_BYTES = 256 * 1024 * 1024;
 
 // src/github.ts
 function createGitHubApi(token, repo, fetch2) {
