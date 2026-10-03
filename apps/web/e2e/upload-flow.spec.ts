@@ -1,29 +1,11 @@
-import { execFile } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { E2E_URL } from "../playwright.config";
+import { drift, noAccessibilityViolations } from "./helpers";
 
-const repo = fileURLToPath(new URL("../../../", import.meta.url));
 const unique = Date.now().toString(36);
 const account = { email: `e2e-${unique}@example.com`, password: `e2e-only-${unique}-password` };
 const org = `e2e-org-${unique}`;
 const project = "petstore";
-
-/** Runs the real, built `drift` binary. */
-async function drift(args: string[], env: Record<string, string>) {
-  try {
-    const { stdout, stderr } = await promisify(execFile)("node", ["packages/cli/dist/bin.js", ...args], {
-      cwd: repo,
-      env: { ...process.env, ...env },
-    });
-    return { code: 0, stdout, stderr };
-  } catch (error) {
-    const failed = error as { code?: number; stdout?: string; stderr?: string };
-    return { code: failed.code ?? -1, stdout: failed.stdout ?? "", stderr: failed.stderr ?? "" };
-  }
-}
 
 const compare = [
   "compare",
@@ -36,11 +18,6 @@ const compare = [
   "--no-cache",
 ];
 const upload = [...compare, "--upload", "--project", project, "--api-url", E2E_URL, "--commit", "e".repeat(40)];
-
-async function noAccessibilityViolations(page: Page) {
-  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
-  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
-}
 
 test.describe.configure({ mode: "serial" });
 
@@ -203,16 +180,17 @@ test("drift run → the worker runs it live → the run page → re-run reuses t
   await expect(page).toHaveURL(new RegExp(`/runs/${runId}$`));
   await expect(page.getByTestId("run-status")).toHaveText("complete");
   await expect(page.getByTestId("gate")).toContainText("failed");
-  await expect(page.locator('[data-testid="stage"][data-status="succeeded"]')).toHaveCount(6);
+  await expect(page.locator('[data-testid="canvas-stage"][data-status="succeeded"]')).toHaveCount(6);
   await noAccessibilityViolations(page);
 
   // Re-run from the page: a child run, followed live in the browser, with every stage from the cache.
-  await page.getByRole("button", { name: "Re-run" }).click();
+  // The Report & Gate stage is selected for a finished run; its form re-runs from the start.
+  await page.getByRole("tabpanel").getByRole("button", { name: "Re-run", exact: true }).click();
   await expect(page).not.toHaveURL(new RegExp(`/runs/${runId}$`));
   await expect(page.getByText(`re-run of ${runId}`)).toBeVisible();
   await expect(page.getByTestId("run-status")).toHaveText("complete", { timeout: 30_000 });
-  await expect(page.locator('[data-testid="stage"][data-status="succeeded"]')).toHaveCount(6);
-  await expect(page.getByTestId("stage").filter({ hasText: "cached" })).toHaveCount(6);
+  await expect(page.locator('[data-testid="canvas-stage"][data-status="succeeded"]')).toHaveCount(6);
+  await expect(page.locator('[data-testid="canvas-stage"][data-cached="true"]')).toHaveCount(5);
   await noAccessibilityViolations(page);
   expect(consoleErrors).toEqual([]);
 });
