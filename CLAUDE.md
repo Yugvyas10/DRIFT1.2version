@@ -56,6 +56,7 @@ Setup (once): Node 24+, `npm install -g pnpm@12.6.0`, Docker. Then:
 - Secret scan: `sh scripts/secret-scan.sh` (full history; the pre-commit hook scans staged changes)
 - Version bump: `pnpm changeset`
 - GitHub Action: `pnpm --filter @drift/github-action run build` (re-bundles `dist/index.js`; commit it) · `... run bundle:check` (CI). Demo: `The-Singularity44/drift-sample-api`.
+- Hosting (ADR-0008; first deploy and secrets: `docs/modules/infra.md`): `fly deploy --remote-only` (platform, from the repo root) · `cd infra/fly/redis && fly deploy --remote-only` (Redis) · `fly logs` · after CI on `master`, `.github/workflows/deploy.yml` deploys once `FLY_DEPLOY_ENABLED` is `true`.
 - Benchmarks: `pnpm --filter @drift/bench run all` (fixtures, perf, mutations; heavy: ask first), `... run perf --sizes 1000,10000 --no-fixtures` (quick, results/ only), `... run evaluation` (re-render `docs/EVALUATION.md` from `docs/evaluation/*.json`; CI checks it).
 
 ## Ownership (for docs and review)
