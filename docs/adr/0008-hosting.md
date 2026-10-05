@@ -1,6 +1,6 @@
 # ADR-0008: Hosting on Fly.io, Neon and Cloudflare R2
 
-Status: Accepted (2026-10-04) for Fly.io, Neon and R2. The Redis host (Decision 4) is Proposed until the team confirms it.
+Status: Accepted (2026-10-04; the Redis host, Decision 4, on 2026-10-05)
 Date: 2026-10-04
 Owner: P4 (decision). Operations owner to be agreed; P3 is suggested, as the owner of the database, storage and worker.
 
@@ -34,8 +34,8 @@ Hosting does not shrink the developers' machines: they still build and test the 
    - **`web` keeps one Machine running** (`min_machines_running = 1`), so a demo doesn't wait for a cold start. The `worker` group has no service, so the proxy never stops it.
    - **SSE:** the existing 15-second heartbeat (ADR-0004) keeps Fly's proxy from treating an open event stream as idle.
 2. **Neon hosts Postgres 18.**
-   - **The app connects with the direct (unpooled) connection string,** with `connect_timeout=15`. The web app and worker are long-lived processes with small node-postgres pools, not serverless functions, so they don't need Neon's pooler. Prisma's migrations need the direct connection anyway, so one `DATABASE_URL` serves both.
-   - The timeout covers waking a compute that has scaled to zero, which Neon says takes a few seconds.
+   - **The app connects with the direct (unpooled) connection string.** The web app and worker are long-lived processes with small node-postgres pools, not serverless functions, so they don't need Neon's pooler. Prisma's migrations need the direct connection anyway, so one `DATABASE_URL` serves both.
+   - **The URL carries `connect_timeout=15`.** Waking a compute that has scaled to zero takes a few seconds (Neon's docs). Prisma's migration engine reads this parameter, and its default of 5 seconds could fail the `release_command` against a sleeping database. node-postgres ignores the parameter and waits for the connection.
    - If the number of Machines grows, switch the runtime to the `-pooler` host and keep the direct string for the `release_command`.
 3. **Cloudflare R2 stores artifacts and the stage cache.**
    - **One bucket, `drift-artifacts`, with the `apac` location hint** (best effort, not a guarantee).
@@ -44,11 +44,11 @@ Hosting does not shrink the developers' machines: they still build and test the 
    - **The S3 client is unchanged.** `createS3Store` already sends checksums only when required (`requestChecksumCalculation: "WHEN_REQUIRED"`), and the server verifies SHA-256 itself (SECURITY T29).
    - **Pre-signed URLs:** R2 supports pre-signed GET and PUT on the S3 endpoint (not on custom domains), up to 7 days. We keep our 15- and 5-minute expiries (T14).
    - **No CORS rules:** no browser calls the bucket with `fetch`. The CLI and the Action PUT from outside a browser, the run pages redirect to signed GET URLs (a navigation, not a cross-origin request), and browser uploads go through a server action.
-4. **Redis (Proposed): Redis 8.8 on its own Fly Machine.**
+4. **Redis: Redis 8.8 on its own Fly Machine** (accepted 2026-10-05).
    - **Setup:** the same image as local development, a Fly volume for its data, `appendonly yes`, `maxmemory-policy noeviction` (BullMQ needs it) and a password.
-   - **Reachable only on the Fly organisation's private network.**
+   - **Reachable only on the Fly organisation's private network** (`<redis-app>.internal`, IPv6, encrypted between Fly hosts). It has no public service. ioredis looks up IPv4 addresses by default, so `REDIS_URL` ends in `?family=6`.
    - The managed alternative is Upstash on Fly. Fly's own documentation advises a fixed-price plan rather than pay-per-request for BullMQ, because BullMQ polls continuously.
-   - **The team should confirm this choice before the deploy PR**: running our own Redis is cheaper and identical to local, but we operate it ourselves (backups, upgrades).
+   - **Chosen over Upstash:** our own Redis costs one small Machine and a volume, and behaves exactly like local development. The price is that we operate it ourselves: upgrades, and the volume's snapshots for backup. The queue and the event history are short-lived, so losing them loses in-flight runs, not stored results (those are in Postgres and R2).
 5. **Regions: Singapore for all three:**
    - Fly `sin`;
    - Neon `aws-ap-southeast-1`;
@@ -64,7 +64,7 @@ Hosting does not shrink the developers' machines: they still build and test the 
    `APP_URL` is the public `https://` address. The env validation (T4) refuses to start without the required values. Nothing is committed.
 
 7. **Deploys:**
-   - **By hand** (`fly deploy`) until the first release works.
+   - **By hand** (`fly deploy --remote-only`) until the first release works. The image is built on Fly's builders, so a deploy needs no Docker and no disk space on the laptop.
    - **Then from GitHub Actions**, on `master` after CI passes, with a deploy token scoped to the app and the Fly action pinned to a commit SHA (T3).
 8. **The public instance holds demo data only** (a DEMO organisation, PLAN Q12) until the team decides otherwise.
 
