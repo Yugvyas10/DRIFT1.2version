@@ -1,0 +1,34 @@
+# Fly.io configuration of the DRIFT platform's Redis (ADR-0008): one Machine with a volume. It has no
+# [http_service] or [[services]], so only the organisation's other apps reach it, at <app>.internal:6379 over
+# Fly's private IPv6 network. Deploy from this directory: `fly deploy --remote-only` (docs/modules/infra.md).
+#
+# The app name is global on Fly. If it is taken, change `app` here and the host in the platform's REDIS_URL.
+app = "drift-platform-redis"
+primary_region = "sin"
+# Redis writes its append-only file and exits cleanly on SIGTERM.
+kill_signal = "SIGTERM"
+kill_timeout = 30
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Create it once: fly volumes create redis_data --region sin --size 1
+[mounts]
+  source = "redis_data"
+  destination = "/data"
+
+[checks]
+  [checks.redis]
+    type = "tcp"
+    port = 6379
+    grace_period = "10s"
+    interval = "30s"
+    timeout = "5s"
+
+[[restart]]
+  policy = "always"
+
+# maxmemory (256 MB, start.sh) leaves room for the fork that rewrites the append-only file.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

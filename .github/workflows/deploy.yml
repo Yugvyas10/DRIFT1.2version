@@ -1,0 +1,47 @@
+name: Deploy
+
+# Deploys the platform to Fly.io (ADR-0008): after CI passes on a push to master, or by hand from master.
+# Nothing runs until the repository variable FLY_DEPLOY_ENABLED is "true" and the `production` environment holds
+# the FLY_API_TOKEN secret, a deploy token for the one app (`fly tokens create deploy -a <app>`). The image is built
+# on Fly's builders; `fly.toml` runs the migrations as the release command before any Machine is updated.
+# Redis (infra/fly/redis) is deployed by hand: it changes rarely and holds data.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    if: >-
+      vars.FLY_DEPLOY_ENABLED == 'true' && (
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') ||
+        (github.event_name == 'workflow_run' && github.event.workflow_run.event == 'push' &&
+         github.event.workflow_run.conclusion == 'success')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The commit CI passed, not whatever master points to now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: superfly/flyctl-actions/setup-flyctl@fc53c09e1bc3be6f54706524e3b82c4f462f77be # 1.5
+        with:
+          version: 0.4.111
+      - name: Build on Fly's builders, migrate, roll out
+        run: flyctl deploy --remote-only --wait-timeout 10m
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
