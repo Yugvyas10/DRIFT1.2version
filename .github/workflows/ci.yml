@@ -102,7 +102,7 @@ jobs:
         run: docker compose -f infra/docker-compose.yml down -v
 
   images:
-    name: Container images (Fly.io), build and smoke test
+    name: Container images and Azure template, build and smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 25
     # The local services' settings, as in the services job (compose reads S3_* from the environment).
@@ -119,10 +119,10 @@ jobs:
           for file in .env apps/web/.env.local apps/worker/.env; do
             printf 'CANARY=drift-dockerignore-canary\n' > "$file"
           done
-      - name: Build the platform image (as Fly's builders do)
+      - name: Build the platform image (as the images workflow does)
         run: docker build --tag drift-platform .
       - name: Build the Redis image
-        run: docker build --tag drift-redis infra/fly/redis
+        run: docker build --tag drift-redis infra/container/redis
       - name: The image runs as a normal user, holds no env file and has Prisma's migration engine
         run: |
           docker run --rm drift-platform sh -c '
@@ -147,12 +147,12 @@ jobs:
             echo "AUTH_SECRET=$(openssl rand -base64 32)"
           } > "$RUNNER_TEMP/platform.env"
       - name: Release command applies the migrations
-        run: docker run --rm --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/fly/release.sh
+        run: docker run --rm --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/container/release.sh
       - name: Worker process reaches the database, Redis and storage (--check)
-        run: docker run --rm --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/fly/worker.sh --check
+        run: docker run --rm --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/container/worker.sh --check
       - name: Web process answers /healthz, /readyz and the landing page
         run: |
-          docker run --detach --name web --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/fly/web.sh
+          docker run --detach --name web --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/container/web.sh
           for attempt in $(seq 1 60); do
             curl --silent --fail http://localhost:3000/healthz > /dev/null && break
             sleep 1
@@ -160,30 +160,40 @@ jobs:
           curl --silent --show-error --fail http://localhost:3000/healthz
           curl --silent --show-error --fail http://localhost:3000/readyz
           curl --silent --show-error --fail --output /dev/null http://localhost:3000/
-      - name: Redis image refuses to start without a password, then requires it and never evicts
+      - name: Redis sidecar refuses to start without a password
+        run: if docker run --rm drift-redis; then echo "started without REDIS_PASSWORD"; exit 1; fi
+      - name: Redis sidecar on the loopback, as in Azure; the worker reaches it with the password
         run: |
-          if docker run --rm drift-redis; then echo "started without REDIS_PASSWORD"; exit 1; fi
+          docker compose -f infra/docker-compose.yml stop redis
           password=$(openssl rand -hex 32)
-          docker run --detach --name redis-fly --env REDIS_PASSWORD="$password" drift-redis
+          docker run --detach --name redis-sidecar --network host --env REDIS_PASSWORD="$password" drift-redis
           for attempt in $(seq 1 30); do
-            docker exec redis-fly redis-cli --no-auth-warning -a "$password" ping 2>/dev/null | grep -q PONG && break
+            docker exec redis-sidecar redis-cli --no-auth-warning -a "$password" ping 2>/dev/null | grep -q PONG && break
             sleep 1
           done
-          docker exec redis-fly redis-cli ping 2>&1 | grep -q NOAUTH
-          docker exec redis-fly redis-cli --no-auth-warning -a "$password" config get maxmemory-policy | grep -qx noeviction
-          docker exec redis-fly redis-cli --no-auth-warning -a "$password" config get appendonly | grep -qx yes
+          docker exec redis-sidecar redis-cli ping 2>&1 | grep -q NOAUTH
+          docker exec redis-sidecar redis-cli --no-auth-warning -a "$password" config get maxmemory-policy | grep -qx noeviction
+          docker exec redis-sidecar redis-cli --no-auth-warning -a "$password" config get appendonly | grep -qx no
+          docker exec redis-sidecar redis-cli --no-auth-warning -a "$password" config get bind | grep -q '^127.0.0.1'
           # The password is in the config file, not on Redis's command line (PID 1).
-          if docker exec redis-fly cat /proc/1/cmdline | tr '\0' ' ' | grep -q "$password"; then exit 1; fi
-          docker exec redis-fly cat /proc/1/cmdline | tr '\0' ' ' | grep -q redis-server
+          if docker exec redis-sidecar cat /proc/1/cmdline | tr '\0' ' ' | grep -q "$password"; then exit 1; fi
+          docker exec redis-sidecar cat /proc/1/cmdline | tr '\0' ' ' | grep -q redis-server
+          sed -i "s|^REDIS_URL=.*|REDIS_URL=redis://default:$password@127.0.0.1:6379|" "$RUNNER_TEMP/platform.env"
+          docker run --rm --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/container/worker.sh --check
+      - name: The Azure template compiles without warnings
+        run: |
+          az bicep build --file infra/azure/main.bicep --stdout > /dev/null 2> "$RUNNER_TEMP/bicep.log" || { cat "$RUNNER_TEMP/bicep.log"; exit 1; }
+          if grep -i warning "$RUNNER_TEMP/bicep.log"; then exit 1; fi
+          bash -n infra/azure/deploy.sh
       - name: Container logs
         if: always()
         run: |
           docker logs web 2>&1 | tail -n 50 || true
-          docker logs redis-fly 2>&1 | tail -n 20 || true
+          docker logs redis-sidecar 2>&1 | tail -n 20 || true
       - name: Stop
         if: always()
         run: |
-          docker rm --force web redis-fly || true
+          docker rm --force web redis-sidecar || true
           docker compose -f infra/docker-compose.yml down -v
 
   integration:

@@ -1,5 +1,5 @@
-# What a container build (Dockerfile, ADR-0008) may read. `fly deploy` uploads this directory from the developer's
-# machine, so everything local-only stays out: env files with real secrets above all (SECURITY T41).
+# What a container build (Dockerfile, ADR-0009) may read. A build on a developer's machine would send this
+# directory to Docker, so everything local-only stays out: env files with real secrets above all (SECURITY T41).
 
 # env files, including the untracked root .env of the legacy app; the image needs none of them
 .env
