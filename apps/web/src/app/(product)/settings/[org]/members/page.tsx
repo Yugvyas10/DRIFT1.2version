@@ -5,13 +5,12 @@ import { ActionForm } from "@/components/action-form";
 import { Shell } from "@/components/shell";
 import { ui } from "@/components/ui";
 import { can } from "@/server/auth/actor";
+import { ROLES } from "@/server/auth/permissions";
 import { db } from "@/server/context";
 import { pageActor, pageUser } from "@/server/page";
 import { listMembers } from "@/server/services/members";
 
 export const metadata: Metadata = { title: "Members" };
-
-const ROLES = ["VIEWER", "MEMBER", "ADMIN", "OWNER"] as const;
 
 export default async function MembersPage({ params }: { params: Promise<{ org: string }> }) {
   const { org } = await params;

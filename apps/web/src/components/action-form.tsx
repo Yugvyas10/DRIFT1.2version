@@ -31,6 +31,11 @@ export function ActionForm({
           {state.error}
         </p>
       )}
+      {state.notice !== undefined && (
+        <p role="status" className="rounded-md border border-safe/40 bg-safe/10 px-3 py-2 text-sm text-safe">
+          {state.notice}
+        </p>
+      )}
       {state.secret !== undefined && secretLabel !== undefined && (
         <div role="status" className="rounded-md border border-safe/40 bg-safe/10 p-3 text-sm">
           <p className="font-medium text-safe">Copy this {secretLabel} now. It is not shown again.</p>

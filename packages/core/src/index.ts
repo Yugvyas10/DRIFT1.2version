@@ -36,7 +36,7 @@ export { parseSpecText as parseDataText, type ParseOutcome } from "./ingest/pars
 // The CLI, Action and worker depend on core only; rules and policy loading is re-exported for them.
 export { DEFAULT_POLICY, DEFAULT_RULESET, parseRuleset, Policy, type Ruleset } from "@drift/rules";
 export { REPORT_FILES, REPORT_FORMATS, renderReport, type ReportFormat } from "./report/render.ts";
-export { omittedBody } from "./report/common.ts";
+export { evidenceSummary, omittedBody } from "./report/common.ts";
 export { renderConsole, type ConsoleOptions } from "./report/console.ts";
 export { escapeMarkdown, MARKDOWN_MARKER, renderMarkdown, type MarkdownOptions } from "./report/markdown.ts";
 export { escapeHtml, renderHtml } from "./report/html.ts";

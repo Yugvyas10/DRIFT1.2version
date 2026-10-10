@@ -25,6 +25,7 @@ import {
   listRuns,
   MAX_RUN_BODY_BYTES,
   orgOfRun,
+  RunFilter,
   type StartRun,
 } from "../services/runs";
 import {
@@ -227,10 +228,20 @@ export function createApi(deps: ApiDeps) {
       const query = new URL(request.url).searchParams;
       const limit = query.get("limit");
       if (limit !== null && !/^[0-9]{1,3}$/.test(limit)) throw badRequest("limit: must be a number from 1 to 100");
+      const filter = parse(
+        RunFilter,
+        Object.fromEntries(
+          ["status", "gate", "mode", "branch"].flatMap((name) => {
+            const value = query.get(name);
+            return value === null ? [] : [[name, value]];
+          })
+        )
+      );
       return json(
         await listRuns(db, actor, params.project, {
           cursor: query.get("cursor") ?? undefined,
           limit: limit === null ? undefined : Number(limit),
+          filter,
         })
       );
     }),
