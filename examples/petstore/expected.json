@@ -1,0 +1,844 @@
+{
+  "format": "drift-report/v1",
+  "engine": {
+    "name": "drift-engine",
+    "version": "0.0.0"
+  },
+  "rules": {
+    "version": "1.0.0",
+    "hash": "974d64381f225d146bab8821ddac23a7dd924618ae02e3748438e83e566c0bbe"
+  },
+  "policy": {
+    "hash": "846a613318a9983bf41c33261f96455a3c46037dc2c978d3b8d61dbd7908bd8d",
+    "failOn": "breaking"
+  },
+  "base": {
+    "file": "examples/petstore/v1.yaml",
+    "oasVersion": "3.0.3",
+    "title": "Petstore",
+    "version": "1.0.0",
+    "specHash": "f1b0aa83cff3648e7925e290d5d5f2314fb51c14e395251d3ff860fcab82d485",
+    "operations": 4
+  },
+  "head": {
+    "file": "examples/petstore/v2-breaking.yaml",
+    "oasVersion": "3.0.3",
+    "title": "Petstore",
+    "version": "2.0.0",
+    "specHash": "a0d01e573b7e10604bad4f6c8504ba47306c0413c6d6e80dacad6a1888c05f9d",
+    "operations": 3
+  },
+  "corpus": {
+    "source": {
+      "kind": "jsonl",
+      "file": "examples/petstore/traffic.jsonl"
+    },
+    "recorded": {
+      "read": 12,
+      "malformed": 2,
+      "malformedExamples": [
+        {
+          "line": 7,
+          "reason": "record: unknown field"
+        },
+        {
+          "line": 8,
+          "reason": "not valid JSON"
+        }
+      ],
+      "unrouted": 1,
+      "outOfScope": 0,
+      "sampled": 9,
+      "perOperationCap": 1000,
+      "totalCap": 50000
+    },
+    "synthetic": {
+      "generated": 20,
+      "discarded": 0,
+      "seed": 0
+    },
+    "redaction": {
+      "samples": 4,
+      "values": 5
+    },
+    "coverage": {
+      "affectedOperations": 4,
+      "withRecordedSamples": 4
+    }
+  },
+  "changes": [
+    {
+      "id": "5d252af03800fea0",
+      "kind": "operation.removed",
+      "direction": "request",
+      "operation": "DELETE /pets/{}",
+      "location": "#/paths/~1pets~1{petId}/delete",
+      "side": "base",
+      "candidateSeverity": "RISKY",
+      "message": "Operation DELETE /pets/{} was removed",
+      "severity": "BREAKING",
+      "ruleId": "DRIFT-REQ-OPERATION-REMOVED",
+      "rationale": "Clients still calling the operation will get an error; a recorded call to it proves the break.",
+      "confidence": 1,
+      "unverified": false,
+      "evidence": {
+        "status": "failing",
+        "checked": {
+          "recorded": 1,
+          "synthetic": 0
+        },
+        "failed": {
+          "recorded": 1,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": [
+          {
+            "sample": "r:6",
+            "origin": "recorded",
+            "line": 6,
+            "payload": {
+              "method": "DELETE",
+              "path": "/v1/pets/7"
+            },
+            "redacted": [],
+            "errors": [
+              {
+                "pointer": "/operation",
+                "keyword": "operation",
+                "message": "DELETE /pets/{} is not in this contract"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "b467c2271950e449",
+      "kind": "schema.enum.value_added",
+      "direction": "request",
+      "operation": "GET /pets",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "head",
+      "subject": "\"adopted\"",
+      "after": "adopted",
+      "candidateSeverity": "SAFE",
+      "message": "Request query parameter \"status\": Enum value \"adopted\" was added",
+      "severity": "SAFE",
+      "ruleId": "DRIFT-REQ-SCHEMA-ENUM-VALUE-ADDED",
+      "rationale": "The server accepts one more value.",
+      "confidence": 0,
+      "unverified": false,
+      "evidence": {
+        "status": "passing",
+        "checked": {
+          "recorded": 1,
+          "synthetic": 0
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": []
+      }
+    },
+    {
+      "id": "644bf2ac60adabd6",
+      "kind": "schema.enum.value_removed",
+      "direction": "request",
+      "operation": "GET /pets",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "base",
+      "subject": "\"pending\"",
+      "before": "pending",
+      "candidateSeverity": "RISKY",
+      "message": "Request query parameter \"status\": Enum value \"pending\" was removed",
+      "severity": "RISKY",
+      "ruleId": "DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED",
+      "rationale": "Clients still sending the removed value will be rejected.",
+      "confidence": 0,
+      "unverified": false,
+      "evidence": {
+        "status": "passing",
+        "checked": {
+          "recorded": 1,
+          "synthetic": 0
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": []
+      }
+    },
+    {
+      "id": "760d32eee71daae3",
+      "kind": "schema.bound.tightened",
+      "direction": "request",
+      "operation": "GET /pets",
+      "location": "#/paths/~1pets/get/parameters/0/schema/maximum",
+      "side": "head",
+      "subject": "maximum",
+      "before": 100,
+      "after": 50,
+      "candidateSeverity": "RISKY",
+      "message": "Request query parameter \"limit\": \"maximum\" tightened: 100 → 50",
+      "severity": "BREAKING",
+      "ruleId": "DRIFT-REQ-SCHEMA-BOUND-TIGHTENED",
+      "rationale": "Values that used to be accepted may now be rejected.",
+      "confidence": 1,
+      "unverified": false,
+      "evidence": {
+        "status": "failing",
+        "checked": {
+          "recorded": 3,
+          "synthetic": 0
+        },
+        "failed": {
+          "recorded": 2,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": [
+          {
+            "sample": "r:3",
+            "origin": "recorded",
+            "line": 3,
+            "payload": {
+              "method": "GET",
+              "path": "/v1/pets",
+              "query": {
+                "limit": "80"
+              }
+            },
+            "redacted": [],
+            "errors": [
+              {
+                "pointer": "/query/limit",
+                "keyword": "maximum",
+                "message": "must be <= 50"
+              }
+            ]
+          },
+          {
+            "sample": "r:12",
+            "origin": "recorded",
+            "line": 12,
+            "payload": {
+              "method": "GET",
+              "path": "/v1/pets",
+              "query": {
+                "limit": "100",
+                "token": "[REDACTED:field]"
+              }
+            },
+            "redacted": [
+              "/query/token"
+            ],
+            "errors": [
+              {
+                "pointer": "/query/limit",
+                "keyword": "maximum",
+                "message": "must be <= 50"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "a37def3c7de93e01",
+      "kind": "schema.enum.value_added",
+      "direction": "response",
+      "operation": "GET /pets",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "head",
+      "subject": "\"adopted\"",
+      "after": "adopted",
+      "candidateSeverity": "RISKY",
+      "message": "Response 200 body (application/json): Enum value \"adopted\" was added",
+      "severity": "BREAKING",
+      "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+      "rationale": "Clients that validate responses strictly may reject a value they have never seen.",
+      "confidence": 0.8,
+      "unverified": true,
+      "evidence": {
+        "status": "failing",
+        "checked": {
+          "recorded": 0,
+          "synthetic": 8
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 2
+        },
+        "unknown": 0,
+        "examples": [
+          {
+            "sample": "s:3",
+            "origin": "synthetic",
+            "payload": {
+              "method": "GET",
+              "path": "/pets",
+              "status": 200,
+              "contentType": "application/json",
+              "body": [
+                {
+                  "id": 1,
+                  "name": "drift",
+                  "status": "adopted",
+                  "tag": "drift"
+                }
+              ]
+            },
+            "redacted": [],
+            "errors": [
+              {
+                "pointer": "/body/0/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              }
+            ]
+          },
+          {
+            "sample": "s:5",
+            "origin": "synthetic",
+            "payload": {
+              "method": "GET",
+              "path": "/pets",
+              "status": 200,
+              "contentType": "application/json",
+              "body": [
+                {
+                  "id": 1,
+                  "name": "aaaaaaaaaaaaaaaa",
+                  "status": "adopted",
+                  "tag": "aaaaaaaaaaaaaaaa",
+                  "driftExtra": "drift"
+                },
+                {
+                  "id": 1,
+                  "name": "aaaaaaaaaaaaaaaa",
+                  "status": "adopted",
+                  "tag": "aaaaaaaaaaaaaaaa",
+                  "driftExtra": "drift"
+                },
+                {
+                  "id": 1,
+                  "name": "aaaaaaaaaaaaaaaa",
+                  "status": "adopted",
+                  "tag": "aaaaaaaaaaaaaaaa",
+                  "driftExtra": "drift"
+                }
+              ]
+            },
+            "redacted": [],
+            "errors": [
+              {
+                "pointer": "/body/0/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              },
+              {
+                "pointer": "/body/1/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              },
+              {
+                "pointer": "/body/2/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "28c1b933c2ce75c2",
+      "kind": "schema.enum.value_removed",
+      "direction": "response",
+      "operation": "GET /pets",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "base",
+      "subject": "\"pending\"",
+      "before": "pending",
+      "candidateSeverity": "SAFE",
+      "message": "Response 200 body (application/json): Enum value \"pending\" was removed",
+      "severity": "SAFE",
+      "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED",
+      "rationale": "The server returns fewer values than before.",
+      "confidence": 0,
+      "unverified": true,
+      "evidence": {
+        "status": "passing",
+        "checked": {
+          "recorded": 0,
+          "synthetic": 8
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": []
+      }
+    },
+    {
+      "id": "3b018b3bd6131702",
+      "kind": "param.added.optional",
+      "direction": "request",
+      "operation": "GET /pets/{}",
+      "location": "#/paths/~1pets~1{petId}/get/parameters/0",
+      "side": "head",
+      "subject": "query:fields",
+      "candidateSeverity": "SAFE",
+      "message": "Optional query parameter \"fields\" was added",
+      "severity": "SAFE",
+      "ruleId": "DRIFT-REQ-PARAM-ADDED-OPTIONAL",
+      "rationale": "Existing clients can keep omitting an optional parameter.",
+      "confidence": null,
+      "unverified": false,
+      "evidence": {
+        "status": "not_verifiable",
+        "checked": {
+          "recorded": 1,
+          "synthetic": 0
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": []
+      }
+    },
+    {
+      "id": "2e23389f89244d4f",
+      "kind": "schema.enum.value_added",
+      "direction": "response",
+      "operation": "GET /pets/{}",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "head",
+      "subject": "\"adopted\"",
+      "after": "adopted",
+      "candidateSeverity": "RISKY",
+      "message": "Response 200 body (application/json): Enum value \"adopted\" was added",
+      "severity": "BREAKING",
+      "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+      "rationale": "Clients that validate responses strictly may reject a value they have never seen.",
+      "confidence": 0.8,
+      "unverified": true,
+      "evidence": {
+        "status": "failing",
+        "checked": {
+          "recorded": 0,
+          "synthetic": 6
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 2
+        },
+        "unknown": 0,
+        "examples": [
+          {
+            "sample": "s:11",
+            "origin": "synthetic",
+            "payload": {
+              "method": "GET",
+              "path": "/pets/{petId}",
+              "status": 200,
+              "contentType": "application/json",
+              "body": {
+                "id": 1,
+                "name": "drift",
+                "status": "adopted",
+                "tag": "drift"
+              }
+            },
+            "redacted": [],
+            "errors": [
+              {
+                "pointer": "/body/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              }
+            ]
+          },
+          {
+            "sample": "s:13",
+            "origin": "synthetic",
+            "payload": {
+              "method": "GET",
+              "path": "/pets/{petId}",
+              "status": 200,
+              "contentType": "application/json",
+              "body": {
+                "id": 1,
+                "name": "aaaaaaaaaaaaaaaa",
+                "status": "adopted",
+                "tag": "aaaaaaaaaaaaaaaa",
+                "driftExtra": "drift"
+              }
+            },
+            "redacted": [],
+            "errors": [
+              {
+                "pointer": "/body/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "5968c1bff269f5d2",
+      "kind": "schema.enum.value_removed",
+      "direction": "response",
+      "operation": "GET /pets/{}",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "base",
+      "subject": "\"pending\"",
+      "before": "pending",
+      "candidateSeverity": "SAFE",
+      "message": "Response 200 body (application/json): Enum value \"pending\" was removed",
+      "severity": "SAFE",
+      "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED",
+      "rationale": "The server returns fewer values than before.",
+      "confidence": 0,
+      "unverified": true,
+      "evidence": {
+        "status": "passing",
+        "checked": {
+          "recorded": 0,
+          "synthetic": 6
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": []
+      }
+    },
+    {
+      "id": "bb412def2697a713",
+      "kind": "schema.property.added.required",
+      "direction": "request",
+      "operation": "POST /pets",
+      "location": "#/components/schemas/NewPet/properties/category",
+      "side": "head",
+      "subject": "category",
+      "candidateSeverity": "RISKY",
+      "message": "Request body (application/json): Property \"category\" was added as required",
+      "severity": "BREAKING",
+      "ruleId": "DRIFT-REQ-SCHEMA-PROPERTY-ADDED-REQUIRED",
+      "rationale": "Existing clients do not send the new property, so the server will reject their requests.",
+      "confidence": 1,
+      "unverified": false,
+      "evidence": {
+        "status": "failing",
+        "checked": {
+          "recorded": 3,
+          "synthetic": 0
+        },
+        "failed": {
+          "recorded": 1,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": [
+          {
+            "sample": "r:1",
+            "origin": "recorded",
+            "line": 1,
+            "payload": {
+              "method": "POST",
+              "path": "/v1/pets",
+              "headers": {
+                "authorization": "[REDACTED:header]",
+                "content-type": "application/json"
+              },
+              "body": {
+                "name": "Rex",
+                "status": "pending",
+                "tag": "dog",
+                "ownerEmail": "[REDACTED:email]"
+              }
+            },
+            "redacted": [
+              "/body/ownerEmail",
+              "/headers/authorization"
+            ],
+            "errors": [
+              {
+                "pointer": "/body/category",
+                "keyword": "required",
+                "message": "must have required property 'category'"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "d3a7fb20cd5617d4",
+      "kind": "schema.enum.value_added",
+      "direction": "request",
+      "operation": "POST /pets",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "head",
+      "subject": "\"adopted\"",
+      "after": "adopted",
+      "candidateSeverity": "SAFE",
+      "message": "Request body (application/json): Enum value \"adopted\" was added",
+      "severity": "SAFE",
+      "ruleId": "DRIFT-REQ-SCHEMA-ENUM-VALUE-ADDED",
+      "rationale": "The server accepts one more value.",
+      "confidence": 0,
+      "unverified": false,
+      "evidence": {
+        "status": "passing",
+        "checked": {
+          "recorded": 3,
+          "synthetic": 0
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": []
+      }
+    },
+    {
+      "id": "306b396f638281e8",
+      "kind": "schema.enum.value_removed",
+      "direction": "request",
+      "operation": "POST /pets",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "base",
+      "subject": "\"pending\"",
+      "before": "pending",
+      "candidateSeverity": "RISKY",
+      "message": "Request body (application/json): Enum value \"pending\" was removed",
+      "severity": "BREAKING",
+      "ruleId": "DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED",
+      "rationale": "Clients still sending the removed value will be rejected.",
+      "confidence": 1,
+      "unverified": false,
+      "evidence": {
+        "status": "failing",
+        "checked": {
+          "recorded": 3,
+          "synthetic": 0
+        },
+        "failed": {
+          "recorded": 1,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": [
+          {
+            "sample": "r:1",
+            "origin": "recorded",
+            "line": 1,
+            "payload": {
+              "method": "POST",
+              "path": "/v1/pets",
+              "headers": {
+                "authorization": "[REDACTED:header]",
+                "content-type": "application/json"
+              },
+              "body": {
+                "name": "Rex",
+                "status": "pending",
+                "tag": "dog",
+                "ownerEmail": "[REDACTED:email]"
+              }
+            },
+            "redacted": [
+              "/body/ownerEmail",
+              "/headers/authorization"
+            ],
+            "errors": [
+              {
+                "pointer": "/body/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "db8893be5ad2c107",
+      "kind": "schema.enum.value_added",
+      "direction": "response",
+      "operation": "POST /pets",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "head",
+      "subject": "\"adopted\"",
+      "after": "adopted",
+      "candidateSeverity": "RISKY",
+      "message": "Response 201 body (application/json): Enum value \"adopted\" was added",
+      "severity": "BREAKING",
+      "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+      "rationale": "Clients that validate responses strictly may reject a value they have never seen.",
+      "confidence": 0.8,
+      "unverified": true,
+      "evidence": {
+        "status": "failing",
+        "checked": {
+          "recorded": 0,
+          "synthetic": 6
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 2
+        },
+        "unknown": 0,
+        "examples": [
+          {
+            "sample": "s:17",
+            "origin": "synthetic",
+            "payload": {
+              "method": "POST",
+              "path": "/pets",
+              "status": 201,
+              "contentType": "application/json",
+              "body": {
+                "id": 1,
+                "name": "drift",
+                "status": "adopted",
+                "tag": "drift"
+              }
+            },
+            "redacted": [],
+            "errors": [
+              {
+                "pointer": "/body/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              }
+            ]
+          },
+          {
+            "sample": "s:19",
+            "origin": "synthetic",
+            "payload": {
+              "method": "POST",
+              "path": "/pets",
+              "status": 201,
+              "contentType": "application/json",
+              "body": {
+                "id": 1,
+                "name": "aaaaaaaaaaaaaaaa",
+                "status": "adopted",
+                "tag": "aaaaaaaaaaaaaaaa",
+                "driftExtra": "drift"
+              }
+            },
+            "redacted": [],
+            "errors": [
+              {
+                "pointer": "/body/status",
+                "keyword": "enum",
+                "message": "must be equal to one of the allowed values"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "be68941301b74cbf",
+      "kind": "schema.enum.value_removed",
+      "direction": "response",
+      "operation": "POST /pets",
+      "location": "#/components/schemas/PetStatus/enum",
+      "side": "base",
+      "subject": "\"pending\"",
+      "before": "pending",
+      "candidateSeverity": "SAFE",
+      "message": "Response 201 body (application/json): Enum value \"pending\" was removed",
+      "severity": "SAFE",
+      "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED",
+      "rationale": "The server returns fewer values than before.",
+      "confidence": 0,
+      "unverified": true,
+      "evidence": {
+        "status": "passing",
+        "checked": {
+          "recorded": 0,
+          "synthetic": 6
+        },
+        "failed": {
+          "recorded": 0,
+          "synthetic": 0
+        },
+        "unknown": 0,
+        "examples": []
+      }
+    }
+  ],
+  "unattributed": [],
+  "nonConformance": {
+    "requests": 1,
+    "responses": 1
+  },
+  "summary": {
+    "breaking": 7,
+    "risky": 1,
+    "safe": 6,
+    "suppressed": 0
+  },
+  "semver": "major",
+  "gate": {
+    "failOn": "breaking",
+    "passed": false
+  },
+  "stages": [
+    {
+      "stage": "ingest.base",
+      "hash": "f793b939b0c48bed67b496768ef4a947aa7c5b7ee0f432a81f111fed9a0de2ef"
+    },
+    {
+      "stage": "ingest.head",
+      "hash": "4d9f624cebaa91732aebb468ef20f70ed6ab7ad814c353cd8edf4d0b43fdcd53"
+    },
+    {
+      "stage": "diff",
+      "hash": "3bfaac3381fe28fcd8d7a5f71c3776d1cba154d032c43ed5e09bd2bc2641d992"
+    },
+    {
+      "stage": "corpus",
+      "hash": "10c7da2bc927530070208bd1b9866ed170da5322bfa275b0db097671d159b090"
+    },
+    {
+      "stage": "verify",
+      "hash": "9e06050fe91df923a8eee4962a249b236f364bab41018b3410f947b2befe2552"
+    },
+    {
+      "stage": "classify",
+      "hash": "9b0bc43cd80d560da2199d80f28d94c080c2ae35a6611e6498102e6feba037ce"
+    }
+  ],
+  "diagnostics": [
+    {
+      "level": "warning",
+      "code": "TRAFFIC_MALFORMED",
+      "message": "2 traffic records could not be read and were skipped."
+    },
+    {
+      "level": "info",
+      "code": "SYNTHETIC_EVIDENCE",
+      "message": "20 synthetic samples were generated from the contracts; evidence from them is marked synthetic and has lower confidence."
+    }
+  ]
+}

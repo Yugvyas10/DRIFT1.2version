@@ -13,7 +13,14 @@ export interface SchemaChange {
   before?: JsonValue;
   after?: JsonValue;
   message: string;
+  /**
+   * Sources of the pair of schema nodes being compared when the change was found (the parent object for
+   * property changes). Verify uses them to attribute a validation error to this change.
+   */
+  nodes: { base: string; head: string };
 }
+
+type FoundChange = Omit<SchemaChange, "nodes">;
 
 const LOWER_BOUNDS = ["minimum", "exclusiveMinimum", "minLength", "minItems", "minProperties"] as const;
 const UPPER_BOUNDS = ["maximum", "exclusiveMaximum", "maxLength", "maxItems", "maxProperties"] as const;
@@ -104,7 +111,8 @@ export class SchemaDiffer {
     const walk = (x: NormalizedSchema, y: NormalizedSchema) => {
       low = Math.min(low, this.#walk(x, y, direction, out));
     };
-    const emit = (change: SchemaChange) => out.push(change);
+    const nodes = { base: sourceOf(b), head: sourceOf(h) };
+    const emit = (change: FoundChange) => out.push({ ...change, nodes });
 
     compareTypes(b, h, emit);
     compareFormat(b, h, emit);
@@ -201,7 +209,7 @@ export class SchemaDiffer {
   }
 }
 
-type Emit = (change: SchemaChange) => void;
+type Emit = (change: FoundChange) => void;
 type Walk = (base: NormalizedSchema, head: NormalizedSchema) => void;
 
 function refOf(node: NormalizedSchema): string | undefined {

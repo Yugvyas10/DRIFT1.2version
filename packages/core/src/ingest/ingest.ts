@@ -15,6 +15,11 @@ export interface IngestedSpec {
   line: OasLine;
   ir: SpecIR;
   specHash: string;
+  /**
+   * Hash of every loaded document's parsed content, keyed by its path relative to the root: the input of the
+   * Ingest stage (ADR-0006). Formatting and YAML-vs-JSON do not change it; any content change does.
+   */
+  sourceHash: string;
 }
 
 export interface IngestResult {
@@ -53,6 +58,9 @@ export async function ingestSpec(entryPath: string, options: IngestOptions): Pro
     line: version.line,
     ir: built.ir,
     specHash: contentHash(built.ir),
+    sourceHash: contentHash(
+      Object.fromEntries([...loaded.set.documents.values()].map((document) => [document.relative, document.value]))
+    ),
   });
 }
 
