@@ -27,7 +27,14 @@ const CORE_FORBIDDEN_MODULES = [
 
 export default defineConfig(
   {
-    ignores: ["**/dist/**", "**/.next/**", "**/coverage/**", "**/.turbo/**", "**/next-env.d.ts"],
+    ignores: [
+      "**/dist/**",
+      "**/.next/**",
+      "**/coverage/**",
+      "**/.turbo/**",
+      "**/next-env.d.ts",
+      "packages/db/src/generated/**",
+    ],
   },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,

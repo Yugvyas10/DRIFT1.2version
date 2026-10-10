@@ -22,7 +22,7 @@ Everything except `main.ts` is tested with fakes and temporary git repositories:
 - **Base:** the `spec` path at the pull request's base commit, or at the commit before a push. Other events need the `base` input. When the contract does not exist at the base, the step passes with a notice (`base-missing: pass`) or fails (`fail`).
 - **Report size:** the comment uses `renderMarkdown(report, { maxLength })` from core, so a large report lists changes in order (BREAKING in full, then RISKY and SAFE rows) while they fit under GitHub's 65,536 characters, and says how many it left out. The job summary gets the same with a larger limit, and `report-dir` holds every file.
 - **Failures that do not decide the gate:** a refused comment (forks get a read-only token) or SARIF upload is a warning; the gate still passes or fails the step.
-- **`upload`:** not built until M5. It logs "not built yet … nothing was sent anywhere" and does nothing else (INVENTORY §1.3).
+- **`upload`:** sends the run to the DRIFT platform with `uploadReport` from `@drift/cli` (inputs `project`, `api-url`, `api-key`). The commit is the pull request's head commit, not the merge commit GitHub checks out. A refused or failed upload is a warning, like the comment and SARIF.
 
 ## Dogfooding
 

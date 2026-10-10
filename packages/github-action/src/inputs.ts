@@ -17,8 +17,12 @@ export interface ActionInputs {
   comment: boolean;
   /** Upload the SARIF report to GitHub code scanning. */
   sarif: boolean;
-  /** Upload to the DRIFT platform: not built yet (M5). */
+  /** Upload the run to the DRIFT platform (needs `project`, `apiUrl` and `apiKey`). */
   upload: boolean;
+  project?: string;
+  apiUrl?: string;
+  /** A DRIFT API key with `runs:write`, from a repository secret. */
+  apiKey?: string;
   /** What to do when the spec does not exist at the base commit (a new API). */
   baseMissing: "pass" | "fail";
   /** Tells this step's comment apart from other DRIFT steps in the same pull request. */
@@ -80,6 +84,17 @@ export function parseInputs(get: (name: string) => string): ActionInputs {
   ] as const) {
     const value = optional(name);
     if (value !== undefined) inputs[key] = value;
+  }
+  if (inputs.upload) {
+    for (const [key, name] of [
+      ["project", "project"],
+      ["apiUrl", "api-url"],
+      ["apiKey", "api-key"],
+    ] as const) {
+      const value = optional(name);
+      if (value === undefined) throw new InputError(`drift: input "upload" needs the input "${name}"`);
+      inputs[key] = value;
+    }
   }
   if (spec !== undefined) inputs.spec = spec;
   if (head !== undefined) inputs.head = head;

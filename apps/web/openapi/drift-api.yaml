@@ -1,15 +1,17 @@
 openapi: 3.1.0
 info:
   title: DRIFT platform API
-  version: 0.1.0
+  version: 0.2.0
   summary: Ingestion and read API of the DRIFT platform.
   description: >-
-    Written in M4, before the implementation, as the design of the M5 ingestion API (PLAN §6 M4, spec-first).
-    DRIFT's own CI runs DRIFT on this file for every pull request (the dogfood job). In M5, contract tests check
-    the real handlers' requests and responses against it with the engine's own validators.
+    Written in M4, before the implementation, as the design of the ingestion API (PLAN §6 M4, spec-first), and
+    extended in M5 with the management API. DRIFT's own CI runs DRIFT on this file for every pull request (the
+    dogfood job). Contract tests check the real handlers' requests and responses against it with the engine's
+    own validators (apps/web/src/server/api/*.int.test.ts).
 
 
-    Status: design. No endpoint here is implemented yet (NOT BUILT until M5).
+    Status: implemented in M5. Every route checks an API key or a session and is scoped to one organisation;
+    resources of other organisations answer 404.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -20,6 +22,10 @@ security:
   - apiKey: []
   - session: []
 tags:
+  - name: accounts
+    description: Registration. Sign-in itself is the web app's session flow, not part of this API.
+  - name: organisations
+    description: Organisations, their projects, members, API keys and audit log.
   - name: runs
     description: Upload and read comparison runs.
   - name: health
@@ -60,10 +66,14 @@ paths:
                 $ref: "#/components/schemas/RunCreated"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
           description: The idempotency key was already used with a different body.
           content:
@@ -99,6 +109,8 @@ paths:
                 $ref: "#/components/schemas/Run"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -121,6 +133,8 @@ paths:
                 $ref: "#/components/schemas/Run"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -151,6 +165,8 @@ paths:
                 $ref: "#/components/schemas/SignedUrl"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -167,6 +183,14 @@ paths:
       operationId: listRuns
       summary: List a project's runs, newest first
       parameters:
+        - name: org
+          in: query
+          required: false
+          description: >-
+            For a signed-in user: the organisation's slug (may be left out when they belong to exactly one). An API
+            key brings its organisation.
+          schema:
+            $ref: "#/components/schemas/Slug"
         - name: cursor
           in: query
           required: false
@@ -189,8 +213,556 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RunPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/auth/register:
+    post:
+      tags: [accounts]
+      operationId: register
+      summary: Create an account with an email address and a password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Register"
+      responses:
+        "201":
+          description: The account was created.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [user]
+                properties:
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/orgs:
+    get:
+      tags: [organisations]
+      operationId: listOrgs
+      summary: The organisations the signed-in user belongs to
+      security:
+        - session: []
+      responses:
+        "200":
+          description: Organisations, with the caller's role in each.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [orgs]
+                properties:
+                  orgs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Org"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [organisations]
+      operationId: createOrg
+      summary: Create an organisation; the caller becomes its owner
+      security:
+        - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrgCreate"
+      responses:
+        "201":
+          description: The organisation.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [org]
+                properties:
+                  org:
+                    $ref: "#/components/schemas/Org"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/orgs/{org}/projects:
+    parameters:
+      - $ref: "#/components/parameters/Org"
+    get:
+      tags: [organisations]
+      operationId: listProjects
+      summary: The organisation's projects
+      responses:
+        "200":
+          description: Projects.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [projects]
+                properties:
+                  projects:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [organisations]
+      operationId: createProject
+      summary: Create a project (ADMIN or OWNER)
+      security:
+        - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectCreate"
+      responses:
+        "201":
+          description: The project.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [project]
+                properties:
+                  project:
+                    $ref: "#/components/schemas/Project"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/orgs/{org}/keys:
+    parameters:
+      - $ref: "#/components/parameters/Org"
+    get:
+      tags: [organisations]
+      operationId: listKeys
+      summary: The organisation's API keys (never the keys themselves)
+      security:
+        - session: []
+      responses:
+        "200":
+          description: API keys.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKey"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [organisations]
+      operationId: createKey
+      summary: Create an API key (ADMIN or OWNER); the key is in this response and never shown again
+      security:
+        - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KeyCreate"
+      responses:
+        "201":
+          description: The key, once, and its record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/orgs/{org}/keys/{keyId}:
+    parameters:
+      - $ref: "#/components/parameters/Org"
+      - name: keyId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^key_[0-9a-z]{24}$"
+    delete:
+      tags: [organisations]
+      operationId: revokeKey
+      summary: Revoke an API key; it gets 401 from now on
+      security:
+        - session: []
+      responses:
+        "204":
+          description: Revoked (also when it already was).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/orgs/{org}/members:
+    parameters:
+      - $ref: "#/components/parameters/Org"
+    get:
+      tags: [organisations]
+      operationId: listMembers
+      summary: The organisation's members
+      security:
+        - session: []
+      responses:
+        "200":
+          description: Members.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [members]
+                properties:
+                  members:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/orgs/{org}/members/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/Org"
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^usr_[0-9a-z]{24}$"
+    patch:
+      tags: [organisations]
+      operationId: changeRole
+      summary: Change a member's role (ADMIN or OWNER; only owners deal with owners)
+      security:
+        - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role]
+              properties:
+                role:
+                  $ref: "#/components/schemas/Role"
+      responses:
+        "200":
+          description: The member, with the new role.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [member]
+                properties:
+                  member:
+                    $ref: "#/components/schemas/Member"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [organisations]
+      operationId: removeMember
+      summary: Remove a member, or leave the organisation
+      security:
+        - session: []
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/orgs/{org}/invitations:
+    parameters:
+      - $ref: "#/components/parameters/Org"
+    post:
+      tags: [organisations]
+      operationId: invite
+      summary: Invite an email address; the token is in this response and never shown again
+      description: DRIFT does not send email yet, so the inviter passes the token on.
+      security:
+        - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, role]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  maxLength: 254
+                role:
+                  $ref: "#/components/schemas/Role"
+      responses:
+        "201":
+          description: The invitation and its token.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [token, invitation]
+                properties:
+                  token:
+                    type: string
+                  invitation:
+                    $ref: "#/components/schemas/Invitation"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/invitations/accept:
+    post:
+      tags: [organisations]
+      operationId: acceptInvitation
+      summary: Join an organisation with an invitation token (for the signed-in user's email address)
+      security:
+        - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  minLength: 20
+                  maxLength: 200
+      responses:
+        "200":
+          description: Joined.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [org, role]
+                properties:
+                  org:
+                    $ref: "#/components/schemas/Slug"
+                  role:
+                    $ref: "#/components/schemas/Role"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/orgs/{org}/projects/{project}/suppressions:
+    parameters:
+      - $ref: "#/components/parameters/Org"
+      - name: project
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/Slug"
+    get:
+      tags: [organisations]
+      operationId: listSuppressions
+      summary: A project's suppressions
+      security:
+        - session: []
+      responses:
+        "200":
+          description: Suppressions.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [suppressions]
+                properties:
+                  suppressions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Suppression"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [organisations]
+      operationId: createSuppression
+      summary: Accept one change until a date, with a reason (MEMBER or above)
+      security:
+        - session: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuppressionCreate"
+      responses:
+        "201":
+          description: The suppression.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [suppression]
+                properties:
+                  suppression:
+                    $ref: "#/components/schemas/Suppression"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/orgs/{org}/audit:
+    parameters:
+      - $ref: "#/components/parameters/Org"
+    get:
+      tags: [organisations]
+      operationId: listAudit
+      summary: The organisation's audit log, newest first (ADMIN or OWNER)
+      security:
+        - session: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Audit entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -212,7 +784,7 @@ paths:
     get:
       tags: [health]
       operationId: readiness
-      summary: Readiness (database, Redis and object storage reachable)
+      summary: Readiness (database and object storage reachable; Redis joins in M6)
       security: []
       responses:
         "200":
@@ -258,6 +830,13 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/RunId"
+    Org:
+      name: org
+      in: path
+      required: true
+      description: The organisation's slug.
+      schema:
+        $ref: "#/components/schemas/Slug"
 
   responses:
     BadRequest:
@@ -284,6 +863,18 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+    UnsupportedMediaType:
+      description: The request body is not application/json.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: The request conflicts with the current state (for example a slug that is taken).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
 
   schemas:
     RunId:
@@ -298,6 +889,271 @@ components:
     Sha256:
       type: string
       pattern: "^[0-9a-f]{64}$"
+
+    Role:
+      type: string
+      enum: [OWNER, ADMIN, MEMBER, VIEWER]
+    Timestamp:
+      type: string
+      format: date-time
+
+    Register:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 10
+          maxLength: 72
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, email]
+      properties:
+        id:
+          type: string
+          pattern: "^usr_[0-9a-z]{24}$"
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+
+    OrgCreate:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          $ref: "#/components/schemas/Slug"
+    Org:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, role]
+      properties:
+        id:
+          type: string
+          pattern: "^org_[0-9a-z]{24}$"
+        slug:
+          $ref: "#/components/schemas/Slug"
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+
+    ProjectCreate:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          $ref: "#/components/schemas/Slug"
+        repo:
+          type: string
+          description: The bound GitHub repository, as owner/name.
+          pattern: "^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$"
+        specPath:
+          type: string
+          minLength: 1
+          maxLength: 500
+    Project:
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, createdAt]
+      properties:
+        id:
+          type: string
+          pattern: "^prj_[0-9a-z]{24}$"
+        slug:
+          $ref: "#/components/schemas/Slug"
+        name:
+          type: string
+        repo:
+          type: string
+        specPath:
+          type: string
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+
+    KeyPermission:
+      type: string
+      enum: [runs:read, runs:write]
+    KeyCreate:
+      type: object
+      additionalProperties: false
+      required: [name, permissions]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        project:
+          description: Limits the key to one project; without it the key is valid for the whole organisation.
+          $ref: "#/components/schemas/Slug"
+        permissions:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            $ref: "#/components/schemas/KeyPermission"
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+    ApiKey:
+      type: object
+      additionalProperties: false
+      required: [id, name, prefix, permissions, createdAt]
+      properties:
+        id:
+          type: string
+          pattern: "^key_[0-9a-z]{24}$"
+        name:
+          type: string
+        prefix:
+          description: The first characters of the key, to recognise it. Not a secret.
+          type: string
+          pattern: "^drift_[A-Za-z0-9_-]{8}$"
+        project:
+          $ref: "#/components/schemas/Slug"
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeyPermission"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+        lastUsedAt:
+          $ref: "#/components/schemas/Timestamp"
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+        revokedAt:
+          $ref: "#/components/schemas/Timestamp"
+    ApiKeyCreated:
+      type: object
+      additionalProperties: false
+      required: [key, apiKey]
+      properties:
+        key:
+          description: The API key. Shown in this response only; DRIFT stores its SHA-256.
+          type: string
+          pattern: "^drift_[A-Za-z0-9_-]{43}$"
+        apiKey:
+          $ref: "#/components/schemas/ApiKey"
+
+    Member:
+      type: object
+      additionalProperties: false
+      required: [userId, email, role, joinedAt]
+      properties:
+        userId:
+          type: string
+          pattern: "^usr_[0-9a-z]{24}$"
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        joinedAt:
+          $ref: "#/components/schemas/Timestamp"
+    Invitation:
+      type: object
+      additionalProperties: false
+      required: [id, email, role, expiresAt]
+      properties:
+        id:
+          type: string
+          pattern: "^inv_[0-9a-z]{24}$"
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/Role"
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+
+    SuppressionCreate:
+      type: object
+      additionalProperties: false
+      required: [changeId, reason, expiresAt]
+      properties:
+        changeId:
+          description: The 16-character id of a change in a report.
+          type: string
+          pattern: "^[0-9a-f]{16}$"
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+    Suppression:
+      type: object
+      additionalProperties: false
+      required: [id, project, changeId, reason, expiresAt, createdAt]
+      properties:
+        id:
+          type: string
+          pattern: "^sup_[0-9a-z]{24}$"
+        project:
+          $ref: "#/components/schemas/Slug"
+        changeId:
+          type: string
+          pattern: "^[0-9a-f]{16}$"
+        reason:
+          type: string
+        expiresAt:
+          $ref: "#/components/schemas/Timestamp"
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
+
+    AuditEntry:
+      type: object
+      additionalProperties: false
+      required: [id, action, actor, target, metadata, createdAt]
+      properties:
+        id:
+          type: string
+          pattern: "^aud_[0-9a-z]{24}$"
+        action:
+          type: string
+        actor:
+          type: object
+          additionalProperties: false
+          properties:
+            user:
+              type: string
+            key:
+              type: string
+        target:
+          type: object
+          additionalProperties: false
+          required: [type, id]
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+        metadata:
+          type: object
+        createdAt:
+          $ref: "#/components/schemas/Timestamp"
 
     Trigger:
       type: string

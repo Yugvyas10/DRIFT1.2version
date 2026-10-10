@@ -1,9 +1,16 @@
 # @drift/db
 
-Prisma schema, migrations, client and seed for the DRIFT platform.
+Prisma schema, migrations and client for the DRIFT platform (Postgres).
 
-**Status: not implemented yet — arrives in M5.** This directory only reserves the package's place. It has no `package.json` and no code yet, so it is not a workspace project; the package is created in the milestone that implements it.
+```bash
+pnpm --filter @drift/db run build            # prisma generate + tsc
+DATABASE_URL=postgresql://drift:drift-local-only@localhost:5432/drift \
+  pnpm --filter @drift/db run migrate:deploy # apply the committed migrations
+pnpm --filter @drift/db run migrate:check    # exit 2 if the database differs from schema.prisma
+```
 
-The platform data model (orgs, projects, API keys, runs, stage executions, changes, evidence, audit log). See PLAN §6 M5 for the entity list.
+- `prisma/schema.prisma`: the data model. `prisma/migrations/`: the SQL that creates it, including the trigger that makes `AuditLog` append-only.
+- `src/client.ts`: `createDb(connectionString)`, a Prisma client over node-postgres. `src/ids.ts`: `newId(kind)`, application-generated ids such as `run_…`.
+- The generated client (`src/generated/`) is not committed; the build generates it.
 
 Owner: P3 — Tanishq Chavan. Module documentation: [`docs/modules/db.md`](../../docs/modules/db.md).

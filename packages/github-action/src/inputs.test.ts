@@ -29,6 +29,9 @@ describe("parseInputs", () => {
         comment: "false",
         sarif: "true",
         upload: "true",
+        project: "orders",
+        "api-url": "https://drift.example",
+        "api-key": "drift_test",
         "base-missing": "fail",
         "comment-key": "public api",
         "working-directory": "services/a",
@@ -45,6 +48,9 @@ describe("parseInputs", () => {
       comment: false,
       sarif: true,
       upload: true,
+      project: "orders",
+      apiUrl: "https://drift.example",
+      apiKey: "drift_test",
       baseMissing: "fail",
       commentKey: "public_api",
       workingDirectory: "services/a",
@@ -55,6 +61,13 @@ describe("parseInputs", () => {
     expect(() => parseInputs(from({ comment: "yes" }))).toThrow(InputError);
     expect(() => parseInputs(from({ "fail-on": "safe" }))).toThrow(/must be one of breaking, risky/);
     expect(() => parseInputs(from({ "base-missing": "skip" }))).toThrow(/pass, fail/);
+    // upload needs to know where to, and with which key.
+    expect(() => parseInputs(from({ upload: "true" }))).toThrow(/input "upload" needs the input "project"/);
+    expect(() => parseInputs(from({ upload: "true", project: "p", "api-url": "https://x.example" }))).toThrow(
+      /needs the input "api-key"/
+    );
+    // Without upload, the platform inputs are not read at all.
+    expect(parseInputs(from({ "api-key": "drift_test" })).apiKey).toBeUndefined();
   });
 
   it("keeps comment keys to characters that cannot break the marker", () => {

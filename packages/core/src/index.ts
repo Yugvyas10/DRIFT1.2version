@@ -29,6 +29,7 @@ export {
   type VerifyOptions,
   type VerifyResult,
 } from "./verify/verify.ts";
+export { ContractChecker, type ContractExchange, type ContractProblem } from "./verify/contract.ts";
 export { assess, classify, globMatch, type ClassifyInput, type ClassifyResult } from "./classify/classify.ts";
 export { parseSpecText as parseDataText, type ParseOutcome } from "./ingest/parse.ts";
 // The CLI, Action and worker depend on core only; rules and policy loading is re-exported for them.
