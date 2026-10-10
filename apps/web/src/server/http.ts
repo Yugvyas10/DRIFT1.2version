@@ -5,13 +5,16 @@ export class HttpError extends Error {
   readonly status: number;
   readonly title: string;
   readonly detail: string | undefined;
+  /** Extra response headers, e.g. `Retry-After`. */
+  readonly headers: Readonly<Record<string, string>>;
 
-  constructor(status: number, title: string, detail?: string) {
+  constructor(status: number, title: string, detail?: string, headers: Record<string, string> = {}) {
     super(detail ?? title);
     this.name = "HttpError";
     this.status = status;
     this.title = title;
     this.detail = detail;
+    this.headers = headers;
   }
 }
 
@@ -24,6 +27,10 @@ export const conflict = (detail: string) => new HttpError(409, "Conflict", detai
 export const tooLarge = (limit: number) =>
   new HttpError(413, "Payload too large", `The body may be at most ${String(limit)} bytes.`);
 export const unprocessable = (detail: string) => new HttpError(422, "Unprocessable content", detail);
+export const tooManyRequests = (retryAfterSeconds: number) =>
+  new HttpError(429, "Too many requests", `Try again in ${String(retryAfterSeconds)} seconds.`, {
+    "retry-after": String(retryAfterSeconds),
+  });
 
 export function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -41,7 +48,11 @@ export function problem(error: HttpError): Response {
   };
   return new Response(JSON.stringify(body), {
     status: error.status,
-    headers: { "content-type": "application/problem+json; charset=utf-8", "cache-control": "no-store" },
+    headers: {
+      "content-type": "application/problem+json; charset=utf-8",
+      "cache-control": "no-store",
+      ...error.headers,
+    },
   });
 }
 

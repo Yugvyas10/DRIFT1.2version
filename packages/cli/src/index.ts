@@ -3,3 +3,11 @@ export { UsageError } from "./inputs.ts";
 export { checkedApiUrl, uploadReport, UploadError, type UploadOptions } from "./upload.ts";
 export { createProgram, runCli, type CliIo } from "./program.ts";
 export { CLI_VERSION } from "./version.ts";
+export {
+  followRun,
+  startRerun,
+  startServerRun,
+  type RunEvent,
+  type RunFile,
+  type ServerRunOptions,
+} from "./server-run.ts";

@@ -3,10 +3,13 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
+    // *.int.test.ts need Postgres, Redis and S3: `pnpm --filter @drift/worker run test:integration`.
+    exclude: ["src/**/*.int.test.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/**/*.ts"],
-      exclude: ["src/**/*.test.ts", "src/main.ts"],
+      // The unit run covers what needs no service; the queue, the processor and the engine thread are covered by
+      // the integration run.
+      include: ["src/duration.ts", "src/env.ts", "src/worker.ts"],
       reporter: ["text", "json-summary"],
       // packages/core and packages/rules must stay at or above 90%; every other package at or above 80% (CLAUDE.md).
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },

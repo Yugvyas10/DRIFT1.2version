@@ -74,7 +74,15 @@ export default defineConfig(
               message: "packages/core must stay free of infrastructure and UI dependencies (PLAN §3.2).",
             },
             {
-              group: ["@drift/cli", "@drift/github-action", "@drift/db", "@drift/bench", "@drift/web", "@drift/worker"],
+              group: [
+                "@drift/cli",
+                "@drift/github-action",
+                "@drift/db",
+                "@drift/platform",
+                "@drift/bench",
+                "@drift/web",
+                "@drift/worker",
+              ],
               message: "packages/core may depend only on @drift/report-schema and @drift/rules (PLAN §3.2).",
             },
           ],
@@ -99,7 +107,14 @@ export default defineConfig(
         {
           patterns: [
             {
-              group: ["@drift/core", "@drift/cli", "@drift/github-action", "@drift/db", "@drift/bench"],
+              group: [
+                "@drift/core",
+                "@drift/cli",
+                "@drift/github-action",
+                "@drift/db",
+                "@drift/platform",
+                "@drift/bench",
+              ],
               message: "report-schema and rules are leaf packages (PLAN §3.2).",
             },
           ],

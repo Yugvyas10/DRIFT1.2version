@@ -4961,8 +4961,8 @@ var require_file = __commonJS({
     var { kState } = require_symbols2();
     var { webidl } = require_webidl();
     var FileLike = class _FileLike {
-      constructor(blobLike, fileName, options = {}) {
-        const n = fileName;
+      constructor(blobLike, fileName2, options = {}) {
+        const n = fileName2;
         const t = options.type;
         const d = options.lastModified ?? Date.now();
         this[kState] = {
@@ -44280,7 +44280,8 @@ async function ingestSpec(entryPath, options) {
     ir: built.ir,
     specHash: contentHash(built.ir),
     sourceHash: contentHash(Object.fromEntries([...loaded.set.documents.values()].map((document) => [document.relative, document.value]))),
-    locate: locator([...loaded.set.documents.values()])
+    locate: locator([...loaded.set.documents.values()]),
+    documents: [...loaded.set.documents.values()].map(({ relative: relative3, display }) => ({ relative: relative3, display }))
   });
 }
 function locator(documents) {
@@ -67965,24 +67966,38 @@ async function compare2(input2) {
   const verifyOptions = { ...DEFAULT_VERIFY_OPTIONS, seed };
   const diagnostics = [];
   const stages = [
-    { stage: "ingest.base", hash: stageKey("ingest.base", { source: input2.base.sourceHash }), cached: false },
-    { stage: "ingest.head", hash: stageKey("ingest.head", { source: input2.head.sourceHash }), cached: false }
+    {
+      stage: "ingest.base",
+      hash: stageKey("ingest.base", { source: input2.base.sourceHash }),
+      cached: input2.base.cached === true
+    },
+    {
+      stage: "ingest.head",
+      hash: stageKey("ingest.head", { source: input2.head.sourceHash }),
+      cached: input2.head.cached === true
+    }
   ];
   const stage = async (name, inputs, run3) => {
     const hash2 = stageKey(name, inputs);
+    await input2.onStage?.({ stage: name, status: "started", hash: hash2 });
+    const finish = async (value2, cached2) => {
+      stages.push({ stage: name, hash: hash2, cached: cached2 });
+      await input2.onStage?.({ stage: name, status: "finished", hash: hash2, cached: cached2 });
+      return { hash: hash2, value: value2 };
+    };
     const hit = input2.cache ? await input2.cache.get(hash2) : void 0;
     if (hit !== void 0) {
+      let cached2;
       try {
-        const value2 = JSON.parse(hit);
-        stages.push({ stage: name, hash: hash2, cached: true });
-        return { hash: hash2, value: value2 };
+        cached2 = { value: JSON.parse(hit) };
       } catch {
       }
+      if (cached2)
+        return finish(cached2.value, true);
     }
     const value = await run3();
     await input2.cache?.put(hash2, JSON.stringify(value));
-    stages.push({ stage: name, hash: hash2, cached: false });
-    return { hash: hash2, value };
+    return finish(value, false);
   };
   const diff = await stage("diff", { base: input2.base.specHash, head: input2.head.specHash }, () => diffSpecs(input2.base.ir, input2.head.ir));
   const affected = new Set(Object.keys(diff.value.impact));
@@ -68399,6 +68414,13 @@ function row(change2) {
   return `| ${inline(change2.operation)} | ${change2.direction} | ${escapeMarkdown(change2.message)} | ${escapeMarkdown(evidenceSummary(change2))} |
 `;
 }
+var SUPPRESSED_HEAD = "| Operation | Label | Change | Until | Reason |\n| --- | --- | --- | --- | --- |\n";
+function suppressedRow(change2) {
+  const until = change2.suppression?.expiresAt ?? "";
+  const reason = change2.suppression?.reason ?? "";
+  return `| ${inline(change2.operation)} | ${change2.severity} | ${escapeMarkdown(change2.message)} ${inline(change2.id)} | ${escapeMarkdown(until)} | ${escapeMarkdown(reason)} |
+`;
+}
 function renderMarkdown(report, options = {}) {
   const s = report.summary;
   const icon = report.gate.passed ? "\u2705" : "\u274C";
@@ -68429,8 +68451,13 @@ function renderMarkdown(report, options = {}) {
   tail += `
 <sub>DRIFT ${escapeMarkdown(report.engine.version)} \xB7 rules ${escapeMarkdown(report.rules.version)} \xB7 synthetic evidence is marked as such and never counts as recorded.</sub>
 `;
-  const breaking = bySeverity(report, "BREAKING");
-  const tables = ["RISKY", "SAFE"].map((severity) => ({ severity, changes: bySeverity(report, severity) }));
+  const active = report.changes.filter((change2) => !change2.suppression);
+  const suppressed = report.changes.filter((change2) => change2.suppression);
+  const breaking = active.filter((change2) => change2.severity === "BREAKING");
+  const tables = ["RISKY", "SAFE"].map((severity) => ({
+    severity,
+    changes: active.filter((change2) => change2.severity === severity)
+  }));
   const body = (shown2) => {
     let text = "";
     if (breaking.length > 0) {
@@ -68451,12 +68478,22 @@ ${rows}
 </details>
 `;
     }
+    if (suppressed.length > 0) {
+      const rows = shown2.suppressed > 0 ? `${SUPPRESSED_HEAD}${suppressed.slice(0, shown2.suppressed).map(suppressedRow).join("")}` : "";
+      text += `
+<details><summary><strong>Suppressed (${String(suppressed.length)})</strong></summary>
+
+${rows}
+</details>
+`;
+    }
     return text;
   };
   const all = {
     breaking: breaking.length,
     RISKY: tables[0]?.changes.length ?? 0,
-    SAFE: tables[1]?.changes.length ?? 0
+    SAFE: tables[1]?.changes.length ?? 0,
+    suppressed: suppressed.length
   };
   const full = head + body(all) + tail;
   const max = options.maxLength;
@@ -68466,7 +68503,8 @@ ${rows}
     const left = [
       [all.breaking - shown2.breaking, "BREAKING"],
       [all.RISKY - shown2.RISKY, "RISKY"],
-      [all.SAFE - shown2.SAFE, "SAFE"]
+      [all.SAFE - shown2.SAFE, "SAFE"],
+      [all.suppressed - shown2.suppressed, "suppressed"]
     ].filter(([count]) => count > 0);
     const where2 = options.fullReport === void 0 ? "" : ` ${escapeMarkdown(options.fullReport)}`;
     return `
@@ -68474,9 +68512,9 @@ ${rows}
 > Shortened to fit: ${left.map(([count, label]) => `${String(count)} ${String(label)}`).join(", ")} ${left.length === 1 && left[0]?.[0] === 1 ? "change is" : "changes are"} not listed here.${where2}
 `;
   };
-  const shown = { breaking: 0, RISKY: 0, SAFE: 0 };
+  const shown = { breaking: 0, RISKY: 0, SAFE: 0, suppressed: 0 };
   const fits = (candidate) => (head + body(candidate) + note(candidate) + tail).length <= max;
-  for (const key of ["breaking", "RISKY", "SAFE"]) {
+  for (const key of ["breaking", "RISKY", "SAFE", "suppressed"]) {
     let low = 0;
     let high = all[key];
     while (low < high) {
@@ -72366,6 +72404,10 @@ function useColor() {
 
 // ../../node_modules/.pnpm/commander@15.0.0/node_modules/commander/index.js
 var program = new Command2();
+
+// ../cli/dist/commands/run.js
+var MAX_SPEC_BYTES = 20 * 1024 * 1024;
+var MAX_TRAFFIC_BYTES = 256 * 1024 * 1024;
 
 // src/github.ts
 function createGitHubApi(token, repo, fetch2) {

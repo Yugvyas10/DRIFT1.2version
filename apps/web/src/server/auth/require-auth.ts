@@ -15,6 +15,8 @@ export interface AuthDeps {
   /** Reads and verifies the session token of a request (next-auth); undefined without a valid one. */
   session(request: Request): Promise<SessionClaims | undefined>;
   now?: () => Date;
+  /** Called once the caller is known, before anything is done for them (rate limiting). May throw. */
+  onAuthenticated?(identity: Identity): Promise<void>;
 }
 
 /** A caller whose identity is established but who is not yet tied to an organisation. */
@@ -42,7 +44,15 @@ export async function authenticate(request: Request, deps: AuthDeps): Promise<Id
     if (row.lastUsedAt === null || now.getTime() - row.lastUsedAt.getTime() > LAST_USED_RESOLUTION_MS) {
       await deps.db.apiKey.update({ where: { id: row.id }, data: { lastUsedAt: now } });
     }
-    return { kind: "key", keyId: row.id, orgId: row.orgId, projectId: row.projectId, permissions: row.permissions };
+    const identity: Identity = {
+      kind: "key",
+      keyId: row.id,
+      orgId: row.orgId,
+      projectId: row.projectId,
+      permissions: row.permissions,
+    };
+    await deps.onAuthenticated?.(identity);
+    return identity;
   }
   const claims = await deps.session(request);
   if (!claims) throw unauthorized();
@@ -53,7 +63,9 @@ export async function authenticate(request: Request, deps: AuthDeps): Promise<Id
   if (!user) throw unauthorized();
   // A session issued before the user's tokenVersion was raised (password change, sign out everywhere) is dead.
   if (user.tokenVersion !== claims.tokenVersion) throw unauthorized();
-  return { kind: "user", userId: user.id };
+  const identity: Identity = { kind: "user", userId: user.id };
+  await deps.onAuthenticated?.(identity);
+  return identity;
 }
 
 /** The organisation a request is about: by slug (from the URL) or by id (from a resource that was looked up). */

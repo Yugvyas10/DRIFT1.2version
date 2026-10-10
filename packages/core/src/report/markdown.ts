@@ -1,5 +1,5 @@
 import type { ClassifiedChange, Report } from "@drift/report-schema";
-import { bySeverity, evidenceSummary, gateLine, omittedBody, where } from "./common.ts";
+import { evidenceSummary, gateLine, omittedBody, where } from "./common.ts";
 
 /** Hidden marker the GitHub Action uses to find and update its one PR comment (M4). */
 export const MARKDOWN_MARKER = "<!-- drift-report -->";
@@ -53,18 +53,30 @@ function row(change: ClassifiedChange): string {
   return `| ${inline(change.operation)} | ${change.direction} | ${escapeMarkdown(change.message)} | ${escapeMarkdown(evidenceSummary(change))} |\n`;
 }
 
+const SUPPRESSED_HEAD = "| Operation | Label | Change | Until | Reason |\n| --- | --- | --- | --- | --- |\n";
+
+function suppressedRow(change: ClassifiedChange): string {
+  const until = change.suppression?.expiresAt ?? "";
+  const reason = change.suppression?.reason ?? "";
+  return `| ${inline(change.operation)} | ${change.severity} | ${escapeMarkdown(change.message)} ${inline(change.id)} | ${escapeMarkdown(until)} | ${escapeMarkdown(reason)} |\n`;
+}
+
 export interface MarkdownOptions {
   /**
    * Longest result, in UTF-16 code units (a GitHub comment holds 65,536). A report that does not fit keeps its
-   * header and footer, lists changes in order (BREAKING in full, then RISKY and SAFE rows) while they fit, and
-   * says how many of each it left out. At least the header, the note and the footer are always returned.
+   * header and footer, lists changes in order (BREAKING in full, then RISKY, SAFE and suppressed rows) while they
+   * fit, and says how many of each it left out. At least the header, the note and the footer are always returned.
    */
   maxLength?: number;
   /** Where the full report can be found, for the note on a shortened report. */
   fullReport?: string;
 }
 
-/** The Markdown report: a PR comment or job summary. BREAKING changes in full, the rest in collapsed tables. */
+/**
+ * The Markdown report: a PR comment or job summary. BREAKING changes in full, RISKY and SAFE in collapsed tables.
+ * Suppressed changes (of any label) are one collapsed table of their own, with the expiry and the reason, so the
+ * sections agree with the counts at the top, which leave suppressed changes out.
+ */
 export function renderMarkdown(report: Report, options: MarkdownOptions = {}): string {
   const s = report.summary;
   const icon = report.gate.passed ? "✅" : "❌";
@@ -88,9 +100,14 @@ export function renderMarkdown(report: Report, options: MarkdownOptions = {}): s
   }
   tail += `\n<sub>DRIFT ${escapeMarkdown(report.engine.version)} · rules ${escapeMarkdown(report.rules.version)} · synthetic evidence is marked as such and never counts as recorded.</sub>\n`;
 
-  const breaking = bySeverity(report, "BREAKING");
-  const tables = (["RISKY", "SAFE"] as const).map((severity) => ({ severity, changes: bySeverity(report, severity) }));
-  const body = (shown: { breaking: number; RISKY: number; SAFE: number }) => {
+  const active = report.changes.filter((change) => !change.suppression);
+  const suppressed = report.changes.filter((change) => change.suppression);
+  const breaking = active.filter((change) => change.severity === "BREAKING");
+  const tables = (["RISKY", "SAFE"] as const).map((severity) => ({
+    severity,
+    changes: active.filter((change) => change.severity === severity),
+  }));
+  const body = (shown: { breaking: number; RISKY: number; SAFE: number; suppressed: number }) => {
     let text = "";
     if (breaking.length > 0) {
       text += `\n### BREAKING (${String(breaking.length)})\n\n${breaking.slice(0, shown.breaking).map(details).join("")}`;
@@ -101,12 +118,20 @@ export function renderMarkdown(report: Report, options: MarkdownOptions = {}): s
       const rows = shown[severity] > 0 ? `${TABLE_HEAD}${changes.slice(0, shown[severity]).map(row).join("")}` : "";
       text += `\n<details${open}><summary><strong>${severity} (${String(changes.length)})</strong></summary>\n\n${rows}\n</details>\n`;
     }
+    if (suppressed.length > 0) {
+      const rows =
+        shown.suppressed > 0
+          ? `${SUPPRESSED_HEAD}${suppressed.slice(0, shown.suppressed).map(suppressedRow).join("")}`
+          : "";
+      text += `\n<details><summary><strong>Suppressed (${String(suppressed.length)})</strong></summary>\n\n${rows}\n</details>\n`;
+    }
     return text;
   };
   const all = {
     breaking: breaking.length,
     RISKY: tables[0]?.changes.length ?? 0,
     SAFE: tables[1]?.changes.length ?? 0,
+    suppressed: suppressed.length,
   };
   const full = head + body(all) + tail;
   const max = options.maxLength;
@@ -118,13 +143,14 @@ export function renderMarkdown(report: Report, options: MarkdownOptions = {}): s
       [all.breaking - shown.breaking, "BREAKING"],
       [all.RISKY - shown.RISKY, "RISKY"],
       [all.SAFE - shown.SAFE, "SAFE"],
+      [all.suppressed - shown.suppressed, "suppressed"],
     ].filter(([count]) => (count as number) > 0);
     const where = options.fullReport === undefined ? "" : ` ${escapeMarkdown(options.fullReport)}`;
     return `\n> [!NOTE]\n> Shortened to fit: ${left.map(([count, label]) => `${String(count)} ${String(label)}`).join(", ")} ${left.length === 1 && left[0]?.[0] === 1 ? "change is" : "changes are"} not listed here.${where}\n`;
   };
-  const shown = { breaking: 0, RISKY: 0, SAFE: 0 };
+  const shown = { breaking: 0, RISKY: 0, SAFE: 0, suppressed: 0 };
   const fits = (candidate: typeof all) => (head + body(candidate) + note(candidate) + tail).length <= max;
-  for (const key of ["breaking", "RISKY", "SAFE"] as const) {
+  for (const key of ["breaking", "RISKY", "SAFE", "suppressed"] as const) {
     // The largest count that fits (binary search: the length grows with the count), so a big report renders
     // O(log n) times rather than once per change.
     let low = 0;
