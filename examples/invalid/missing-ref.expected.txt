@@ -1,0 +1,2 @@
+examples/invalid/missing-ref.yaml:14:23  error  REF_NOT_FOUND  $ref "#/components/schemas/Pet" points to nothing
+✖ 1 error, 0 warnings

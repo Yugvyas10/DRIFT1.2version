@@ -1,6 +1,6 @@
 # @drift/report-schema — the report contract
 
-**Owner:** P4 (Pruthvi Gangapure). Reviewers P1, P3. **Status:** M0 — vocabulary only. The full `drift-report/v1` schema lands in M2.
+**Owner:** P4 (Pruthvi Gangapure). Reviewers P1, P3. **Status:** M1 — vocabulary, change records, diagnostics and the `drift-diff/v1` document. The full `drift-report/v1` schema lands in M2.
 
 ## Purpose
 
@@ -16,11 +16,18 @@ The single contract shared by the engine, CLI, Action, worker and web. When the 
 | `FailOn`           | zod enum `breaking`, `risky`: the gate threshold.            |
 | `ExitCode`         | `Pass 0`, `GateFailed 1`, `UsageError 2`, `InternalError 3`. |
 
+| `CHANGE_KINDS`, `ChangeKind` | The 46 change kinds (PLAN §4.2). |
+| `Change` | One change: `id` (16 hex), `kind`, `direction`, `operation`, `location`, `side`, `subject?`, `before?`, `after?`, `candidateSeverity` (RISKY/SAFE), `message`. |
+| `Diagnostic`, `DIAGNOSTIC_CODES` | A located problem: severity, code, message, file, pointer, 1-based line and column. |
+| `DiffOutput`, `SpecSummary` | The `drift-diff/v1` JSON printed by `drift diff --format json`. |
+
 ## Key design decisions
 
 - **zod is the source of truth.** In M2 the JSON Schema is generated from zod and committed, so non-TypeScript consumers can validate reports with any JSON Schema validator.
 - **Const objects instead of TypeScript `enum`s** keep the source erasable (`erasableSyntaxOnly`) and give plain values at runtime.
 - **A leaf package:** lint forbids it from importing any other `@drift/*` package, so the contract cannot depend on the engine it describes.
+
+- **`candidateSeverity` can never be BREAKING.** The schema only allows RISKY or SAFE, because BREAKING needs evidence (ADR-0002).
 
 ## Questions an examiner might ask
 

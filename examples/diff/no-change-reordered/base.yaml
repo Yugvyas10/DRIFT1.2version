@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info: { title: Reordered, version: "1" }
+paths:
+  /pets:
+    get:
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pet" }
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer }
+        name: { type: string }

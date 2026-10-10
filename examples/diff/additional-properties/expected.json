@@ -1,0 +1,26 @@
+[
+  {
+    "id": "5a6a79644d62ca41",
+    "kind": "schema.additional_properties.tightened",
+    "direction": "request",
+    "operation": "PUT /settings",
+    "location": "#/paths/~1settings/put/requestBody/content/application~1json/schema/additionalProperties",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Additional properties restricted: any → none",
+    "before": "any",
+    "after": "none"
+  },
+  {
+    "id": "27ce36d56bd4ddd1",
+    "kind": "schema.additional_properties.relaxed",
+    "direction": "response",
+    "operation": "PUT /settings",
+    "location": "#/paths/~1settings/put/responses/200/content/application~1json/schema",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): Additional properties allowed: none → any",
+    "before": "none",
+    "after": "any"
+  }
+]

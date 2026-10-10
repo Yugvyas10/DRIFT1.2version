@@ -23,26 +23,26 @@ One engine, many callers: the CLI, the Action, the worker and the tests all call
 
 ## 2. Packages and dependency rules
 
-| Package                | Depends on                                  | Status after M0                                                |
-| ---------------------- | ------------------------------------------- | -------------------------------------------------------------- |
-| `@drift/report-schema` | zod                                         | Shared vocabulary: severities, directions, fail-on, exit codes |
-| `@drift/rules`         | zod                                         | Rules format id and rule id grammar                            |
-| `@drift/core`          | report-schema, rules (from M1), node:crypto | Canonical JSON (RFC 8785) and content hashing                  |
-| `@drift/cli`           | core, report-schema, commander              | `drift --version`, `--help`, exit-code mapping                 |
-| `@drift/github-action` | cli _(planned, M4)_                         | Directory reserved (README only)                               |
-| `@drift/db`            | Prisma _(planned, M5)_                      | Directory reserved (README only)                               |
-| `@drift/bench`         | core, cli _(planned, M1/M3/M8)_             | Directory reserved (README only)                               |
-| `@drift/web`           | Next.js, React, zod                         | Landing page, env validation, security headers                 |
-| `@drift/worker`        | ioredis, pino, zod                          | Env validation, Redis readiness check                          |
+| Package                | Depends on                      | Status after M1                                     |
+| ---------------------- | ------------------------------- | --------------------------------------------------- |
+| `@drift/report-schema` | zod                             | Vocabulary, `Change`, `Diagnostic`, `drift-diff/v1` |
+| `@drift/rules`         | report-schema, zod              | Rule id grammar; structural direction table (data)  |
+| `@drift/core`          | report-schema, rules, yaml, ajv | Hashing; **Ingest** and **Diff** stages             |
+| `@drift/cli`           | core, report-schema, commander  | `drift validate`, `drift diff`, exit codes          |
+| `@drift/github-action` | cli _(planned, M4)_             | Directory reserved (README only)                    |
+| `@drift/db`            | Prisma _(planned, M5)_          | Directory reserved (README only)                    |
+| `@drift/bench`         | core                            | Pinned real-world fixtures and the fixture check    |
+| `@drift/web`           | Next.js, React, zod             | Landing page, env validation, security headers      |
+| `@drift/worker`        | ioredis, pino, zod              | Env validation, Redis readiness check               |
 
 The rules in [`PLAN.md` §3.2](PLAN.md) are enforced by `eslint.config.mjs`, not by convention:
 
 - `packages/core/src/**` may not import `fs`, `http(s)`, `net`, `child_process`, database, queue, storage or UI libraries, or any `@drift/*` package above it. `Math.random` is banned there, because engine output must be deterministic (ADR-0006).
 - `packages/report-schema` and `packages/rules` may not import any other `@drift/*` package.
 
-## 3. Engine stages _(planned, M1–M3)_
+## 3. Engine stages (Ingest and Diff built in M1; the rest M2–M3)
 
-Ingest → Diff → Corpus → Verify → Classify → Report & Gate. Each stage is a pure function from typed inputs to a typed output. Each output carries a cache key: `sha256(JCS({stage, engineVersion, rulesVersion?, inputHashes}))`. The hashing foundation for this (`canonicalJson`, `contentHash`) exists from M0. See [`modules/core.md`](modules/core.md).
+Ingest → Diff → Corpus → Verify → Classify → Report & Gate. Each stage is a pure function from typed inputs to a typed output. Each output carries a cache key: `sha256(JCS({stage, engineVersion, rulesVersion?, inputHashes}))`. Ingest produces a normalised IR and its content hash; Diff produces change records and the impact index. See [`modules/core.md`](modules/core.md) and ADR-0003.
 
 ## 4. Configuration and startup
 

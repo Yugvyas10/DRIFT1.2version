@@ -1,0 +1,85 @@
+[
+  {
+    "id": "71142a8708de63bf",
+    "kind": "schema.type.changed",
+    "direction": "request",
+    "operation": "POST /measurements",
+    "location": "#/paths/~1measurements/post/requestBody/content/application~1json/schema/properties/code/type",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Type changed from integer to string",
+    "before": ["integer"],
+    "after": ["string"]
+  },
+  {
+    "id": "726a89b6ab60d6b1",
+    "kind": "schema.type.widened",
+    "direction": "request",
+    "operation": "POST /measurements",
+    "location": "#/paths/~1measurements/post/requestBody/content/application~1json/schema/properties/count/type",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): Type changed from integer to number",
+    "before": ["integer"],
+    "after": ["number"]
+  },
+  {
+    "id": "213490a9003a6385",
+    "kind": "schema.type.narrowed",
+    "direction": "request",
+    "operation": "POST /measurements",
+    "location": "#/paths/~1measurements/post/requestBody/content/application~1json/schema/properties/label/type",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Type changed from null | string to string",
+    "before": ["null", "string"],
+    "after": ["string"]
+  },
+  {
+    "id": "fbb0e57f720d6baf",
+    "kind": "schema.type.narrowed",
+    "direction": "request",
+    "operation": "POST /measurements",
+    "location": "#/paths/~1measurements/post/requestBody/content/application~1json/schema/properties/reading/type",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Type changed from any to number",
+    "after": ["number"]
+  },
+  {
+    "id": "f54d22dd7578e53c",
+    "kind": "schema.format.changed",
+    "direction": "request",
+    "operation": "POST /measurements",
+    "location": "#/paths/~1measurements/post/requestBody/content/application~1json/schema/properties/takenAt/format",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Format changed from \"date-time\" to \"date\"",
+    "before": "date-time",
+    "after": "date"
+  },
+  {
+    "id": "ef5a0037c450accd",
+    "kind": "schema.type.widened",
+    "direction": "response",
+    "operation": "POST /measurements",
+    "location": "#/paths/~1measurements/post/responses/200/content/application~1json/schema/properties/total/type",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): Type changed from integer to number",
+    "before": ["integer"],
+    "after": ["number"]
+  },
+  {
+    "id": "1079f5646e7570b5",
+    "kind": "schema.type.widened",
+    "direction": "response",
+    "operation": "POST /measurements",
+    "location": "#/paths/~1measurements/post/responses/200/content/application~1json/schema/properties/unit/type",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): Type changed from string to null | string",
+    "before": ["string"],
+    "after": ["null", "string"]
+  }
+]

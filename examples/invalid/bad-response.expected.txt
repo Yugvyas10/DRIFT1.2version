@@ -1,0 +1,3 @@
+examples/invalid/bad-response.yaml:10:11  error  OAS_SCHEMA  Missing required property "description"
+examples/invalid/bad-response.yaml:10:23  error  OAS_SCHEMA  Unexpected property "descripton"
+✖ 2 errors, 0 warnings

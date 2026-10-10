@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info: { title: Annotations, version: "1" }
+paths:
+  /reports:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format: { type: string, default: pdf }
+                pages: { type: integer, description: Number of pages }
+                legacy: { type: string }
+      responses: { "204": { description: ok } }

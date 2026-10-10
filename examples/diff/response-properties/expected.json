@@ -1,0 +1,57 @@
+[
+  {
+    "id": "3e866e7373c56264",
+    "kind": "schema.property.made_optional",
+    "direction": "response",
+    "operation": "GET /users/{}",
+    "location": "#/paths/~1users~1{id}/get/responses/200/content/application~1json/schema",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): Property \"name\" is no longer required",
+    "subject": "name"
+  },
+  {
+    "id": "9e3d8f001e0d0ad4",
+    "kind": "schema.property.removed",
+    "direction": "response",
+    "operation": "GET /users/{}",
+    "location": "#/paths/~1users~1{id}/get/responses/200/content/application~1json/schema/properties/avatar",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): Property \"avatar\" was removed",
+    "subject": "avatar"
+  },
+  {
+    "id": "2eecdf46c8842ff6",
+    "kind": "schema.property.added.required",
+    "direction": "response",
+    "operation": "GET /users/{}",
+    "location": "#/paths/~1users~1{id}/get/responses/200/content/application~1json/schema/properties/createdAt",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Response 200 body (application/json): Property \"createdAt\" was added as required",
+    "subject": "createdAt"
+  },
+  {
+    "id": "625abd8aae17777d",
+    "kind": "schema.property.added.optional",
+    "direction": "response",
+    "operation": "GET /users/{}",
+    "location": "#/paths/~1users~1{id}/get/responses/200/content/application~1json/schema/properties/nickname",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Response 200 body (application/json): Property \"nickname\" was added as optional",
+    "subject": "nickname"
+  },
+  {
+    "id": "414eb5c038869029",
+    "kind": "schema.property.made_required",
+    "direction": "response",
+    "operation": "GET /users/{}",
+    "location": "#/paths/~1users~1{id}/get/responses/200/content/application~1json/schema/required",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Response 200 body (application/json): Property \"email\" is now required",
+    "subject": "email"
+  }
+]

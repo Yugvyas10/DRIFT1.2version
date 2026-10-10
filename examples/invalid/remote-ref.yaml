@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: Remote reference
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: Remote references are never fetched
+          content:
+            application/json:
+              schema:
+                $ref: "https://example.com/schemas/pet.json"

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "2f9130f14139a588",
+    "kind": "schema.bound.tightened",
+    "direction": "request",
+    "operation": "POST /orders",
+    "location": "#/paths/~1orders/post/requestBody/content/application~1json/schema/properties/channel/enum",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Values restricted to [\"web\",\"app\"]",
+    "subject": "enum",
+    "after": ["web", "app"]
+  },
+  {
+    "id": "ff98ff58dcb2a285",
+    "kind": "schema.enum.value_added",
+    "direction": "request",
+    "operation": "POST /orders",
+    "location": "#/paths/~1orders/post/requestBody/content/application~1json/schema/properties/status/enum",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): Enum value \"refunded\" was added",
+    "subject": "\"refunded\"",
+    "after": "refunded"
+  },
+  {
+    "id": "49bd206147cc5aee",
+    "kind": "schema.enum.value_removed",
+    "direction": "request",
+    "operation": "POST /orders",
+    "location": "#/paths/~1orders/post/requestBody/content/application~1json/schema/properties/status/enum",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Enum value \"shipped\" was removed",
+    "subject": "\"shipped\"",
+    "before": "shipped"
+  },
+  {
+    "id": "64086db51f595f7d",
+    "kind": "schema.enum.value_added",
+    "direction": "response",
+    "operation": "POST /orders",
+    "location": "#/paths/~1orders/post/responses/200/content/application~1json/schema/properties/state/enum",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): Enum value \"archived\" was added",
+    "subject": "\"archived\"",
+    "after": "archived"
+  }
+]

@@ -1,0 +1,2 @@
+examples/invalid/swagger-2.yaml:1:10  error  UNSUPPORTED_VERSION  Swagger 2.0 is not supported; convert the document to OpenAPI 3.x
+✖ 1 error, 0 warnings

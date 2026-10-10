@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info: { title: Bounds, version: "2" }
+paths:
+  /items:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, maxLength: 50 }
+                price: { type: number, minimum: 0 }
+                sku: { type: string, pattern: "^[A-Z]{3}-[0-9]+$" }
+                quantity: { type: integer, multipleOf: 3 }
+                step: { type: integer, multipleOf: 5 }
+                tags: { type: array, items: { type: string }, uniqueItems: true }
+                ratio: { type: number, minimum: 0, exclusiveMinimum: true }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: { type: string, maxLength: 200 }
