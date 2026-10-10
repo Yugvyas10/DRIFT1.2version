@@ -53,7 +53,9 @@ describe("SchemaGenerator", () => {
     expect(generate({ type: ["string"], format: "made-up" })).toBe("drift");
     expect(generate({ type: ["string"], pattern: "^[A-Z]+$" })).toBe("A");
     expect(generate({ type: ["string"], pattern: "^\\d{4}-\\d{2}-\\d{2}$" })).toBe("2026-01-15");
-    expect(generate({ type: ["string"], pattern: "^zz+$" })).toBe(FAIL);
+    expect(generate({ type: ["string"], pattern: "^zz+$" })).toBe("zz"); // built from the pattern
+    expect(generate({ type: ["string"], pattern: "^[0-9a-f]{40}$" })).toBe("a".repeat(40));
+    expect(generate({ type: ["string"], pattern: "^(?=z)zz+$" })).toBe(FAIL); // lookarounds are not built
     expect(generate({ type: ["string"], pattern: "([" })).toBe(FAIL);
   });
 
@@ -67,7 +69,7 @@ describe("SchemaGenerator", () => {
     expect(generate({ type: ["array"], prefixItems: [{ const: "x" }, { const: 2 }] })).toEqual(["x", 2]);
     expect(generate({ type: ["array"], items, minItems: 2, uniqueItems: true })).toBe(FAIL);
     expect(generate({ type: ["array"], minItems: 3, maxItems: 2 })).toBe(FAIL);
-    expect(generate({ type: ["array"], items: { pattern: "^zz+$", type: ["string"] }, minItems: 1 })).toBe(FAIL);
+    expect(generate({ type: ["array"], items: { pattern: "^(?=z)zz+$", type: ["string"] }, minItems: 1 })).toBe(FAIL);
   });
 
   it("builds objects with all, only required, or extra properties", () => {
@@ -78,7 +80,7 @@ describe("SchemaGenerator", () => {
       properties: {
         id: { type: ["integer"] },
         note: { type: ["string"] },
-        bad: { type: ["string"], pattern: "^zz+$" },
+        bad: { type: ["string"], pattern: "^(?=z)zz+$" },
       },
     };
     expect(variants(schema)).toEqual([
@@ -92,7 +94,7 @@ describe("SchemaGenerator", () => {
       driftExtra2: 1,
     });
     expect(
-      generate({ type: ["object"], required: ["x"], properties: { x: { pattern: "^zz+$", type: ["string"] } } })
+      generate({ type: ["object"], required: ["x"], properties: { x: { pattern: "^(?=z)zz+$", type: ["string"] } } })
     ).toBe(FAIL);
   });
 
@@ -121,12 +123,12 @@ describe("SchemaGenerator", () => {
       })
     ).toEqual({ a: 1, b: 2, n: { c: 3, d: 4 } });
     expect(generate({ allOf: [{ const: "first" }, { const: "second" }] })).toBe("first");
-    expect(generate({ allOf: [{ type: ["string"], pattern: "^zz+$" }] })).toBe(FAIL);
+    expect(generate({ allOf: [{ type: ["string"], pattern: "^(?=z)zz+$" }] })).toBe(FAIL);
     expect(
       generate({
         type: ["object"],
         properties: { a: { const: 1 } },
-        allOf: [{ required: ["a"], properties: { a: { pattern: "^zz+$", type: ["string"] } } }],
+        allOf: [{ required: ["a"], properties: { a: { pattern: "^(?=z)zz+$", type: ["string"] } } }],
       })
     ).toBe(FAIL);
   });

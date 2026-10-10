@@ -1,0 +1,31 @@
+{
+  "name": "@drift/github-action",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GitHub Action that runs the DRIFT contract gate in a pull request.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/bundle.ts",
+    "bundle:check": "node scripts/bundle.ts --check",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@actions/core": "3.0.1",
+    "@actions/github": "9.1.1",
+    "@drift/cli": "workspace:*",
+    "@drift/core": "workspace:*",
+    "@drift/report-schema": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "esbuild": "0.28.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
