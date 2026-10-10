@@ -1,74 +1,69 @@
-# DRIFT — Contract-Aware API Regression Sentinel
+# DRIFT
 
-DRIFT is a developer platform that catches breaking API changes before they ship. It parses OpenAPI 3.x, gRPC, and GraphQL ASTs, replays shadow production traffic, and gates breaking pull requests in CI/CD.
+**DRIFT runs inside a CI pipeline, compares the old and new OpenAPI contract of a REST API, proves with evidence whether the change would break real consumers, and blocks the merge if it would.**
 
-**Live demo:** https://driftapi.vercel.app
+A change is labelled **BREAKING** only when a concrete sample that the old contract accepts is rejected by the new one. A structurally dangerous change without such evidence is **RISKY**; everything else is **SAFE**. See [ADR-0002](docs/adr/0002-evidence-based-classification.md).
 
-## Tech Stack
+> **Status: rebuild in progress — milestone M0 (foundations).** The engine does not exist yet. What works today is listed below; everything else is planned in [`docs/PLAN.md`](docs/PLAN.md). Nothing in this repository presents a planned feature as working; see [`docs/INVENTORY.md`](docs/INVENTORY.md).
 
-- **Frontend:** Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Framer Motion, React Three Fiber
-- **Backend:** Next.js API routes (serverless functions)
-- **Database:** PostgreSQL via Prisma (Neon)
-- **Auth:** NextAuth.js (credentials, bcrypt-hashed passwords)
-- **UI:** shadcn/ui components, Recharts, Sonner, Zustand
+## What works today (M0)
 
-## Getting Started
+| Area                                                   | Try it                                                    |
+| ------------------------------------------------------ | --------------------------------------------------------- |
+| Monorepo checks (typecheck, lint, test, build)         | `pnpm turbo run typecheck lint test build`                |
+| Canonical JSON + content hashing (engine foundation)   | `pnpm --filter @drift/core test`                          |
+| `drift` CLI skeleton (version, help, exit codes)       | `pnpm --filter @drift/cli exec drift --help`              |
+| Landing page with the DRIFT design system              | `pnpm --filter @drift/web dev` → http://localhost:3000    |
+| Local services: Postgres, Redis, S3-compatible storage | `docker compose -f infra/docker-compose.yml up -d --wait` |
+| Worker startup check against Redis                     | `pnpm --filter @drift/worker dev`                         |
+| Secret scan                                            | `sh scripts/secret-scan.sh`                               |
+
+## Quick start
+
+Requirements: Node.js 24 LTS or newer, pnpm 12 (`npm install -g pnpm@12.6.0`), Docker.
 
 ```bash
-# 1. Install dependencies
-npm install
-
-# 2. Configure environment
-cp .env.example .env
-# fill in DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL
-
-# 3. Push the schema (or run migrations)
-npx prisma migrate deploy
-
-# 4. Seed demo data (optional)
-npm run prisma:seed
-
-# 5. Run the dev server
-npm run dev
+pnpm install
+cp apps/web/.env.example apps/web/.env.local
+cp apps/worker/.env.example apps/worker/.env
+docker compose -f infra/docker-compose.yml up -d --wait
+pnpm turbo run typecheck lint test build
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+The web app and the worker validate their environment at startup and refuse to run with a missing or invalid variable. That is why the two `.env` files are copied first.
 
-## Environment Variables
+## Repository layout
 
-| Variable          | Description                                                                 |
-| ----------------- | --------------------------------------------------------------------------- |
-| `DATABASE_URL`    | PostgreSQL connection string (use the Neon pooled URL in production)        |
-| `NEXTAUTH_SECRET` | Secret used to sign NextAuth JWTs — generate with `openssl rand -base64 32` |
-| `NEXTAUTH_URL`    | Canonical URL of the deployment (e.g. `https://driftapi.vercel.app`)        |
+```
+packages/core           engine (pure; I/O only through injected adapters)
+packages/report-schema  drift-report/v1 contract
+packages/rules          classification rules as versioned data
+packages/cli            the `drift` command
+packages/github-action  GitHub Action (M4)
+packages/db             Prisma schema and client (M5)
+packages/bench          benchmarks that produce every published number (M1, M3, M8)
+apps/web                Next.js dashboard and REST API
+apps/worker             queue worker (M6)
+infra                   docker compose for local services
+docs                    plan, inventory, architecture, security, ADRs, module docs
+```
 
-## Scripts
+## Documentation
 
-| Script                    | Description                                  |
-| ------------------------- | -------------------------------------------- |
-| `npm run dev`             | Start the dev server                         |
-| `npm run build`           | Build for production (runs migrations first) |
-| `npm run lint`            | ESLint                                       |
-| `npm run type-check`      | TypeScript check                             |
-| `npm run prisma:generate` | Regenerate the Prisma client                 |
-| `npm run prisma:seed`     | Seed demo data                               |
-| `npm run prisma:studio`   | Open Prisma Studio                           |
+- [`docs/PLAN.md`](docs/PLAN.md): milestones, acceptance criteria, owners, risks, decisions
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the pieces fit together
+- [`docs/SECURITY.md`](docs/SECURITY.md): threat model and security controls
+- [`docs/INVENTORY.md`](docs/INVENTORY.md): what is real, what is not yet built
+- [`docs/adr/`](docs/adr/): architecture decision records
+- [`docs/modules/`](docs/modules/): one document per package
 
-## API Routes
+## Team
 
-| Route                          | Description                                                   |
-| ------------------------------ | ------------------------------------------------------------- |
-| `POST /api/auth/register`      | Create a user (bcrypt-hashed password, duplicate email → 409) |
-| `POST /api/auth/[...nextauth]` | NextAuth credentials login (DB-verified)                      |
-| `GET/POST /api/projects`       | List / create projects                                        |
-| `POST /api/keys`               | Create an API key (hashed at rest, plaintext returned once)   |
-| `GET/POST /api/reports`        | List / create sentinel reports                                |
-| `GET /api/health`              | Health check — probes the database with `SELECT 1`            |
+EDI Group 4, Vishwakarma Institute of Technology, Pune. Guide: Prof. (Smt) Sangita Lade.
 
-## Deployment
-
-The project is deployed on Vercel with automatic deployments from `main`. The database runs on Neon (free tier, serverless Postgres). CI runs typecheck + lint on every push via GitHub Actions.
-
-## Pages
-
-Home · Technology · Interactive Pipeline · Live Demo · Dashboard · Docs · Pricing · Enterprise · Blog · Contact · Settings · Login/Register
+| Role                                 | Person            |
+| ------------------------------------ | ----------------- |
+| P1 Frontend & UI                     | Prathamesh Yewale |
+| P2 Auth, application logic, security | Yug Vyas          |
+| P3 Database & backend                | Tanishq Chavan    |
+| P4 Pipeline, CI/CD & testing         | Pruthvi Gangapure |

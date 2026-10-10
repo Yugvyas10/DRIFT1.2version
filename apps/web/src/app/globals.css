@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/*
+ * DRIFT design tokens, ported from the legacy app (tag legacy-v1: styles/globals.css,
+ * tailwind.config.ts). Dark navy surfaces, teal primary, cyan secondary.
+ */
+@theme inline {
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+@theme {
+  --color-background: hsl(210 20% 4%);
+  --color-background-2: hsl(212 22% 6%);
+  --color-foreground: hsl(200 30% 98%);
+  --color-card: hsl(212 20% 7%);
+  --color-card-foreground: hsl(200 30% 98%);
+  --color-primary: hsl(174 72% 51%);
+  --color-primary-foreground: hsl(210 40% 6%);
+  --color-secondary: hsl(212 20% 12%);
+  --color-muted: hsl(212 18% 14%);
+  --color-muted-foreground: hsl(205 14% 70%);
+  --color-accent: hsl(199 80% 58%);
+  --color-border: hsl(212 18% 16%);
+  --color-ring: hsl(174 72% 51%);
+
+  /* Label colours: one meaning each, used everywhere a label appears. */
+  --color-breaking: hsl(350 85% 64%);
+  --color-risky: hsl(40 92% 60%);
+  --color-safe: hsl(160 64% 50%);
+
+  --radius-lg: 0.75rem;
+  --radius-md: calc(0.75rem - 2px);
+  --radius-sm: calc(0.75rem - 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "cv11", "ss01", "ss03";
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, hsl(174 72% 51% / 0.12), transparent),
+      radial-gradient(ellipse 60% 50% at 100% 100%, hsl(199 80% 58% / 0.06), transparent);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: hsl(174 72% 51% / 0.25);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 3px;
+  }
+}
+
+@utility glass-panel {
+  background: linear-gradient(135deg, hsl(212 20% 7% / 0.6), hsl(212 22% 6% / 0.4));
+  backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid hsl(212 18% 16% / 0.7);
+}
+
+@utility gradient-text {
+  background-image: linear-gradient(135deg, hsl(174 72% 60%), hsl(199 80% 62%) 50%, hsl(174 72% 50%));
+  background-clip: text;
+  color: transparent;
+}
+
+@utility grid-bg {
+  background-image:
+    linear-gradient(hsl(212 18% 16% / 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(212 18% 16% / 0.4) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+@utility hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-border), transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
