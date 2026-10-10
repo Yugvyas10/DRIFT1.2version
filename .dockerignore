@@ -1,0 +1,36 @@
+# What a container build (Dockerfile, ADR-0009) may read. A build on a developer's machine would send this
+# directory to Docker, so everything local-only stays out: env files with real secrets above all (SECURITY T41).
+
+# env files, including the untracked root .env of the legacy app; the image needs none of them
+.env
+.env.*
+**/.env
+**/.env.*
+
+# version control, editor and assistant settings
+.git
+.github
+.claude
+.vscode
+.DS_Store
+*.pem
+
+# dependencies and build output: the image installs and builds its own
+**/node_modules
+.pnpm-store
+**/dist
+**/.next
+**/out
+**/*.tsbuildinfo
+packages/db/src/generated
+**/next-env.d.ts
+
+# caches, reports and local data
+**/.turbo
+**/coverage
+**/coverage-integration
+**/playwright-report
+**/test-results
+**/.drift
+packages/bench/fixtures/.cache
+packages/bench/results
