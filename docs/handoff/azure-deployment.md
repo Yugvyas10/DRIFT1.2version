@@ -1,6 +1,6 @@
-# Handoff: hosting and deployment state (as of 2026-10-10)
+# Handoff: hosting and deployment state (as of 2026-11-21)
 
-What is decided and committed lives in [ADR-0008](../adr/0008-hosting.md), [ADR-0009](../adr/0009-azure-container-apps.md) and the deploy guide in [`docs/modules/infra.md`](../modules/infra.md). This note holds what is **not** in those files: the state of the accounts, open decisions, the dependency fix of 2026-10-10, and the facts gathered while choosing a host. It contains no secrets.
+What is decided and committed lives in [ADR-0008](../adr/0008-hosting.md), [ADR-0009](../adr/0009-azure-container-apps.md) and the deploy guide in [`docs/modules/infra.md`](../modules/infra.md). This note holds what is **not** in those files: the state of the accounts, open decisions, the dependency fixes of 2026-10-10 and 2026-11-21, and the facts gathered while choosing a host. It contains no secrets.
 
 ## 1. Where things stand
 
@@ -42,6 +42,22 @@ CI run `37802921928` (PR #10, commit `fdd6dab`, 2026-10-08) failed only on `pnpm
 - **What each branch changed** compared with GitHub: only `apps/web/package.json` and `pnpm-lock.yaml`. Each PR's own diff is unchanged (checked for PR #2).
 - **Local results:** the full check passed on M0 (24/24 tasks) and on `deploy` (40/40); CI runs on every PR after the push.
 
+### 3a. Second round, 2026-11-21: new advisories, including two critical
+
+Nothing had moved on the PRs since 2026-10-10, but `pnpm audit --prod` on `deploy` now found 20 advisories (2 critical, 6 high). Each package was fixed on the lowest branch that has it, then merged up the stack:
+
+| Package          | Worst advisory                                                                                                                                      | Fix                                                                                            | Branch where it starts |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------- |
+| `next` 16.3.8    | **critical**: unauthenticated remote code execution in Image Optimization and in `use cache` (and high and moderate ones, the last fixed in 16.4.5) | `next` and `eslint-config-next` 16.4.6                                                         | M0 (`6ce13de`)         |
+| `zod` 4.6.5      | high: memory exhaustion on oversized constrained input                                                                                              | catalog entry 4.6.7                                                                            | M0                     |
+| `fast-uri` 3.1.8 | moderate: scheme and host confusion                                                                                                                 | 3.1.9, within range                                                                            | M0                     |
+| `undici` 6.29.0  | high: TLS certificate validation bypass and denial of service                                                                                       | 6.29.1, within range; the Action's `dist/index.js` rebuilt                                     | M4                     |
+| `effect` 3.20.0  | high: ReDoS (GHSA-7589-6fvf-x4pw)                                                                                                                   | **pnpm override `effect: 3.22.4`**, because `@prisma/config` pins 3.20.0 even in Prisma 7.10.1 | M5 (`557ad72`)         |
+
+- **Next.js 16.3 → 16.4 is a minor upgrade.** Its release notes list features, not breaking changes; the full check (typecheck, lint, unit tests, `next build`) passed on every branch. The integration and end-to-end tests run in CI.
+- **What each branch changed** compared with GitHub: only `apps/web/package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, and from M4 up `packages/github-action/dist/index.js`. `pnpm audit --prod` on `deploy` reports no known vulnerabilities at any severity.
+- **Remove the `effect` override** once Prisma ships a `@prisma/config` with `effect` ≥3.22.1.
+
 ## 4. Open decisions (P4 to answer)
 
 1. **Auto-fix on PR #10?** Asked, not answered.
@@ -55,7 +71,7 @@ CI run `37802921928` (PR #10, commit `fdd6dab`, 2026-10-08) failed only on `pnpm
 
 The full guide is in `docs/modules/infra.md` ("First deploy"). In short:
 
-1. Make sure PR #10's CI is green (it has the dependency fix since 2026-10-10).
+1. Make sure PR #10's CI is green (it has the second dependency fix since 2026-11-21).
 2. Publish the images (an `images-*` tag now; pushes to `master` after the stack merges).
 3. Make the packages pullable (see section 2).
 4. Sign in and prepare the subscription: `az login`, select the Azure for Students subscription, register `Microsoft.App` and `Microsoft.OperationalInsights`, then `az group create --name drift-demo --location southeastasia`.
