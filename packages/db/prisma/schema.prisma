@@ -96,6 +96,8 @@ model Organization {
   id        String   @id
   slug      String   @unique
   name      String
+  /// A demonstration organisation (PLAN Q12): labelled "DEMO" everywhere, filled only by real CLI output on examples/.
+  demo      Boolean  @default(false)
   createdAt DateTime @default(now())
 
   memberships  Membership[]

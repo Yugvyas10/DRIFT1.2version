@@ -40,6 +40,9 @@ export function roleAllows(role: Role, permission: Permission): boolean {
 
 const RANK: Record<Role, number> = { VIEWER: 0, MEMBER: 1, ADMIN: 2, OWNER: 3 };
 
+/** The roles from the least to the most powerful (for role pickers). */
+export const ROLES = (Object.keys(RANK) as Role[]).sort((a, b) => RANK[a] - RANK[b]);
+
 /**
  * Whether someone with `actor` may change a member from `current` to `next` (or invite with `next` when there is
  * no current role). Nobody grants or touches a role above their own, and only owners deal with owners.

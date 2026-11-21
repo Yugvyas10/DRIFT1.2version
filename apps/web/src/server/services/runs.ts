@@ -1,5 +1,5 @@
 import { canonicalJson, sha256Hex } from "@drift/core";
-import { newId, type Db, type Prisma } from "@drift/db";
+import { newId, type Db, type Prisma, type RunStatus } from "@drift/db";
 import { Report } from "@drift/report-schema";
 import { z } from "zod";
 import { can, type Actor } from "../auth/actor";
@@ -347,12 +347,30 @@ export async function orgOfRun(db: Db, runId: string): Promise<string> {
 
 const Cursor = z.string().max(200);
 
+/** Narrows a run list (the run list's filters and the API's query parameters). */
+export const RunFilter = z.strictObject({
+  status: z.enum(["uploading", "queued", "running", "complete", "failed"]).optional(),
+  gate: z.enum(["passed", "failed"]).optional(),
+  mode: z.enum(["upload", "server"]).optional(),
+  branch: z.string().min(1).max(255).optional(),
+});
+export type RunFilter = z.infer<typeof RunFilter>;
+
+function filterWhere(filter: RunFilter): Prisma.RunWhereInput {
+  return {
+    ...(filter.status === undefined ? {} : { status: filter.status.toUpperCase() as RunStatus }),
+    ...(filter.gate === undefined ? {} : { gatePassed: filter.gate === "passed" }),
+    ...(filter.mode === undefined ? {} : { mode: filter.mode.toUpperCase() as "UPLOAD" | "SERVER" }),
+    ...(filter.branch === undefined ? {} : { branch: filter.branch }),
+  };
+}
+
 /** A project's runs, newest first, in pages. The cursor is opaque to clients. */
 export async function listRuns(
   db: Db,
   actor: Actor,
   projectSlug: string,
-  options: { cursor?: string | undefined; limit?: number | undefined }
+  options: { cursor?: string | undefined; limit?: number | undefined; filter?: RunFilter }
 ): Promise<{ runs: RunView[]; nextCursor?: string }> {
   if (!can(actor, "runs:read")) throw forbidden();
   const project = await findProject(db, actor, projectSlug);
@@ -368,6 +386,7 @@ export async function listRuns(
     where: {
       orgId: actor.orgId,
       projectId: project.id,
+      ...filterWhere(options.filter ?? {}),
       ...(after
         ? { OR: [{ createdAt: { lt: after.createdAt } }, { createdAt: after.createdAt, id: { lt: after.id } }] }
         : {}),
@@ -402,4 +421,21 @@ export async function artifactUrl(
   if (artifact.verifiedAt === null) throw notFound();
   const signed = await store.presignGet(artifact.storageKey);
   return { url: signed.url, expiresAt: signed.expiresAt.toISOString() };
+}
+
+/** Each project's newest run (for the organisation overview); empty for a member who cannot read runs. */
+export async function latestRuns(db: Db, actor: Actor): Promise<Map<string, RunView>> {
+  if (!can(actor, "runs:read")) return new Map();
+  const projects = await db.project.findMany({
+    where: { orgId: actor.orgId, ...(actor.kind === "key" && actor.projectId ? { id: actor.projectId } : {}) },
+    select: {
+      slug: true,
+      runs: {
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 1,
+        include: { project: { select: { slug: true } } },
+      },
+    },
+  });
+  return new Map(projects.flatMap((project) => (project.runs[0] ? [[project.slug, runView(project.runs[0])]] : [])));
 }

@@ -250,6 +250,36 @@ describe("re-running with new rules and stored suppressions", () => {
     });
   });
 
+  it("uses the project's policy for a run without one, and the run's own policy over it", async () => {
+    start();
+    const { orgId, projectId } = await seedOrg(s.db);
+    await s.db.policy.create({
+      data: {
+        id: newId("policy"),
+        orgId,
+        projectId,
+        name: "project",
+        document: { format: "drift-policy/v1", failOn: "risky" },
+        hash: "0".repeat(64),
+      },
+    });
+    const plain = await enqueue(await queuedRun(s, { orgId, projectId, base: files.v1, head: files.v2 }), orgId);
+    const own = await enqueue(
+      await queuedRun(s, {
+        orgId,
+        projectId,
+        base: files.v1,
+        head: files.v2,
+        policy: { format: "drift-policy/v1", failOn: "breaking" },
+      }),
+      orgId
+    );
+    await waitForEvent(s.redis, plain, settled);
+    await waitForEvent(s.redis, own, settled);
+    expect((await runRow(plain)).failOn).toBe("risky");
+    expect((await runRow(own)).failOn).toBe("breaking");
+  });
+
   it("fails a run whose ruleset is not valid, without retrying it", async () => {
     start();
     const { orgId, projectId } = await seedOrg(s.db);

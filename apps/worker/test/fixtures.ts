@@ -65,6 +65,8 @@ export interface RunSetup {
   traffic?: InputFile & { format: "jsonl" | "har" };
   parentRunId?: string;
   failOn?: "breaking" | "risky";
+  /** A drift-policy/v1 document of the run's own. */
+  policy?: Record<string, unknown>;
   /** A drift-rules/v1 ruleset (or anything, to test that a bad one is refused). */
   rules?: unknown;
 }
@@ -103,6 +105,7 @@ export async function queuedRun(s: Services, setup: RunSetup): Promise<string> {
         head: { name: setup.head.name },
         ...(setup.traffic ? { traffic: { name: setup.traffic.name, format: setup.traffic.format } } : {}),
         ...(setup.failOn ? { failOn: setup.failOn } : {}),
+        ...(setup.policy ? { policy: setup.policy as Record<string, never> } : {}),
         ...(setup.rules === undefined ? {} : { rules: setup.rules as Record<string, never> }),
       },
       artifacts: {

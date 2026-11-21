@@ -377,6 +377,31 @@ paths:
           schema:
             type: string
             maxLength: 200
+        - name: status
+          in: query
+          required: false
+          description: Only runs in this status.
+          schema:
+            $ref: "#/components/schemas/RunStatus"
+        - name: gate
+          in: query
+          required: false
+          description: Only finished runs whose gate passed, or failed.
+          schema:
+            type: string
+            enum: [passed, failed]
+        - name: mode
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/RunMode"
+        - name: branch
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
         - name: limit
           in: query
           required: false

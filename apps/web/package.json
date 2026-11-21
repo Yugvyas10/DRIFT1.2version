@@ -15,7 +15,8 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "demo:seed": "node scripts/demo-seed.ts"
   },
   "dependencies": {
     "@drift/core": "workspace:*",

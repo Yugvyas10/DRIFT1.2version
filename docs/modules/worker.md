@@ -67,7 +67,7 @@ Traces: `docker compose -f infra/docker-compose.yml --profile tracing up -d --wa
 - **Per-organisation concurrency is a Redis semaphore**, not BullMQ groups (a paid feature, PLAN R9). Leases expire, so a dead worker's slot frees itself; Lua scripts make acquire and release atomic.
 - **Ingest is cached by the uploaded file's SHA-256** (`snapshotSpec`/`reviveSpec` in core), so a re-run parses nothing. The cache lives in object storage under `orgs/<org>/stages/`: per organisation, because a shared cache would tell one tenant that another compared the same contract.
 - **Stage messages end with an explicit `end` message.** Closing a `MessagePort` can drop messages still in flight (seen in testing: the last stage was lost), so the receiver closes the channel after `end`, or after 1 s if the thread was stopped.
-- **Stored suppressions apply at run time.** The project's suppressions (`POST .../suppressions`) are added to the run's policy when the worker starts it, so accepting a change and re-running takes effect. The report's policy hash covers them.
+- **Stored suppressions and the project policy apply at run time.** The policy is the run's own (from `drift run --policy` or a re-run), else the project's stored policy (M7: set in the project settings), else the default; the project's suppressions are added to it when the worker starts the run, so accepting a change or changing the policy and re-running takes effect. The report's policy hash covers both.
 
 ## Known limitations
 

@@ -83,6 +83,16 @@ export default function HomePage() {
                 How it works
               </a>
             </li>
+            <li className="hidden sm:block">
+              <a className="hover:text-foreground" href="/docs">
+                Docs
+              </a>
+            </li>
+            <li className="hidden sm:block">
+              <a className="hover:text-foreground" href="/about">
+                About
+              </a>
+            </li>
             <li>
               <span className="rounded-full border border-risky/40 bg-risky/10 px-3 py-1 text-xs font-medium text-risky">
                 In development
@@ -118,10 +128,10 @@ export default function HomePage() {
             >
               <p className="font-medium text-risky">DRIFT is in development.</p>
               <p className="mt-1 text-muted-foreground">
-                The engine, the <code className="font-mono text-foreground">drift</code> command and the GitHub Action
-                work today, and runs can be uploaded to this dashboard. The run canvas and live runs are still being
-                built. This page shows no results or numbers; measured ones are in{" "}
-                <code className="font-mono text-foreground">docs/EVALUATION.md</code>.
+                The engine, the <code className="font-mono text-foreground">drift</code> command, the GitHub Action and
+                the platform work today: upload runs or run them on the platform, follow them live on the run canvas and
+                re-run a stage with new inputs. The GitHub App is still being built. This page shows no results or
+                numbers; measured ones are in <code className="font-mono text-foreground">docs/EVALUATION.md</code>.
               </p>
             </aside>
           </div>

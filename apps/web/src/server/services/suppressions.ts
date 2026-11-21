@@ -1,7 +1,7 @@
 import { newId, type Db } from "@drift/db";
 import type { z } from "zod";
 import { can, type Actor } from "../auth/actor";
-import { badRequest, forbidden } from "../http";
+import { badRequest, forbidden, notFound } from "../http";
 import { audit } from "./audit";
 import { findProject } from "./projects";
 import type { SuppressionCreate } from "./schemas";
@@ -77,4 +77,15 @@ export async function listSuppressions(db: Db, actor: Actor, projectSlug: string
     expiresAt: row.expiresAt.toISOString(),
     createdAt: row.createdAt.toISOString(),
   }));
+}
+
+/** Removes a suppression before it expires (audited): the change counts towards the gate again from the next run. */
+export async function deleteSuppression(db: Db, actor: Actor, projectSlug: string, id: string): Promise<void> {
+  if (actor.kind !== "user" || !can(actor, "suppressions:write")) throw forbidden();
+  const project = await findProject(db, actor, projectSlug);
+  await db.$transaction(async (tx) => {
+    const removed = await tx.suppression.deleteMany({ where: { id, orgId: actor.orgId, projectId: project.id } });
+    if (removed.count === 0) throw notFound();
+    await audit(tx, actor, "suppression.delete", { type: "suppression", id }, { project: project.slug });
+  });
 }

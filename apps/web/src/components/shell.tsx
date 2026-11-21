@@ -1,12 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOutEverywhereAction } from "@/app/actions";
+import { db } from "@/server/context";
 import { SignOutButton } from "./auth-forms";
 import { Logo } from "./logo";
 import { ui } from "./ui";
 
-/** The frame of every signed-in page: the logo, where you are, who you are, and the way out. */
-export function Shell({
+/**
+ * The frame of every signed-in page: the logo, where you are, who you are, and the way out. A demonstration
+ * organisation (PLAN Q12) is labelled DEMO on every one of its pages.
+ */
+export async function Shell({
   user,
   org,
   title,
@@ -18,8 +22,22 @@ export function Shell({
   title: string;
   children: ReactNode;
 }) {
+  // The page has already checked that the user belongs to the organisation; this reads one flag of it.
+  const demo =
+    org !== undefined &&
+    ((await db.organization.findUnique({ where: { slug: org }, select: { demo: true } }))?.demo ?? false);
   return (
     <>
+      {demo && (
+        <p
+          role="note"
+          data-testid="demo-banner"
+          className="border-b border-risky/40 bg-risky/10 px-6 py-2 text-center text-sm font-medium text-risky"
+        >
+          DEMO organisation: its runs come from the drift CLI on the example contracts in the repository, not from a
+          real API.
+        </p>
+      )}
       <header className="border-b border-border/60 bg-background/70">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <Link href="/dashboard" className="flex items-center gap-2.5 font-semibold tracking-tight">
@@ -42,8 +60,8 @@ export function Shell({
               </Link>
             </nav>
           )}
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span>{user.email}</span>
+          <div className="flex min-w-0 flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span className="break-all">{user.email}</span>
             <SignOutButton />
             <form action={signOutEverywhereAction}>
               <button type="submit" className={ui.buttonQuiet} title="Ends your sessions on every device">

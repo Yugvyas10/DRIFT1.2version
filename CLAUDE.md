@@ -46,6 +46,7 @@ Setup (once): Node 24+, `npm install -g pnpm@12.6.0`, Docker. Then:
 - Format: `pnpm format` (CI runs `pnpm format:check`)
 - Database: `DATABASE_URL=postgresql://drift:drift-local-only@localhost:5432/drift pnpm --filter @drift/db run migrate:deploy` (apply migrations) · after changing `schema.prisma`: `... run migrate:dev`
 - Web dev server: `pnpm --filter @drift/web dev` → http://localhost:3000
+- DEMO organisation (real CLI runs on `examples/petstore`): `pnpm turbo run build --filter=@drift/cli --filter=@drift/db`, then `DATABASE_URL=… DRIFT_API_KEY=drift_… pnpm --filter @drift/web run demo:seed -- --org <slug> --project <slug> --api-url http://localhost:3000 [--server-runs]` (`--server-runs` needs the worker)
 - Integration tests (real Postgres, Redis and S3 in containers; needs Docker): `pnpm --filter @drift/web run test:integration` · `... @drift/worker run test:integration` · `... @drift/platform run test:integration` (build dependencies first: `pnpm turbo run build --filter=@drift/worker^...`)
 - Web end-to-end tests: `pnpm turbo run build --filter=@drift/web --filter=@drift/cli --filter=@drift/worker && pnpm --filter @drift/web run test:e2e` (first time: `pnpm --filter @drift/web exec playwright install chromium`)
 - Worker: `pnpm --filter @drift/worker dev` (built: `... start`; `... run check` probes the database, Redis and storage and exits)

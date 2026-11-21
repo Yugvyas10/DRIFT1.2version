@@ -21,6 +21,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Prisma's driver and the AWS SDK are loaded from node_modules at run time, not bundled.
   serverExternalPackages: ["pg", "@prisma/adapter-pg"],
+  // A stage re-run from the browser may carry a traffic file of up to 25 MiB (MAX_BROWSER_UPLOAD_BYTES), through
+  // src/proxy.ts, which buffers request bodies.
+  experimental: { serverActions: { bodySizeLimit: "26mb" }, proxyClientMaxBodySize: "26mb" },
   headers: () =>
     Promise.resolve([
       { source: "/:path*", headers: securityHeaders },

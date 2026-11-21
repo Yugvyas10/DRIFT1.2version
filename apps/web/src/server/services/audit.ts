@@ -12,7 +12,10 @@ export type AuditAction =
   | "member.join"
   | "member.role_change"
   | "member.remove"
-  | "suppression.create";
+  | "suppression.create"
+  | "suppression.delete"
+  | "policy.update"
+  | "policy.delete";
 
 type Tx = Prisma.TransactionClient;
 

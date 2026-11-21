@@ -1,27 +1,50 @@
+import type { StageName } from "@drift/report-schema";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { rerunAction } from "@/app/actions";
-import { ActionForm } from "@/components/action-form";
-import { LiveRun } from "@/components/live-run";
+import { ChangesTable, isChangeFilter } from "@/components/run/changes-table";
+import { inspectorPanels } from "@/components/run/inspectors";
+import { RunCanvas } from "@/components/run-canvas";
 import { NotAllowed, Shell } from "@/components/shell";
 import { ui } from "@/components/ui";
+import { CANVAS_STAGES, type CanvasStageId, type EngineStageState } from "@/lib/canvas";
 import { can } from "@/server/auth/actor";
-import { db } from "@/server/context";
+import { db, store } from "@/server/context";
 import { HttpError } from "@/server/http";
 import { pageActor, pageUser } from "@/server/page";
+import { listArtifacts, loadReport } from "@/server/services/run-detail";
 import { getRun, type RunView } from "@/server/services/runs";
 import { listStages, type StageView } from "@/server/services/server-runs";
 
 export const metadata: Metadata = { title: "Run" };
 
-/** One run (PLAN M6, minimal): its status and gate, its stages live while it runs, and a re-run button. */
+function engineState(stage: StageView): EngineStageState {
+  const duration =
+    stage.startedAt !== undefined && stage.finishedAt !== undefined
+      ? new Date(stage.finishedAt).getTime() - new Date(stage.startedAt).getTime()
+      : undefined;
+  return {
+    stage: stage.stage as StageName,
+    status: stage.status,
+    cacheHit: stage.cacheHit,
+    attempt: stage.attempt,
+    ...(duration === undefined ? {} : { durationMs: duration }),
+  };
+}
+
+/**
+ * The run canvas (PLAN M7): the run's six stages, live while it runs, each with an inspector of its real inputs,
+ * outputs, timings, artifacts and evidence; re-runs from a stage; and the run's changes.
+ */
 export default async function RunPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ org: string; project: string; runId: string }>;
+  searchParams: Promise<{ stage?: string; label?: string; page?: string }>;
 }) {
   const { org, project, runId } = await params;
+  const query = await searchParams;
   const user = await pageUser();
   const actor = await pageActor(org, "runs:read");
   if (!actor) {
@@ -41,8 +64,13 @@ export default async function RunPage({
     throw error;
   }
   if (run.project !== project) notFound();
-  const live = run.status === "queued" || run.status === "running" || run.status === "uploading";
-  const settled = run.status === "complete" || run.status === "failed";
+  const [report, artifacts] = await Promise.all([loadReport(db, store, actor, runId), listArtifacts(db, actor, runId)]);
+  const live =
+    run.mode === "server" && (run.status === "queued" || run.status === "running" || run.status === "uploading");
+  const basePath = `/dashboard/${org}/${project}/runs/${run.id}`;
+  const selected: CanvasStageId =
+    CANVAS_STAGES.find((info) => info.id === query.stage)?.id ?? (run.status === "complete" ? "report" : "ingest");
+  const panels = inspectorPanels({ org, project, run, stages, report, artifacts, canRerun: can(actor, "runs:write") });
 
   return (
     <Shell user={user} org={org} title={`Run ${run.id}`}>
@@ -54,8 +82,15 @@ export default async function RunPage({
         </p>
         <p>
           Status: <span data-testid="run-status">{run.status}</span> ·{" "}
-          {run.mode === "server" ? "on the platform" : "uploaded"} · commit{" "}
+          {run.mode === "server" ? "run on the platform" : "uploaded from CI or a machine"} · {run.trigger} · commit{" "}
           <span className="font-mono">{run.commit.slice(0, 7)}</span>
+          {run.branch !== undefined && (
+            <>
+              {" "}
+              on <span className="font-mono">{run.branch}</span>
+            </>
+          )}
+          {run.pullRequest !== undefined && ` · PR ${String(run.pullRequest)}`}
           {run.parentRunId !== undefined && (
             <>
               {" "}
@@ -75,7 +110,7 @@ export default async function RunPage({
             <span className={run.gate.passed ? "text-safe" : "text-breaking"}>
               {run.gate.passed ? "passed" : "failed"}
             </span>{" "}
-            (fail-on {run.gate.failOn}): <span className="text-breaking">{run.summary.breaking} breaking</span>,{" "}
+            (fails on {run.gate.failOn}): <span className="text-breaking">{run.summary.breaking} breaking</span>,{" "}
             <span className="text-risky">{run.summary.risky} risky</span>,{" "}
             <span className="text-safe">{run.summary.safe} safe</span>, {run.summary.suppressed} suppressed · semver{" "}
             {run.semver}
@@ -88,40 +123,23 @@ export default async function RunPage({
         )}
       </section>
 
-      {run.mode === "server" && (
-        <LiveRun
-          runId={run.id}
-          live={live}
-          initial={stages.map((stage) => ({ stage: stage.stage, status: stage.status, cacheHit: stage.cacheHit }))}
-        />
-      )}
+      <RunCanvas
+        key={`${run.status}:${String(stages.length)}`}
+        runId={run.id}
+        live={live}
+        runStatus={run.status}
+        initialStages={stages.map(engineState)}
+        panels={panels}
+        initialSelected={selected}
+      />
 
-      {run.mode === "server" && settled && can(actor, "runs:write") && (
-        <section aria-labelledby="rerun" className={ui.panel}>
-          <h2 id="rerun" className="font-semibold">
-            Re-run
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            The same contracts again. Stages whose inputs did not change come from the cache. To re-run with new
-            traffic: <code className="font-mono">drift rerun {run.id} --traffic &lt;file&gt;</code>
-          </p>
-          <div className="mt-4 max-w-md">
-            <ActionForm action={rerunAction.bind(null, org, project, run.id)} submit="Re-run">
-              <div>
-                <label htmlFor="fail-on" className={ui.label}>
-                  Fail on
-                </label>
-                <select id="fail-on" name="failOn" className={ui.input} defaultValue={run.gate?.failOn ?? "breaking"}>
-                  <option value="breaking">BREAKING</option>
-                  <option value="risky">RISKY or BREAKING</option>
-                </select>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="dropTraffic" /> Without traffic
-              </label>
-            </ActionForm>
-          </div>
-        </section>
+      {report && (
+        <ChangesTable
+          report={report}
+          basePath={basePath}
+          filter={isChangeFilter(query.label) ? query.label : "all"}
+          page={Number(query.page ?? "1") || 1}
+        />
       )}
     </Shell>
   );
