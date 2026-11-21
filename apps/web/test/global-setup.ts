@@ -11,7 +11,7 @@ const BUCKET = "drift-artifacts";
  * The schema is applied with the committed migrations, so the tests also prove the migrations work.
  */
 export default async function setup(project: TestProject) {
-  const [postgres, objectStore] = await Promise.all([
+  const [postgres, objectStore, redis] = await Promise.all([
     new GenericContainer("postgres:18-alpine")
       .withEnvironment({ POSTGRES_USER: "drift", POSTGRES_PASSWORD: "integration-test", POSTGRES_DB: "drift" })
       .withExposedPorts(5432)
@@ -23,6 +23,10 @@ export default async function setup(project: TestProject) {
       .withEnvironment({ AWS_ACCESS_KEY_ID: "drift", AWS_SECRET_ACCESS_KEY: "integration-test" })
       .withExposedPorts(8333)
       .withWaitStrategy(Wait.forHttp("/healthz", 8333))
+      .start(),
+    new GenericContainer("redis:8.8-alpine")
+      .withExposedPorts(6379)
+      .withWaitStrategy(Wait.forLogMessage(/Ready to accept connections/))
       .start(),
   ]);
   const databaseUrl = `postgresql://drift:integration-test@${postgres.getHost()}:${String(postgres.getMappedPort(5432))}/drift`;
@@ -37,6 +41,7 @@ export default async function setup(project: TestProject) {
   // (or the reverse) makes this exit non-zero and fails the run.
   prisma("migrate", "diff", "--from-config-datasource", "--to-schema", "prisma/schema.prisma", "--exit-code");
   project.provide("databaseUrl", databaseUrl);
+  project.provide("redisUrl", `redis://${redis.getHost()}:${String(redis.getMappedPort(6379))}`);
   project.provide("s3", {
     endpoint: `http://${objectStore.getHost()}:${String(objectStore.getMappedPort(8333))}`,
     region: "us-east-1",
@@ -45,13 +50,14 @@ export default async function setup(project: TestProject) {
     secretAccessKey: "integration-test",
   });
   return async () => {
-    await Promise.all([postgres.stop(), objectStore.stop()]);
+    await Promise.all([postgres.stop(), objectStore.stop(), redis.stop()]);
   };
 }
 
 declare module "vitest" {
   export interface ProvidedContext {
     databaseUrl: string;
+    redisUrl: string;
     s3: { endpoint: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string };
   }
 }

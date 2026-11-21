@@ -5,13 +5,14 @@ import { redirect } from "next/navigation";
 import type { Actor } from "@/server/auth/actor";
 import type { Permission } from "@/server/auth/permissions";
 import { authorize } from "@/server/auth/require-auth";
-import { db } from "@/server/context";
+import { db, startRun, store } from "@/server/context";
 import { HttpError, parse } from "@/server/http";
 import { pageUser } from "@/server/page";
 import { createKey, revokeKey } from "@/server/services/keys";
 import { acceptInvitation, changeRole, invite, removeMember } from "@/server/services/members";
 import { createOrg } from "@/server/services/orgs";
 import { createProject } from "@/server/services/projects";
+import { rerun } from "@/server/services/server-runs";
 import {
   InvitationAccept,
   InvitationCreate,
@@ -143,4 +144,38 @@ export async function signOutEverywhereAction(): Promise<void> {
   const user = await pageUser();
   await db.user.update({ where: { id: user.userId }, data: { tokenVersion: { increment: 1 } } });
   redirect("/login");
+}
+
+/**
+ * Re-runs a server-side run from its page: the same contracts, with the run's traffic or without it, and an
+ * optional fail-on. A new corpus needs an upload, which is the CLI's job (`drift rerun <id> --traffic <file>`).
+ */
+export async function rerunAction(
+  org: string,
+  project: string,
+  runId: string,
+  _: FormState,
+  form: FormData
+): Promise<FormState> {
+  let childId: string | undefined;
+  const result = await attempt(async () => {
+    const actor = await actorIn(org, "runs:write");
+    const failOn = text(form, "failOn");
+    const created = await rerun(
+      db,
+      store,
+      actor,
+      runId,
+      {
+        ...(form.get("dropTraffic") === "on" ? { traffic: null } : {}),
+        ...(failOn === undefined ? {} : { failOn }),
+      },
+      startRun
+    );
+    childId = created.run.id;
+    revalidatePath(`/dashboard/${org}/${project}`);
+    return undefined;
+  });
+  if (childId !== undefined) redirect(`/dashboard/${org}/${project}/runs/${childId}`);
+  return result;
 }

@@ -22,9 +22,21 @@ enum Role {
 }
 
 enum RunStatus {
+  /// Waiting for the client to upload artifacts (an uploaded report's files, or a server-side run's inputs).
   UPLOADING
+  /// A server-side run waiting for a worker.
+  QUEUED
+  /// A worker is running the engine.
+  RUNNING
   COMPLETE
   FAILED
+}
+
+enum RunMode {
+  /// The engine ran elsewhere (CI, a laptop) and the report was uploaded.
+  UPLOAD
+  /// The platform's worker runs the engine on uploaded contracts and traffic.
+  SERVER
 }
 
 enum RunTrigger {
@@ -178,6 +190,7 @@ model Run {
   orgId          String
   projectId      String
   status         RunStatus
+  mode           RunMode    @default(UPLOAD)
   trigger        RunTrigger
   /// Chosen by the client; the same key with the same request returns the same run.
   idempotencyKey String
@@ -186,20 +199,29 @@ model Run {
   commit         String
   branch         String?
   pullRequest    Int?
-  baseSpecHash   String
-  headSpecHash   String
-  engineVersion  String
-  rulesVersion   String
-  rulesHash      String
-  policyHash     String
-  gatePassed     Boolean
-  failOn         String
-  breaking       Int
-  risky          Int
-  safe           Int
-  suppressed     Int
-  semver         String
+  // From the report. Null for a server-side run until its worker has produced the report.
+  baseSpecHash   String?
+  headSpecHash   String?
+  engineVersion  String?
+  rulesVersion   String?
+  rulesHash      String?
+  policyHash     String?
+  gatePassed     Boolean?
+  failOn         String?
+  breaking       Int?
+  risky          Int?
+  safe           Int?
+  suppressed     Int?
+  semver         String?
+  /// A server-side run's options: file names, traffic format, policy, fail-on, seed, as-of date.
+  options        Json?
+  /// How many times a worker started this run (retries after a crash or a transient failure).
+  attempts       Int        @default(0)
+  startedAt      DateTime?
+  /// Why a run failed: `invalid_spec`, `invalid_input`, `timeout` or `internal`.
   errorCategory  String?
+  /// A short explanation for the user. Never contains payloads, secrets or stack traces.
+  errorMessage   String?
   /// The run this one re-runs (M6).
   parentRunId    String?
   createdByKeyId String?

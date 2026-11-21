@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { tracer, type Logger } from "@drift/platform";
 import { HttpError, problem } from "../http";
 import type { Api } from "./handlers";
 
@@ -129,6 +131,30 @@ export const ROUTES: readonly Route[] = [
     operation: "listRuns",
     handle: (api, r, x) => api.listRuns(r, p<"project">(x)),
   },
+  {
+    method: "POST",
+    path: "/api/v1/projects/{project}/runs",
+    operation: "createServerRun",
+    handle: (api, r, x) => api.createServerRun(r, p<"project">(x)),
+  },
+  {
+    method: "POST",
+    path: "/api/v1/runs/{runId}/rerun",
+    operation: "rerun",
+    handle: (api, r, x) => api.rerun(r, p<"runId">(x)),
+  },
+  {
+    method: "GET",
+    path: "/api/v1/runs/{runId}/stages",
+    operation: "listStages",
+    handle: (api, r, x) => api.listStages(r, p<"runId">(x)),
+  },
+  {
+    method: "GET",
+    path: "/api/v1/runs/{runId}/events",
+    operation: "runEvents",
+    handle: (api, r, x) => api.runEvents(r, p<"runId">(x)),
+  },
   { method: "GET", path: "/healthz", operation: "liveness", handle: (api, r) => api.liveness(r) },
   { method: "GET", path: "/readyz", operation: "readiness", handle: (api, r) => api.readiness(r) },
 ];
@@ -153,17 +179,50 @@ function match(template: string, pathname: string): Record<string, string> | und
   return params;
 }
 
-/** Runs the route for a request: 404 for an unknown path, 405 (with Allow) for a known path and another method. */
-export function dispatch(api: Api, request: Request): Promise<Response> {
+/**
+ * Runs the route for a request: 404 for an unknown path, 405 (with Allow) for a known path and another method.
+ *
+ * Every request gets an id (returned as `X-Request-Id`), one log line and one trace span. The log line and the
+ * span name carry the route's **template** (`/api/v1/runs/{runId}`), the status and the duration: never the
+ * query string, headers or body.
+ */
+export async function dispatch(api: Api, request: Request, observe: { log?: Logger } = {}): Promise<Response> {
+  const requestId = randomUUID();
+  const started = performance.now();
   const pathname = new URL(request.url).pathname.replace(/\/+$/, "") || "/";
   const candidates = ROUTES.flatMap((route) => {
     const params = match(route.path, pathname);
     return params ? [{ route, params }] : [];
   });
   const found = candidates.find(({ route }) => route.method === request.method);
-  if (found) return found.route.handle(api, request, found.params);
-  if (candidates.length === 0) return Promise.resolve(problem(new HttpError(404, "Not found")));
-  const response = problem(new HttpError(405, "Method not allowed"));
-  response.headers.set("allow", [...new Set(candidates.map(({ route }) => route.method))].join(", "));
-  return Promise.resolve(response);
+
+  let response: Response;
+  if (found) {
+    response = await tracer().startActiveSpan(`${found.route.method} ${found.route.path}`, async (span) => {
+      try {
+        const handled = await found.route.handle(api, request, found.params);
+        span.setAttribute("http.response.status_code", handled.status);
+        return handled;
+      } finally {
+        span.end();
+      }
+    });
+  } else if (candidates.length === 0) {
+    response = problem(new HttpError(404, "Not found"));
+  } else {
+    response = problem(new HttpError(405, "Method not allowed"));
+    response.headers.set("allow", [...new Set(candidates.map(({ route }) => route.method))].join(", "));
+  }
+  response.headers.set("x-request-id", requestId);
+  observe.log?.info(
+    {
+      requestId,
+      method: request.method,
+      route: found?.route.path ?? "(unmatched)",
+      status: response.status,
+      durationMs: Math.round(performance.now() - started),
+    },
+    "request"
+  );
+  return response;
 }

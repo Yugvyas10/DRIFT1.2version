@@ -4,7 +4,7 @@ import { Report } from "@drift/report-schema";
 import { z } from "zod";
 import { can, type Actor } from "../auth/actor";
 import { badRequest, conflict, forbidden, notFound, parse } from "../http";
-import { artifactKey, type ObjectStore } from "../storage";
+import { artifactKey, type ObjectStore } from "@drift/platform";
 import { isUniqueViolation } from "./orgs";
 import { findProject } from "./projects";
 import { Slug } from "./schemas";
@@ -54,14 +54,21 @@ export const IdempotencyKey = z
 export interface RunView {
   id: string;
   project: string;
-  status: "uploading" | "complete" | "failed";
+  status: "uploading" | "queued" | "running" | "complete" | "failed";
+  /** `upload`: the report was uploaded. `server`: the platform's worker ran the engine. */
+  mode: "upload" | "server";
   trigger: "ci" | "manual" | "app";
   commit: string;
   branch?: string;
   pullRequest?: number;
-  gate: { passed: boolean; failOn: string };
-  summary: { breaking: number; risky: number; safe: number; suppressed: number };
-  semver: string;
+  /** The result. Absent until a server-side run has finished. */
+  gate?: { passed: boolean; failOn: string };
+  summary?: { breaking: number; risky: number; safe: number; suppressed: number };
+  semver?: string;
+  /** The run this one re-runs. */
+  parentRunId?: string;
+  /** Why a run failed. */
+  error?: { category: string; message: string };
   createdAt: string;
   completedAt?: string;
 }
@@ -82,19 +89,24 @@ export function runView(row: RunRow): RunView {
     id: row.id,
     project: row.project.slug,
     status: lower(row.status),
+    mode: lower(row.mode),
     trigger: lower(row.trigger),
     commit: row.commit,
     ...(row.branch === null ? {} : { branch: row.branch }),
     ...(row.pullRequest === null ? {} : { pullRequest: row.pullRequest }),
-    gate: { passed: row.gatePassed, failOn: row.failOn },
-    summary: { breaking: row.breaking, risky: row.risky, safe: row.safe, suppressed: row.suppressed },
-    semver: row.semver,
+    ...(row.gatePassed === null || row.failOn === null ? {} : { gate: { passed: row.gatePassed, failOn: row.failOn } }),
+    ...(row.breaking === null || row.risky === null || row.safe === null || row.suppressed === null
+      ? {}
+      : { summary: { breaking: row.breaking, risky: row.risky, safe: row.safe, suppressed: row.suppressed } }),
+    ...(row.semver === null ? {} : { semver: row.semver }),
+    ...(row.parentRunId === null ? {} : { parentRunId: row.parentRunId }),
+    ...(row.errorCategory === null ? {} : { error: { category: row.errorCategory, message: row.errorMessage ?? "" } }),
     createdAt: row.createdAt.toISOString(),
     ...(row.completedAt === null ? {} : { completedAt: row.completedAt.toISOString() }),
   };
 }
 
-async function uploadsFor(db: Db, store: ObjectStore, runId: string): Promise<UploadView[]> {
+export async function uploadsFor(db: Db, store: ObjectStore, runId: string): Promise<UploadView[]> {
   const pending = await db.artifact.findMany({ where: { runId, verifiedAt: null }, orderBy: { kind: "asc" } });
   return Promise.all(
     pending.map(async (artifact) => {
@@ -261,7 +273,7 @@ export async function createRun(
 }
 
 /** A run of the actor's organisation; 404 otherwise, also for a key scoped to another project. */
-async function ownRun(db: Db, actor: Actor, runId: string): Promise<RunRow> {
+export async function ownRun(db: Db, actor: Actor, runId: string): Promise<RunRow> {
   const run = await db.run.findFirst({
     where: { id: runId, orgId: actor.orgId },
     include: { project: { select: { slug: true } } },
@@ -271,20 +283,26 @@ async function ownRun(db: Db, actor: Actor, runId: string): Promise<RunRow> {
   return run;
 }
 
+/** Queues a server-side run once its inputs are in storage (the queue and the run's first event). */
+export type StartRun = (run: { id: string; orgId: string }) => Promise<void>;
+
 /**
  * Marks a run's uploads as done. The server reads every announced artifact from storage itself and checks its
  * size and SHA-256: a client cannot claim an upload it did not make, or store something else under that hash.
+ *
+ * An uploaded report's run is then `complete`. A server-side run is `queued` for the worker instead.
  */
 export async function completeRun(
   db: Db,
   store: ObjectStore,
   actor: Actor,
   runId: string,
+  start: StartRun,
   now = new Date()
 ): Promise<RunView> {
   if (!can(actor, "runs:write")) throw forbidden();
   const run = await ownRun(db, actor, runId);
-  if (run.status === "COMPLETE") return runView(run);
+  if (run.status !== "UPLOADING") return runView(run);
   const pending = await db.artifact.findMany({ where: { runId, verifiedAt: null }, orderBy: { kind: "asc" } });
   const problems: string[] = [];
   for (const artifact of pending) {
@@ -295,6 +313,7 @@ export async function completeRun(
     }
   }
   if (problems.length > 0) throw conflict(problems.join("; "));
+  const server = run.mode === "SERVER";
   const updated = await db.$transaction(async (tx) => {
     await tx.artifact.updateMany({ where: { runId, verifiedAt: null }, data: { verifiedAt: now } });
     const report = await tx.artifact.findFirst({ where: { runId, kind: "report-json" }, select: { id: true } });
@@ -306,10 +325,11 @@ export async function completeRun(
     }
     return tx.run.update({
       where: { id: runId },
-      data: { status: "COMPLETE", completedAt: now },
+      data: server ? { status: "QUEUED" } : { status: "COMPLETE", completedAt: now },
       include: { project: { select: { slug: true } } },
     });
   });
+  if (server) await start({ id: updated.id, orgId: updated.orgId });
   return runView(updated);
 }
 

@@ -17,7 +17,7 @@ env:
   TURBO_TELEMETRY_DISABLED: "1"
   # apps/web refuses to build or typecheck without a valid environment (fail-fast validation). These are
   # placeholders for the build: nothing connects to them. The integration and end-to-end jobs start their own
-  # Postgres and S3 in containers and pass the real values to the app.
+  # Postgres, Redis and S3 in containers and pass the real values to the app.
   APP_URL: http://localhost:3000
   DATABASE_URL: postgresql://build:build@localhost:5432/build
   AUTH_SECRET: ci-build-placeholder-not-a-secret-0000000
@@ -25,6 +25,7 @@ env:
   S3_BUCKET: build
   S3_ACCESS_KEY_ID: build
   S3_SECRET_ACCESS_KEY: build
+  REDIS_URL: redis://localhost:6379
 
 jobs:
   check:
@@ -68,6 +69,12 @@ jobs:
     name: Local services and worker smoke test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # docker compose reads S3_* from the environment, so the workflow's build placeholders would configure the
+    # object store; the local defaults are used for both the services and the worker instead.
+    env:
+      S3_BUCKET: drift-artifacts
+      S3_ACCESS_KEY_ID: drift
+      S3_SECRET_ACCESS_KEY: drift-local-only
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -81,10 +88,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run build --filter=@drift/worker
-      - name: Worker connects to Redis and exits 0
-        run: pnpm --filter @drift/worker start
+      - name: Worker reaches the database, Redis and object storage (--check) and exits 0
+        run: pnpm --filter @drift/worker run check
         env:
           REDIS_URL: redis://localhost:6379
+          DATABASE_URL: postgresql://drift:drift-local-only@localhost:5432/drift
+          S3_ENDPOINT: http://localhost:8333
       - name: Service status
         if: always()
         run: docker compose -f infra/docker-compose.yml ps
@@ -93,9 +102,13 @@ jobs:
         run: docker compose -f infra/docker-compose.yml down -v
 
   integration:
-    name: API integration tests (Postgres + S3 in containers)
+    name: Integration tests, ${{ matrix.package }} (Postgres, Redis, S3 in containers)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [web, worker, platform]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -106,12 +119,15 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run build --filter=@drift/web^...
-      - name: Migrations apply and match the schema; API follows drift-api.yaml; coverage thresholds
-        run: pnpm --filter @drift/web run test:integration
+      - run: pnpm turbo run build --filter=@drift/${{ matrix.package }}^...
+      # web: migrations apply and match the schema; the API follows drift-api.yaml; SSE; rate limits.
+      # worker: server-side runs end to end, retries, a killed worker, timeouts, the DLQ, per-org limits, the trace.
+      # platform: queue, run events, semaphore and storage against real Redis and S3.
+      - name: Integration tests with coverage thresholds
+        run: pnpm --filter @drift/${{ matrix.package }} run test:integration
 
   e2e:
-    name: End-to-end (browser + drift compare --upload)
+    name: End-to-end (browser, drift compare --upload, drift run with the worker)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -124,10 +140,10 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run build --filter=@drift/web --filter=@drift/cli
+      - run: pnpm turbo run build --filter=@drift/web --filter=@drift/cli --filter=@drift/worker
       - name: Install the browser
         run: pnpm --filter @drift/web exec playwright install --with-deps chromium
-      - name: Register, create a key, upload a run with the CLI, see it in the run list
+      - name: Register, create a key, upload a run, run one on the platform, follow it live, re-run it
         run: pnpm --filter @drift/web run test:e2e
       - name: Keep the Playwright report
         if: failure()
@@ -185,3 +201,4 @@ jobs:
         uses: ./packages/github-action
         with:
           spec: apps/web/openapi/drift-api.yaml
+          policy: apps/web/openapi/drift-policy.yaml

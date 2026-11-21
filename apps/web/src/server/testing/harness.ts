@@ -5,7 +5,16 @@ import { createDb, newId, type Db, type Role } from "@drift/db";
 import { inject } from "vitest";
 import { createApi, type Api } from "../api/handlers";
 import { dispatch } from "../api/routes";
-import { createS3Store, type ObjectStore } from "../storage";
+import { unlimited } from "../rate-limit";
+import {
+  createRedis,
+  createRunQueue,
+  createS3Store,
+  RunEventHub,
+  type ObjectStore,
+  type Redis,
+  type RunQueue,
+} from "@drift/platform";
 
 const contractFile = fileURLToPath(new URL("../../../openapi/drift-api.yaml", import.meta.url));
 
@@ -42,6 +51,9 @@ export interface Reply<T = unknown> {
 export interface Harness {
   db: Db;
   store: ObjectStore;
+  redis: Redis;
+  queue: RunQueue;
+  hub: RunEventHub;
   api: Api;
   /**
    * Sends a request through the same dispatcher the Next.js route uses, and checks the exchange against the
@@ -62,16 +74,25 @@ export interface Harness {
   unique(prefix: string): string;
 }
 
-let shared: Pick<Harness, "db" | "store" | "api"> | undefined;
+let shared: Pick<Harness, "db" | "store" | "redis" | "queue" | "hub" | "api"> | undefined;
 
 /** One database client, object store and API per test file, against the containers of test/global-setup.ts. */
 export function harness(): Harness {
   shared ??= (() => {
     const db = createDb(inject("databaseUrl"));
     const store = createS3Store(inject("s3"));
+    const redis = createRedis(inject("redisUrl"), { failFast: true });
+    const queue = createRunQueue(redis);
+    const hub = new RunEventHub(redis);
     const api = createApi({
       db,
       store,
+      redis,
+      queue,
+      hub,
+      // Rate limits have their own tests; here they would make unrelated tests depend on call counts.
+      limits: unlimited,
+      heartbeatMs: 200,
       // The session cookie is next-auth's concern (covered by session.test.ts and the end-to-end tests). Here a
       // header stands in for a verified session, so the tests reach the authorisation code directly.
       session: (request) => {
@@ -80,9 +101,9 @@ export function harness(): Harness {
       },
       passwordCost: 4,
     });
-    return { db, store, api };
+    return { db, store, redis, queue, hub, api };
   })();
-  const { db, store, api } = shared;
+  const { db, store, redis, queue, hub, api } = shared;
   const unique = (prefix: string) => `${prefix}-${newId("run").slice(4, 16)}`;
 
   const call: Harness["call"] = async (method, path, options = {}) => {
@@ -144,5 +165,5 @@ export function harness(): Harness {
     await db.membership.create({ data: { id: newId("membership"), orgId, userId, role } });
   };
 
-  return { db, store, api, call, user, org, join, unique };
+  return { db, store, redis, queue, hub, api, call, user, org, join, unique };
 }

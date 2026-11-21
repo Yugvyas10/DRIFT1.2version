@@ -1,6 +1,6 @@
 import { dispatch } from "@/server/api/routes";
-import { api } from "@/server/context";
+import { api, log } from "@/server/context";
 
 export const dynamic = "force-dynamic";
 
-export const GET = (request: Request) => dispatch(api, request);
+export const GET = (request: Request) => dispatch(api, request, { log });

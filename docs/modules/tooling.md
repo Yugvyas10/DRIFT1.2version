@@ -33,7 +33,10 @@ Runs on pushes to `master` and on every pull request, with read-only permissions
 
 1. **check:** frozen install; format check; `turbo run typecheck lint test build`; `pnpm audit --prod --audit-level high`.
 2. **secrets:** gitleaks over the full history.
-3. **services:** docker compose up with `--wait`, all healthchecks pass, then the built worker must connect to Redis and exit 0.
+3. **services:** docker compose up with `--wait`, all healthchecks pass, then the built worker's `--check` must reach the database, Redis and storage and exit 0.
+4. **integration** (a matrix: web, worker, platform): each package's `test:integration` against Postgres, Redis and S3 in containers, with coverage thresholds.
+5. **e2e:** the built web app and worker with Playwright and the real CLI.
+6. **fixtures** and **dogfood** (DRIFT on its own API contract, with `apps/web/openapi/drift-policy.yaml`).
 
 ## Known pitfalls
 

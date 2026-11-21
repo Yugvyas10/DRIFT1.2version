@@ -48,7 +48,16 @@ export interface CompareInput {
   corpus?: Partial<Pick<CorpusOptions, "perOperationCap" | "totalCap" | "redaction">>;
   /** Reuses stage outputs whose inputs did not change. */
   cache?: StageCache;
+  /**
+   * Told when each of Diff, Corpus, Verify and Classify starts and finishes, in order (live progress and traces
+   * for server-side runs). It is awaited, so a slow listener slows the run; it cannot change the result.
+   */
+  onStage?: (event: StageEvent) => void | Promise<void>;
 }
+
+export type StageEvent =
+  | { stage: StageName; status: "started"; hash: string }
+  | { stage: StageName; status: "finished"; hash: string; cached: boolean };
 
 export function specSummary(spec: IngestedSpec): SpecSummary {
   return {
@@ -79,26 +88,39 @@ export async function compare(input: CompareInput): Promise<Report> {
   const diagnostics: ReportDiagnostic[] = [];
 
   const stages: { stage: StageName; hash: string; cached: boolean }[] = [
-    { stage: "ingest.base", hash: stageKey("ingest.base", { source: input.base.sourceHash }), cached: false },
-    { stage: "ingest.head", hash: stageKey("ingest.head", { source: input.head.sourceHash }), cached: false },
+    {
+      stage: "ingest.base",
+      hash: stageKey("ingest.base", { source: input.base.sourceHash }),
+      cached: input.base.cached === true,
+    },
+    {
+      stage: "ingest.head",
+      hash: stageKey("ingest.head", { source: input.head.sourceHash }),
+      cached: input.head.cached === true,
+    },
   ];
   /** Runs a stage, or reuses its output from the cache when a stage with the same inputs ran before (ADR-0006). */
   const stage = async <T>(name: StageName, inputs: Record<string, unknown>, run: () => T | Promise<T>) => {
     const hash = stageKey(name, inputs);
+    await input.onStage?.({ stage: name, status: "started", hash });
+    const finish = async (value: T, cached: boolean) => {
+      stages.push({ stage: name, hash, cached });
+      await input.onStage?.({ stage: name, status: "finished", hash, cached });
+      return { hash, value };
+    };
     const hit = input.cache ? await input.cache.get(hash) : undefined;
     if (hit !== undefined) {
+      let cached: { value: T } | undefined;
       try {
-        const value = JSON.parse(hit) as T;
-        stages.push({ stage: name, hash, cached: true });
-        return { hash, value };
+        cached = { value: JSON.parse(hit) as T };
       } catch {
         // A damaged entry is a miss: compute the stage again and overwrite it.
       }
+      if (cached) return finish(cached.value, true);
     }
     const value = await run();
     await input.cache?.put(hash, JSON.stringify(value));
-    stages.push({ stage: name, hash, cached: false });
-    return { hash, value };
+    return finish(value, false);
   };
 
   const diff = await stage("diff", { base: input.base.specHash, head: input.head.specHash }, () =>

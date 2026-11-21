@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: DRIFT platform API
-  version: 0.2.0
+  version: 0.3.0
   summary: Ingestion and read API of the DRIFT platform.
   description: >-
     Written in M4, before the implementation, as the design of the ingestion API (PLAN §6 M4, spec-first), and
@@ -10,8 +10,14 @@ info:
     own validators (apps/web/src/server/api/*.int.test.ts).
 
 
-    Status: implemented in M5. Every route checks an API key or a session and is scoped to one organisation;
-    resources of other organisations answer 404.
+    Status: implemented (M5: accounts, organisations, keys, uploaded runs; M6: server-side runs, re-runs and
+    live events). Every route checks an API key or a session and is scoped to one organisation; resources of
+    other organisations answer 404. Authenticated calls are rate limited per key or user (429 with Retry-After).
+
+
+    Version 0.3.0 changes responses in ways that are not backward compatible (a run has the new states
+    `queued` and `running`, and its result is absent until it finishes). The API is unreleased and has no
+    clients yet; the change is accepted, with a reason and an expiry, in apps/web/openapi/drift-policy.yaml.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -70,6 +76,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -109,6 +117,8 @@ paths:
                 $ref: "#/components/schemas/Run"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -121,18 +131,22 @@ paths:
       tags: [runs]
       operationId: completeRun
       summary: Mark the uploads of a run as done
-      description: The server checks that every announced artifact exists with its SHA-256 before completing.
+      description: >-
+        The server checks that every announced artifact exists with its SHA-256. An uploaded report's run is then
+        `complete`; a server-side run is `queued` for the worker.
       security:
         - apiKey: []
       responses:
         "200":
-          description: The run, now complete.
+          description: The run, now complete (an uploaded report) or queued (a server-side run).
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Run"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -143,6 +157,114 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
+
+  /api/v1/runs/{runId}/rerun:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    post:
+      tags: [runs]
+      operationId: rerun
+      summary: Re-run a server-side run with new traffic, policy, fail-on or seed
+      description: >-
+        Creates a child run (`parentRunId`). The contracts are the same files, so stages whose inputs did not
+        change are cache hits. New traffic, if any, is uploaded like a run's inputs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RerunCreate"
+      responses:
+        "201":
+          description: The child run.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          description: The body is larger than the limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/runs/{runId}/stages:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    get:
+      tags: [runs]
+      operationId: listStages
+      summary: The run's stages, in pipeline order, each as of its latest attempt
+      responses:
+        "200":
+          description: Stages.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [stages]
+                properties:
+                  stages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Stage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/runs/{runId}/events:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    get:
+      tags: [runs]
+      operationId: runEvents
+      summary: The run's events, live, as Server-Sent Events
+      description: >-
+        Replays the run's history, then streams new events until the run ends. Each event has an `id`; reconnect
+        with `Last-Event-ID` to receive only the events after it (browsers' EventSource does this by itself).
+        Event types: run.queued, run.started, stage.started, stage.finished, run.completed, run.failed.
+      parameters:
+        - name: Last-Event-ID
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: "^[0-9]{1,15}-[0-9]{1,10}$"
+      responses:
+        "200":
+          description: An event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/runs/{runId}/artifacts/{kind}:
     parameters:
@@ -165,6 +287,8 @@ paths:
                 $ref: "#/components/schemas/SignedUrl"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -178,6 +302,61 @@ paths:
         description: The project's slug within the caller's organisation.
         schema:
           $ref: "#/components/schemas/Slug"
+    post:
+      tags: [runs]
+      operationId: createServerRun
+      summary: Create a server-side run from two contracts (and optionally recorded traffic)
+      description: >-
+        The platform's worker compares the contracts. Upload each announced file to its pre-signed URL, then call
+        `complete`, which queues the run. When every file is already in the organisation's storage, the run is
+        queued at once. Follow it with `GET /api/v1/runs/{runId}/events`. Contracts must be single files.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: org
+          in: query
+          required: false
+          description: For a signed-in user in several organisations, the organisation's slug.
+          schema:
+            $ref: "#/components/schemas/Slug"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServerRunCreate"
+      responses:
+        "201":
+          description: Run created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunCreated"
+        "200":
+          description: The same request was made before with this idempotency key; the original run is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "413":
+          description: The body is larger than the limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
     get:
       tags: [runs]
       operationId: listRuns
@@ -217,6 +396,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -252,6 +433,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "409":
           $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /api/v1/orgs:
     get:
@@ -276,6 +459,8 @@ paths:
                       $ref: "#/components/schemas/Org"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
     post:
@@ -308,6 +493,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "409":
@@ -336,6 +523,8 @@ paths:
                       $ref: "#/components/schemas/Project"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -370,6 +559,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -402,6 +593,8 @@ paths:
                       $ref: "#/components/schemas/ApiKey"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -431,6 +624,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -456,6 +651,8 @@ paths:
           description: Revoked (also when it already was).
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -486,6 +683,8 @@ paths:
                       $ref: "#/components/schemas/Member"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -535,6 +734,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -552,6 +753,8 @@ paths:
           description: Removed.
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -604,6 +807,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -651,6 +856,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -688,6 +895,8 @@ paths:
                       $ref: "#/components/schemas/Suppression"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -722,6 +931,8 @@ paths:
           $ref: "#/components/responses/UnsupportedMediaType"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -761,6 +972,8 @@ paths:
                       $ref: "#/components/schemas/AuditEntry"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
         "403":
           $ref: "#/components/responses/Forbidden"
         "404":
@@ -784,7 +997,7 @@ paths:
     get:
       tags: [health]
       operationId: readiness
-      summary: Readiness (database and object storage reachable; Redis joins in M6)
+      summary: Readiness (database, Redis and object storage reachable)
       security: []
       responses:
         "200":
@@ -859,6 +1072,18 @@ components:
             $ref: "#/components/schemas/Problem"
     NotFound:
       description: Not found in the caller's organisation (also returned for other organisations' resources).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    TooManyRequests:
+      description: The caller's rate limit is used up; `Retry-After` says when to try again.
+      headers:
+        Retry-After:
+          description: Seconds to wait.
+          schema:
+            type: integer
+            minimum: 1
       content:
         application/problem+json:
           schema:
@@ -1160,10 +1385,23 @@ components:
       enum: [ci, manual, app]
     RunStatus:
       type: string
-      enum: [uploading, complete, failed]
+      enum: [uploading, queued, running, complete, failed]
+    RunMode:
+      description: "`upload`: the report was uploaded. `server`: the platform's worker ran the engine."
+      type: string
+      enum: [upload, server]
     ArtifactKind:
       type: string
-      enum: [report-json, report-md, report-html, report-sarif, report-junit, stage-output]
+      enum:
+        - report-json
+        - report-md
+        - report-html
+        - report-sarif
+        - report-junit
+        - stage-output
+        - input-base
+        - input-head
+        - input-traffic
 
     ArtifactIntent:
       type: object
@@ -1256,7 +1494,7 @@ components:
     Run:
       type: object
       additionalProperties: false
-      required: [id, project, status, trigger, commit, gate, summary, semver, createdAt]
+      required: [id, project, status, mode, trigger, commit, createdAt]
       properties:
         id:
           $ref: "#/components/schemas/RunId"
@@ -1264,6 +1502,21 @@ components:
           $ref: "#/components/schemas/Slug"
         status:
           $ref: "#/components/schemas/RunStatus"
+        mode:
+          $ref: "#/components/schemas/RunMode"
+        parentRunId:
+          description: The run this one re-runs.
+          $ref: "#/components/schemas/RunId"
+        error:
+          description: Why the run failed.
+          type: object
+          additionalProperties: false
+          required: [category, message]
+          properties:
+            category:
+              type: string
+            message:
+              type: string
         trigger:
           $ref: "#/components/schemas/Trigger"
         commit:
@@ -1285,6 +1538,123 @@ components:
         completedAt:
           type: string
           format: date-time
+
+    InputFile:
+      description: A file the client uploads, a plain file name (shown in reports), its SHA-256 and size.
+      type: object
+      additionalProperties: false
+      required: [name, sha256, size]
+      properties:
+        name:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$"
+        sha256:
+          $ref: "#/components/schemas/Sha256"
+        size:
+          type: integer
+          minimum: 1
+          maximum: 20971520
+    TrafficFile:
+      type: object
+      additionalProperties: false
+      required: [name, sha256, size, format]
+      properties:
+        name:
+          type: string
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$"
+        sha256:
+          $ref: "#/components/schemas/Sha256"
+        size:
+          type: integer
+          minimum: 1
+          maximum: 268435456
+        format:
+          type: string
+          enum: [jsonl, har]
+    FailOn:
+      type: string
+      enum: [breaking, risky]
+    ServerRunCreate:
+      type: object
+      additionalProperties: false
+      required: [commit, base, head]
+      properties:
+        trigger:
+          $ref: "#/components/schemas/Trigger"
+        commit:
+          $ref: "#/components/schemas/Sha"
+        branch:
+          type: string
+          minLength: 1
+          maxLength: 255
+        pullRequest:
+          type: integer
+          minimum: 1
+        base:
+          $ref: "#/components/schemas/InputFile"
+        head:
+          $ref: "#/components/schemas/InputFile"
+        traffic:
+          $ref: "#/components/schemas/TrafficFile"
+        policy:
+          description: A drift-policy/v1 document (escalations, suppressions with a reason and an expiry, fail-on).
+          type: object
+        rules:
+          description: >-
+            A complete drift-rules/v1 ruleset instead of the default one (every change kind needs a rule). With
+            the policy and the ruleset the body may be up to 512 KiB.
+          type: object
+        failOn:
+          $ref: "#/components/schemas/FailOn"
+        seed:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+    RerunCreate:
+      description: >-
+        What the re-run changes (corpus, policy, rules, fail-on, seed); anything left out stays as it was. A null
+        `traffic` removes the traffic.
+      type: object
+      additionalProperties: false
+      properties:
+        traffic:
+          oneOf:
+            - $ref: "#/components/schemas/TrafficFile"
+            - type: "null"
+        policy:
+          type: object
+        rules:
+          description: >-
+            A complete drift-rules/v1 ruleset instead of the default one (every change kind needs a rule). With
+            the policy and the ruleset the body may be up to 512 KiB.
+          type: object
+        failOn:
+          $ref: "#/components/schemas/FailOn"
+        seed:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+    Stage:
+      type: object
+      additionalProperties: false
+      required: [stage, status, cacheHit, attempt]
+      properties:
+        stage:
+          type: string
+          enum: [ingest.base, ingest.head, diff, corpus, verify, classify]
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed, skipped]
+        cacheHit:
+          description: True when the stage's output was reused from the cache instead of computed.
+          type: boolean
+        attempt:
+          type: integer
+          minimum: 1
+        startedAt:
+          $ref: "#/components/schemas/Timestamp"
+        finishedAt:
+          $ref: "#/components/schemas/Timestamp"
 
     UploadUrl:
       type: object

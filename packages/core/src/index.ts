@@ -2,7 +2,8 @@ export { ENGINE_NAME, ENGINE_VERSION } from "./version.ts";
 export { canonicalJson, CanonicalJsonError } from "./hash/canonical-json.ts";
 export { contentHash, sha256Hex } from "./hash/content-hash.ts";
 export { DEFAULT_LIMITS, type IngestLimits, type IngestOptions, type SpecReader } from "./ingest/types.ts";
-export { ingestSpec, type IngestedSpec, type IngestResult } from "./ingest/ingest.ts";
+export { ingestSpec, type IngestedSpec, type IngestResult, type SpecDocument } from "./ingest/ingest.ts";
+export { reviveSpec, snapshotSpec, SPEC_SNAPSHOT_FORMAT, type SpecSnapshot } from "./ingest/snapshot.ts";
 export type {
   MediaTypeIR,
   NormalizedSchema,
@@ -15,7 +16,7 @@ export type {
 } from "./ingest/ir.ts";
 export { changeId, diffSpecs, type DiffResult } from "./diff/diff.ts";
 export type { Anchor, Slot } from "./diff/anchors.ts";
-export { compare, specSummary, stageKey, type CompareInput, type TrafficInput } from "./compare.ts";
+export { compare, specSummary, stageKey, type CompareInput, type StageEvent, type TrafficInput } from "./compare.ts";
 export { readHar, readJsonl, toSample, type TrafficEntry } from "./corpus/traffic.ts";
 export { DEFAULT_REDACTION, detect, redactSample, type RedactionOptions } from "./corpus/redact.ts";
 export { buildCorpus, DEFAULT_CORPUS_OPTIONS, type Corpus, type CorpusOptions } from "./corpus/corpus.ts";

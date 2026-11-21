@@ -152,6 +152,71 @@ test("register → organisation → project → API key shown once → drift com
   expect(consoleErrors).toEqual([]);
 });
 
+test("drift run → the worker runs it live → the run page → re-run reuses the cache", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(account.email);
+  await page.getByLabel("Password").fill(account.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await page.goto(`/settings/${org}/keys`);
+  const newKey = page.getByRole("region", { name: "Create a key" });
+  await newKey.getByLabel("Name").fill("End-to-end server runs");
+  await newKey.getByRole("button", { name: "Create key" }).click();
+  const key = (await page.getByTestId("secret").textContent()) ?? "";
+
+  // A server-side run with the real CLI: it uploads the inputs, the worker runs the engine, the CLI follows the
+  // live events and exits with the gate (1: the petstore change is breaking).
+  const run = await drift(
+    [
+      "run",
+      "--base",
+      "examples/petstore/v1.yaml",
+      "--head",
+      "examples/petstore/v2-breaking.yaml",
+      "--traffic",
+      "examples/petstore/traffic.jsonl",
+      "--project",
+      project,
+      "--api-url",
+      E2E_URL,
+      "--commit",
+      "f".repeat(40),
+    ],
+    { DRIFT_API_KEY: key }
+  );
+  expect(run.stderr).toBe("");
+  expect(run.code).toBe(1);
+  const runId = /^run (run_[0-9a-z]+) {2}queued$/m.exec(run.stdout)?.[1] ?? "";
+  expect(runId).not.toBe("");
+  expect(run.stdout).toMatch(/^started {3}attempt 1$/m);
+  expect(run.stdout.match(/^ {2}\S+ +(computed|cached) +\d+ ms$/gm)).toHaveLength(6);
+  expect(run.stdout).toMatch(/^gate FAILED \(fail-on breaking\): [1-9]\d* breaking/m);
+
+  // The run page shows the finished run and its six stages.
+  await page.goto(`/dashboard/${org}/${project}`);
+  await page.getByTestId("run").filter({ hasText: "fffffff" }).getByRole("link").click();
+  await expect(page).toHaveURL(new RegExp(`/runs/${runId}$`));
+  await expect(page.getByTestId("run-status")).toHaveText("complete");
+  await expect(page.getByTestId("gate")).toContainText("failed");
+  await expect(page.locator('[data-testid="stage"][data-status="succeeded"]')).toHaveCount(6);
+  await noAccessibilityViolations(page);
+
+  // Re-run from the page: a child run, followed live in the browser, with every stage from the cache.
+  await page.getByRole("button", { name: "Re-run" }).click();
+  await expect(page).not.toHaveURL(new RegExp(`/runs/${runId}$`));
+  await expect(page.getByText(`re-run of ${runId}`)).toBeVisible();
+  await expect(page.getByTestId("run-status")).toHaveText("complete", { timeout: 30_000 });
+  await expect(page.locator('[data-testid="stage"][data-status="succeeded"]')).toHaveCount(6);
+  await expect(page.getByTestId("stage").filter({ hasText: "cached" })).toHaveCount(6);
+  await noAccessibilityViolations(page);
+  expect(consoleErrors).toEqual([]);
+});
+
 test("signing out everywhere ends the session, and a wrong password does not sign in", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill(account.email);

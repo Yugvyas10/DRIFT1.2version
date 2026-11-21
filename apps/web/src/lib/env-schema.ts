@@ -21,6 +21,13 @@ const WebEnvSchema = z
     /** GitHub OAuth: both or neither. Without them only email and password sign-in is offered. */
     GITHUB_ID: z.string().min(1).optional(),
     GITHUB_SECRET: z.string().min(1).optional(),
+    /** Redis: the run queue, live run events and rate limits. */
+    REDIS_URL: z.url({ protocol: /^rediss?$/, error: "REDIS_URL must be a redis:// or rediss:// URL" }),
+    LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+    /** Where traces go (OTLP over HTTP, e.g. Jaeger at http://localhost:4318). Unset: tracing is off. */
+    OTEL_EXPORTER_OTLP_ENDPOINT: z
+      .url({ protocol: /^https?$/, error: "OTEL_EXPORTER_OTLP_ENDPOINT must be an http(s) URL" })
+      .optional(),
     S3_ENDPOINT: z.url({ protocol: /^https?$/, error: "S3_ENDPOINT must be an http(s) URL" }),
     S3_REGION: z.string().min(1).default("us-east-1"),
     S3_BUCKET: z.string().min(1),

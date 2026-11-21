@@ -20,6 +20,8 @@ declare module "next-auth/jwt" {
 export interface AuthSettings {
   secret: string;
   github?: { clientId: string; clientSecret: string } | undefined;
+  /** Counts a sign-in attempt for an email address; throws when there have been too many (SECURITY T16). */
+  limitLogin?: (email: string) => Promise<void>;
 }
 
 /**
@@ -38,6 +40,12 @@ export function authOptions(db: Db, settings: AuthSettings): NextAuthOptions {
         credentials: { email: { label: "Email", type: "email" }, password: { label: "Password", type: "password" } },
         async authorize(credentials) {
           if (!credentials?.email || !credentials.password) return null;
+          try {
+            await settings.limitLogin?.(credentials.email.toLowerCase());
+          } catch {
+            // next-auth passes this message to the sign-in page as `?error=`.
+            throw new Error("RateLimited");
+          }
           const user = await checkCredentials(db, credentials.email, credentials.password);
           return user ? { id: user.id, email: user.email, name: user.name, tokenVersion: user.tokenVersion } : null;
         },

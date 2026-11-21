@@ -1,69 +1,152 @@
+import { Writable } from "node:stream";
+import { createLogger } from "@drift/platform";
 import { describe, expect, it, vi } from "vitest";
-import { describeError, runWorker, type RedisProbe, type WorkerDeps } from "./worker.ts";
+import { checkServices, runWorker, type Services, type WorkerDeps } from "./worker.ts";
 
-function setup(ping: () => Promise<string>) {
-  const logs: { level: string; fields: Record<string, unknown>; message: string }[] = [];
+const ENV = {
+  REDIS_URL: "redis://:redis-password@cache.internal:6380",
+  DATABASE_URL: "postgresql://drift:db-password@localhost:5432/drift",
+  S3_ENDPOINT: "http://localhost:8333",
+  S3_BUCKET: "drift-artifacts",
+  S3_ACCESS_KEY_ID: "drift",
+  S3_SECRET_ACCESS_KEY: "s3-password",
+};
+
+function fakeServices(fail: { database?: unknown; redis?: unknown; storage?: unknown } = {}) {
+  // A client library may reject with anything, not only an Error.
+  const answer = (failure: unknown) =>
+    vi.fn(() =>
+      failure === undefined
+        ? Promise.resolve("ok")
+        : // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+          Promise.reject(failure)
+    );
+  return {
+    db: { $queryRaw: answer(fail.database), $disconnect: vi.fn(() => Promise.resolve()) },
+    redis: { ping: answer(fail.redis), disconnect: vi.fn() },
+    store: { ping: answer(fail.storage) },
+  };
+}
+
+function setup(services = fakeServices(), argv: string[] = []) {
+  const lines: Record<string, unknown>[] = [];
   const stderr: string[] = [];
-  const disconnect = vi.fn();
-  const redis: RedisProbe = { ping: vi.fn(ping), disconnect };
+  const destination = new Writable({
+    write(chunk: Buffer, _encoding, done) {
+      lines.push(JSON.parse(chunk.toString()) as Record<string, unknown>);
+      done();
+    },
+  });
+  let stop!: (signal: string) => void;
+  const close = vi.fn(() => Promise.resolve());
+  const shutdown = vi.fn(() => Promise.resolve());
   const deps: WorkerDeps = {
-    createRedis: vi.fn(() => redis),
-    createLogger: () => ({
-      info: (fields, message) => logs.push({ level: "info", fields, message }),
-      error: (fields, message) => logs.push({ level: "error", fields, message }),
-    }),
+    createLogger: (level) => createLogger({ service: "drift-worker", level, destination }),
+    connect: vi.fn(() => services as unknown as Services),
+    startTracing: vi.fn(() => ({ shutdown })),
+    startRunWorker: vi.fn(() => ({ close })),
+    stopSignal: () =>
+      new Promise((resolve) => {
+        stop = resolve;
+      }),
     writeStderr: (text) => stderr.push(text),
   };
-  return { deps, redis, disconnect, logs, stderr };
+  return {
+    deps,
+    services,
+    lines,
+    stderr,
+    close,
+    shutdown,
+    stop: (signal: string) => {
+      stop(signal);
+    },
+    run: (source: Record<string, string> = ENV) => runWorker(argv, source, deps),
+  };
 }
 
 describe("runWorker", () => {
-  it("exits 0 when Redis answers, and says honestly that no processors exist yet", async () => {
-    const t = setup(() => Promise.resolve("PONG"));
-    expect(await runWorker({ REDIS_URL: "redis://:pw@localhost:6379" }, t.deps)).toBe(0);
-    expect(t.logs.map((l) => l.message)).toEqual([
-      "redis reachable",
-      "no job processors are registered yet; queues arrive in M6 (docs/PLAN.md)",
+  it("consumes the queue until SIGTERM, then closes the worker, tracing and connections and exits 0", async () => {
+    const t = setup();
+    const exit = t.run({ ...ENV, WORKER_CONCURRENCY: "3", OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318" });
+    await vi.waitFor(() => {
+      expect(t.deps.startRunWorker).toHaveBeenCalledOnce();
+    });
+    expect(t.deps.startTracing).toHaveBeenCalledWith("http://localhost:4318");
+    expect(t.deps.startRunWorker).toHaveBeenCalledWith(
+      expect.objectContaining({
+        concurrency: 3,
+        orgConcurrency: 2,
+        runTimeoutMs: 600_000,
+        s3: expect.objectContaining({ bucket: "drift-artifacts", region: "us-east-1" }) as unknown,
+      })
+    );
+    expect(t.close).not.toHaveBeenCalled();
+
+    t.stop("SIGTERM");
+    expect(await exit).toBe(0);
+    expect(t.close).toHaveBeenCalledOnce();
+    expect(t.shutdown).toHaveBeenCalledOnce();
+    expect(t.services.db.$disconnect).toHaveBeenCalledOnce();
+    expect(t.services.redis.disconnect).toHaveBeenCalledOnce();
+    expect(t.lines.map((line) => line.msg)).toEqual([
+      "worker started",
+      "stopping: finishing the runs in progress",
+      "worker stopped",
     ]);
-    expect(t.disconnect).toHaveBeenCalledOnce();
+    expect(t.lines[1]).toMatchObject({ signal: "SIGTERM" });
   });
 
-  it("exits 1 when Redis is unreachable and never logs credentials", async () => {
-    const t = setup(() => Promise.reject(new Error("connect ECONNREFUSED")));
-    expect(await runWorker({ REDIS_URL: "redis://:pw@localhost:6379" }, t.deps)).toBe(1);
-    expect(t.logs).toHaveLength(1);
-    expect(t.logs[0]).toMatchObject({ level: "error", message: "redis unreachable" });
-    expect(JSON.stringify(t.logs)).not.toContain("pw");
-    expect(t.disconnect).toHaveBeenCalledOnce();
+  it("with --check, exits 0 when every dependency answers, without consuming the queue", async () => {
+    const t = setup(fakeServices(), ["--check"]);
+    expect(await t.run()).toBe(0);
+    expect(t.deps.startRunWorker).not.toHaveBeenCalled();
+    expect(t.deps.startTracing).not.toHaveBeenCalled();
+    expect(t.lines).toEqual([
+      expect.objectContaining({ msg: "database, redis and storage reachable", redis: "cache.internal:6380" }),
+    ]);
+    expect(t.services.redis.disconnect).toHaveBeenCalledOnce();
   });
 
-  it("exits 1 with a readable message when the environment is invalid", async () => {
-    const t = setup(() => Promise.resolve("PONG"));
-    expect(await runWorker({}, t.deps)).toBe(1);
+  it("exits 1 when a dependency is unreachable, names it, and never logs credentials", async () => {
+    const t = setup(fakeServices({ redis: new Error("connect ECONNREFUSED"), storage: "timeout" }));
+    expect(await t.run()).toBe(1);
+    expect(t.deps.startRunWorker).not.toHaveBeenCalled();
+    expect(t.lines).toHaveLength(1);
+    expect(t.lines[0]).toMatchObject({
+      level: "error",
+      msg: "dependencies unreachable",
+      down: [
+        { service: "redis", reason: "connect ECONNREFUSED" },
+        { service: "storage", reason: "timeout" },
+      ],
+    });
+    const output = JSON.stringify(t.lines);
+    for (const secret of ["redis-password", "db-password", "s3-password"]) expect(output).not.toContain(secret);
+    expect(t.services.db.$disconnect).toHaveBeenCalledOnce();
+  });
+
+  it("exits 1 with a readable message when the environment is invalid, before connecting", async () => {
+    const t = setup();
+    expect(await t.run({})).toBe(1);
     expect(t.stderr.join("")).toContain("REDIS_URL");
-    expect(t.deps.createRedis).not.toHaveBeenCalled();
-  });
-
-  it("reports rejections that are not Error instances", async () => {
-    // A misbehaving client library could reject with a plain value; the worker must still log it.
-    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
-    const t = setup(() => Promise.reject("timeout"));
-    expect(await runWorker({ REDIS_URL: "redis://localhost:6379" }, t.deps)).toBe(1);
-    expect(t.logs[0]?.fields.reason).toBe("timeout");
+    expect(t.deps.connect).not.toHaveBeenCalled();
   });
 });
 
-describe("describeError", () => {
-  it("uses the message when there is one", () => {
-    expect(describeError(new Error("connect timeout"))).toBe("connect timeout");
+describe("checkServices", () => {
+  it("reports a dependency that does not answer in time", async () => {
+    const services = fakeServices();
+    services.db.$queryRaw = vi.fn(() => new Promise<string>(() => undefined));
+    expect(await checkServices(services as unknown as Services, 20)).toEqual([
+      { service: "database", reason: "no answer within 20 ms" },
+    ]);
   });
 
-  it("falls back to the error code for network errors with an empty message", () => {
-    const error = Object.assign(new AggregateError([], ""), { code: "ECONNREFUSED" });
-    expect(describeError(error)).toBe("ECONNREFUSED");
-  });
-
-  it("falls back to the error name when there is neither", () => {
-    expect(describeError(new TypeError(""))).toBe("TypeError");
+  it("falls back to the error name when the message is empty", async () => {
+    const services = fakeServices({ database: new TypeError("") });
+    expect(await checkServices(services as unknown as Services)).toEqual([
+      { service: "database", reason: "TypeError" },
+    ]);
   });
 });

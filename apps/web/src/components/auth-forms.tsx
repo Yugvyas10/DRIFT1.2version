@@ -8,6 +8,7 @@ const MESSAGES: Record<string, string> = {
   CredentialsSignin: "That email address and password do not match an account.",
   AccountExists: "An account with that email address already exists. Sign in with its password.",
   GitHubEmail: "GitHub did not share an email address for that account.",
+  RateLimited: "Too many sign-in attempts for that address. Wait a few minutes and try again.",
 };
 
 function safeCallback(url: string | undefined): string {

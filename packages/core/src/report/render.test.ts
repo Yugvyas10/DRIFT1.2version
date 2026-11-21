@@ -173,8 +173,17 @@ describe("HTML", () => {
 
 describe("examples with an omitted body", () => {
   it("say so, with the size and the failing values, in every format", () => {
+    // Markdown shows samples of changes that count (a suppressed change is one row of the Suppressed table).
+    const counted: Report = {
+      ...hostile(report),
+      changes: hostile(report).changes.map((change) => {
+        const copy = { ...change };
+        delete copy.suppression;
+        return copy;
+      }),
+    };
     for (const format of ["console", "md", "html"] as const) {
-      expect(renderReport(hostile(report), format)).toMatch(/body omitted \(136\.7 KiB, too large for the report\)/);
+      expect(renderReport(counted, format)).toMatch(/body omitted \(136\.7 KiB, too large for the report\)/);
     }
     expect(renderReport(hostile(report), "console")).toContain('values at the failing pointers: {"/body/x":"<script>');
   });
@@ -216,6 +225,43 @@ describe("Markdown", () => {
     const minimal = renderMarkdown(report, { maxLength: 10 });
     expect(minimal).toContain(`${String(s.breaking)} BREAKING`);
     expect(minimal).not.toContain("\n- **");
+  });
+
+  it("lists suppressed changes in their own collapsed table, not under their label", () => {
+    const [first, second, ...rest] = report.changes.filter((change) => change.severity === "BREAKING");
+    if (!first || !second) throw new Error("needs two BREAKING changes");
+    const accepted = (change: (typeof report.changes)[number]) => ({
+      ...change,
+      suppression: { reason: "Accepted: clients were migrated.", expiresAt: "2026-12-31" },
+    });
+    const withSuppressions: Report = {
+      ...report,
+      changes: report.changes.map((change) =>
+        change.id === first.id || change.id === second.id ? accepted(change) : change
+      ),
+      summary: { ...report.summary, breaking: report.summary.breaking - 2, suppressed: 2 },
+    };
+    const md = renderMarkdown(withSuppressions);
+    expect(md).toContain(`### BREAKING (${String(rest.length)})`);
+    expect(md).toContain("<summary><strong>Suppressed (2)</strong></summary>");
+    expect(md).toContain(
+      `| <code>${escapeMarkdown(first.operation)}</code> | BREAKING | ${escapeMarkdown(first.message)} <code>${first.id}</code> | 2026\\-12\\-31 | Accepted: clients were migrated\\. |`
+    );
+    // A suppressed change is not repeated in full under BREAKING.
+    const breakingSection = md.slice(md.indexOf("### BREAKING"), md.indexOf("<summary><strong>"));
+    expect(breakingSection).not.toContain(`<code>${first.id}</code>`);
+
+    // All of them suppressed: no BREAKING section at all, and a shortened report counts the suppressed rows too.
+    const allAccepted: Report = {
+      ...report,
+      changes: report.changes.map((change) => (change.severity === "BREAKING" ? accepted(change) : change)),
+    };
+    const quiet = renderMarkdown(allAccepted);
+    expect(quiet).not.toContain("### BREAKING");
+    const cut = quiet.indexOf("<summary><strong>Suppressed") + 200;
+    expect(renderMarkdown(allAccepted, { maxLength: cut })).toMatch(
+      /Shortened to fit: [^\n]*\d+ suppressed changes? (is|are) not listed here/
+    );
   });
 
   it("uses code fences longer than any backtick run in the content", () => {

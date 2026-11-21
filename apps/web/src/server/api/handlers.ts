@@ -1,4 +1,5 @@
 import type { Db } from "@drift/db";
+import { injectTraceContext, publishRunEvent, type Redis, type RunEventHub, type RunQueue } from "@drift/platform";
 import type { Actor } from "../auth/actor";
 import type { Permission } from "../auth/permissions";
 import {
@@ -10,12 +11,22 @@ import {
   type SessionClaims,
 } from "../auth/require-auth";
 import { badRequest, json, parse, readJson, route } from "../http";
+import { clientAddress, type RateLimits } from "../rate-limit";
 import { listAudit } from "../services/audit";
 import { createKey, listKeys, revokeKey } from "../services/keys";
 import { acceptInvitation, changeRole, invite, listMembers, removeMember } from "../services/members";
 import { createOrg, listOrgs } from "../services/orgs";
 import { createProject, listProjects } from "../services/projects";
-import { artifactUrl, completeRun, createRun, getRun, listRuns, MAX_RUN_BODY_BYTES, orgOfRun } from "../services/runs";
+import {
+  artifactUrl,
+  completeRun,
+  createRun,
+  getRun,
+  listRuns,
+  MAX_RUN_BODY_BYTES,
+  orgOfRun,
+  type StartRun,
+} from "../services/runs";
 import {
   InvitationAccept,
   InvitationCreate,
@@ -26,16 +37,35 @@ import {
   RoleChange,
   SuppressionCreate,
 } from "../services/schemas";
+import { createServerRun, listStages, MAX_SERVER_RUN_BODY_BYTES, rerun } from "../services/server-runs";
 import { createSuppression, listSuppressions } from "../services/suppressions";
 import { register } from "../services/users";
-import type { ObjectStore } from "../storage";
+import { runEventStream } from "./events";
+import type { ObjectStore } from "@drift/platform";
 
 export interface ApiDeps {
   db: Db;
   store: ObjectStore;
   session(request: Request): Promise<SessionClaims | undefined>;
+  /** Redis: run events, readiness. */
+  redis: Redis;
+  /** The queue of server-side runs. */
+  queue: RunQueue;
+  /** Live run events for this process (one subscriber connection). */
+  hub: Pick<RunEventHub, "subscribe">;
+  limits: RateLimits;
   /** bcrypt cost for new passwords (tests lower it). */
   passwordCost?: number;
+  /** How often an idle event stream sends a keep-alive comment (tests shorten it). */
+  heartbeatMs?: number;
+}
+
+/** Queues a server-side run, carrying the current trace so the worker's spans join it, and records the event. */
+export function runStarter(deps: { queue: Pick<RunQueue, "enqueue">; redis: Redis }): StartRun {
+  return async (run) => {
+    await deps.queue.enqueue({ runId: run.id, orgId: run.orgId, trace: injectTraceContext() });
+    await publishRunEvent(deps.redis, run.id, { type: "run.queued", at: new Date().toISOString() });
+  };
 }
 
 /** Bodies of the management API are small. */
@@ -47,8 +77,15 @@ const MAX_BODY_BYTES = 16 * 1024;
  * Every handler except `register` and the health checks starts with `requireAuth`, `requireUser` or `authenticate`.
  */
 export function createApi(deps: ApiDeps) {
-  const { db, store } = deps;
-  const auth: AuthDeps = { db, session: (request) => deps.session(request) };
+  const { db, store, redis } = deps;
+  const auth: AuthDeps = {
+    db,
+    session: (request) => deps.session(request),
+    // Every authenticated call counts against its caller's limit, whichever route it is.
+    onAuthenticated: (identity) =>
+      deps.limits.consume("api", identity.kind === "key" ? identity.keyId : identity.userId),
+  };
+  const start = runStarter(deps);
   const inOrg = (request: Request, org: string, permission: Permission) =>
     requireAuth(request, { org: { slug: org }, permission }, auth);
 
@@ -80,6 +117,7 @@ export function createApi(deps: ApiDeps) {
   return {
     // ── accounts ──
     register: route(async (request) => {
+      await deps.limits.consume("register", clientAddress(request));
       const input = parse(Register, await readJson(request, MAX_BODY_BYTES));
       return json({ user: await register(db, input, deps.passwordCost) }, 201);
     }),
@@ -178,7 +216,7 @@ export function createApi(deps: ApiDeps) {
     }),
     completeRun: route(async (request, params: { runId: string }) => {
       const actor = await actorForRun(request, params.runId, "runs:write");
-      return json(await completeRun(db, store, actor, params.runId));
+      return json(await completeRun(db, store, actor, params.runId, start));
     }),
     artifactUrl: route(async (request, params: { runId: string; kind: string }) => {
       const actor = await actorForRun(request, params.runId, "runs:read");
@@ -197,6 +235,28 @@ export function createApi(deps: ApiDeps) {
       );
     }),
 
+    // ── server-side runs ──
+    createServerRun: route(async (request, params: { project: string }) => {
+      const actor = await actorFromCaller(request, "runs:write");
+      const body = await readJson(request, MAX_SERVER_RUN_BODY_BYTES);
+      const key = request.headers.get("idempotency-key");
+      const { replayed, ...result } = await createServerRun(db, store, actor, params.project, key, body, start);
+      return json(result, replayed ? 200 : 201);
+    }),
+    rerun: route(async (request, params: { runId: string }) => {
+      const actor = await actorForRun(request, params.runId, "runs:write");
+      const body = await readJson(request, MAX_SERVER_RUN_BODY_BYTES);
+      return json(await rerun(db, store, actor, params.runId, body, start), 201);
+    }),
+    listStages: route(async (request, params: { runId: string }) => {
+      const actor = await actorForRun(request, params.runId, "runs:read");
+      return json({ stages: await listStages(db, actor, params.runId) });
+    }),
+    runEvents: route(async (request, params: { runId: string }) => {
+      await actorForRun(request, params.runId, "runs:read");
+      return runEventStream({ db, redis, hub: deps.hub }, params.runId, request, deps.heartbeatMs);
+    }),
+
     // ── health ──
     liveness: route(() => Promise.resolve(json({ status: "ok" }))),
     readiness: route(async () => {
@@ -210,6 +270,7 @@ export function createApi(deps: ApiDeps) {
       };
       const checks = {
         database: await check(() => db.$queryRaw`SELECT 1`),
+        redis: await check(() => pingWithin(redis, 2000)),
         storage: await check(() => store.ping()),
       };
       const ready = Object.values(checks).every((state) => state === "ok");
@@ -219,3 +280,18 @@ export function createApi(deps: ApiDeps) {
 }
 
 export type Api = ReturnType<typeof createApi>;
+
+/** PING, failing after `ms`: a client that is reconnecting would otherwise wait for Redis to come back. */
+async function pingWithin(redis: Redis, ms: number): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error("Redis did not answer in time"));
+    }, ms);
+  });
+  try {
+    await Promise.race([redis.ping(), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}

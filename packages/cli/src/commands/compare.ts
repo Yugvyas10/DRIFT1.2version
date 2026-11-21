@@ -153,7 +153,7 @@ export async function compareCommand(flags: CompareFlags, io: CliIo, cwd: string
 const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 
 /** The commit a run is for: `--commit`, the CI's commit, or the repository's HEAD. */
-async function commitOf(
+export async function commitOf(
   flags: CompareFlags,
   env: Readonly<Record<string, string | undefined>>,
   cwd: string
@@ -163,7 +163,7 @@ async function commitOf(
     try {
       commit = (await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" })).stdout.trim();
     } catch {
-      throw new UsageError("drift: --upload needs --commit <sha> outside a git repository");
+      throw new UsageError("drift: --commit <sha> is needed outside a git repository");
     }
   }
   if (!SHA.test(commit)) throw new UsageError("drift: --commit must be a full commit SHA");

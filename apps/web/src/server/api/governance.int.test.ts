@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createApi } from "../api/handlers";
 import { dispatch } from "../api/routes";
+import { createRedis } from "@drift/platform";
+import { unlimited } from "../rate-limit";
 import { harness } from "../testing/harness";
 
 const h = harness();
@@ -108,22 +110,47 @@ describe("the audit log", () => {
 });
 
 describe("health", () => {
-  it("is alive, and ready when the database and the object store answer", async () => {
+  it("is alive, and ready when the database, Redis and the object store answer", async () => {
     expect(await h.call("GET", "/healthz")).toMatchObject({ status: 200, body: { status: "ok" } });
     expect(await h.call("GET", "/readyz")).toMatchObject({
       status: 200,
-      body: { status: "ok", checks: { database: "ok", storage: "ok" } },
+      body: { status: "ok", checks: { database: "ok", redis: "ok", storage: "ok" } },
     });
   });
 
   it("is not ready when a dependency is down, without saying why", async () => {
-    const broken = createApi({
-      db: h.db,
+    const down = (overrides: Partial<Parameters<typeof createApi>[0]>) =>
+      dispatch(
+        createApi({
+          db: h.db,
+          store: h.store,
+          session: () => Promise.resolve(undefined),
+          redis: h.redis,
+          queue: h.queue,
+          hub: h.hub,
+          limits: unlimited,
+          ...overrides,
+        }),
+        new Request("http://drift.test/readyz")
+      );
+    const storage = await down({
       store: { ...h.store, ping: () => Promise.reject(new Error("connect ECONNREFUSED 10.0.0.5:8333")) },
-      session: () => Promise.resolve(undefined),
     });
-    const response = await dispatch(broken, new Request("http://drift.test/readyz"));
-    expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ status: "degraded", checks: { database: "ok", storage: "down" } });
+    expect(storage.status).toBe(503);
+    expect(await storage.json()).toEqual({
+      status: "degraded",
+      checks: { database: "ok", redis: "ok", storage: "down" },
+    });
+
+    // Redis stopped (PLAN M6): a client whose server does not answer. The check gives up instead of hanging.
+    const stopped = createRedis("redis://127.0.0.1:9");
+    stopped.on("error", () => undefined);
+    const redis = await down({ redis: stopped });
+    expect(redis.status).toBe(503);
+    expect(await redis.json()).toEqual({
+      status: "degraded",
+      checks: { database: "ok", redis: "down", storage: "ok" },
+    });
+    stopped.disconnect();
   });
 });

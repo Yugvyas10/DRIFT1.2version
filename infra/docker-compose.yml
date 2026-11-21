@@ -1,6 +1,8 @@
 # Local development services for DRIFT (PLAN §3.1).
 #   Start:  docker compose -f infra/docker-compose.yml up -d --wait
 #   Stop:   docker compose -f infra/docker-compose.yml down      (add -v to delete all data)
+#   Traces: docker compose -f infra/docker-compose.yml --profile tracing up -d --wait
+#           (Jaeger: OTLP on 4318, UI on http://localhost:16686; set OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318)
 #
 # Every port binds to 127.0.0.1 only. The default credentials are for local development and
 # can be overridden through infra/.env (see infra/.env.example). Never reuse them anywhere else.
@@ -54,6 +56,15 @@ services:
       timeout: 3s
       retries: 30
       start_period: 10s
+
+  # Traces of the web app and the worker (PLAN M6), only with `--profile tracing`. Kept in memory: a restart
+  # empties it.
+  jaeger:
+    image: jaegertracing/jaeger:2.21.0
+    profiles: ["tracing"]
+    ports:
+      - "127.0.0.1:${JAEGER_OTLP_PORT:-4318}:4318"
+      - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686"
 
 volumes:
   postgres-data:

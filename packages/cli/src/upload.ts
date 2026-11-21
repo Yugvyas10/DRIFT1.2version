@@ -45,7 +45,7 @@ export function checkedApiUrl(value: string): URL {
   return url;
 }
 
-async function problemOf(response: Response): Promise<string> {
+export async function problemOf(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { title?: unknown; detail?: unknown };
     const parts = [body.title, body.detail].filter((part): part is string => typeof part === "string");
