@@ -57,7 +57,7 @@ Comparing <code>examples/petstore/v1\.yaml</code> (1\.0\.0) with <code>examples/
 - **Response 200 body \(application/json\): Enum value "adopted" was added**
   <code>GET /pets</code> · response · <code>schema\.enum\.value\_added</code> · <code>a37def3c7de93e01</code> · at <code>examples/petstore/v2\-breaking\.yaml:77:13</code>
   Rule <code>DRIFT\-RES\-SCHEMA\-ENUM\-VALUE\-ADDED</code>: Clients that validate responses strictly may reject a value they have never seen\.
-  Evidence: 2 of 8 samples fail \(synthetic\); confidence 0\.80; unverified \(no recorded traffic\)
+  Evidence: 2 of 8 samples fail \(synthetic\); confidence 0\.80; unverified \(no recorded request reached it\)
 
   <details><summary>Failing sample (synthetic, redacted)</summary>
 
@@ -87,7 +87,7 @@ Comparing <code>examples/petstore/v1\.yaml</code> (1\.0\.0) with <code>examples/
 - **Response 200 body \(application/json\): Enum value "adopted" was added**
   <code>GET /pets/\{\}</code> · response · <code>schema\.enum\.value\_added</code> · <code>2e23389f89244d4f</code> · at <code>examples/petstore/v2\-breaking\.yaml:77:13</code>
   Rule <code>DRIFT\-RES\-SCHEMA\-ENUM\-VALUE\-ADDED</code>: Clients that validate responses strictly may reject a value they have never seen\.
-  Evidence: 2 of 6 samples fail \(synthetic\); confidence 0\.80; unverified \(no recorded traffic\)
+  Evidence: 2 of 6 samples fail \(synthetic\); confidence 0\.80; unverified \(no recorded request reached it\)
 
   <details><summary>Failing sample (synthetic, redacted)</summary>
 
@@ -175,7 +175,7 @@ Comparing <code>examples/petstore/v1\.yaml</code> (1\.0\.0) with <code>examples/
 - **Response 201 body \(application/json\): Enum value "adopted" was added**
   <code>POST /pets</code> · response · <code>schema\.enum\.value\_added</code> · <code>db8893be5ad2c107</code> · at <code>examples/petstore/v2\-breaking\.yaml:77:13</code>
   Rule <code>DRIFT\-RES\-SCHEMA\-ENUM\-VALUE\-ADDED</code>: Clients that validate responses strictly may reject a value they have never seen\.
-  Evidence: 2 of 6 samples fail \(synthetic\); confidence 0\.80; unverified \(no recorded traffic\)
+  Evidence: 2 of 6 samples fail \(synthetic\); confidence 0\.80; unverified \(no recorded request reached it\)
 
   <details><summary>Failing sample (synthetic, redacted)</summary>
 
@@ -214,11 +214,11 @@ Comparing <code>examples/petstore/v1\.yaml</code> (1\.0\.0) with <code>examples/
 | Operation | Direction | Change | Evidence |
 | --- | --- | --- | --- |
 | <code>GET /pets</code> | request | Request query parameter "status": Enum value "adopted" was added | 1 sample reached it, none fail \(1 recorded\); confidence 0\.00 |
-| <code>GET /pets</code> | response | Response 200 body \(application/json\): Enum value "pending" was removed | 8 samples reached it, none fail \(0 recorded\); confidence 0\.00; unverified \(no recorded traffic\) |
+| <code>GET /pets</code> | response | Response 200 body \(application/json\): Enum value "pending" was removed | 8 samples reached it, none fail \(0 recorded\); confidence 0\.00; unverified \(no recorded request reached it\) |
 | <code>GET /pets/\{\}</code> | request | Optional query parameter "fields" was added | not verifiable by samples; structural only |
-| <code>GET /pets/\{\}</code> | response | Response 200 body \(application/json\): Enum value "pending" was removed | 6 samples reached it, none fail \(0 recorded\); confidence 0\.00; unverified \(no recorded traffic\) |
+| <code>GET /pets/\{\}</code> | response | Response 200 body \(application/json\): Enum value "pending" was removed | 6 samples reached it, none fail \(0 recorded\); confidence 0\.00; unverified \(no recorded request reached it\) |
 | <code>POST /pets</code> | request | Request body \(application/json\): Enum value "adopted" was added | 3 samples reached it, none fail \(3 recorded\); confidence 0\.00 |
-| <code>POST /pets</code> | response | Response 201 body \(application/json\): Enum value "pending" was removed | 6 samples reached it, none fail \(0 recorded\); confidence 0\.00; unverified \(no recorded traffic\) |
+| <code>POST /pets</code> | response | Response 201 body \(application/json\): Enum value "pending" was removed | 6 samples reached it, none fail \(0 recorded\); confidence 0\.00; unverified \(no recorded request reached it\) |
 
 </details>
 

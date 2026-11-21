@@ -3,6 +3,7 @@ import { canonicalJson } from "../hash/canonical-json.ts";
 import type { NormalizedSchema, OperationIR, SpecIR } from "../ingest/ir.ts";
 import { getOwn, isJsonObject, type JsonObject, type JsonValue } from "../util/json.ts";
 import { resolveSchema, toWire } from "../verify/wire.ts";
+import { stringMatching } from "./pattern.ts";
 import { isJsonMediaType, type RoutedSample } from "./sample.ts";
 
 /**
@@ -403,7 +404,12 @@ function stringFor(node: JsonObject, which: "typical" | "short" | "long"): Gener
     return FAIL;
   }
   const candidates = [value, ...PATTERN_CANDIDATES.map((candidate) => fit(candidate, min, max))];
-  return candidates.find((candidate) => regex.test(candidate)) ?? FAIL;
+  const found = candidates.find((candidate) => regex.test(candidate));
+  if (found !== undefined) return found;
+  // Built from the pattern itself (ids, hashes, codes); checked here, and the sample is validated again later.
+  const built = stringMatching(pattern, min);
+  const fits = built !== undefined && built.length >= min && (max === undefined || built.length <= max);
+  return fits && regex.test(built) ? built : FAIL;
 }
 
 function fit(text: string, min: number, max: number | undefined): string {

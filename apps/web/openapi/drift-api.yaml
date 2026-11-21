@@ -1,0 +1,516 @@
+openapi: 3.1.0
+info:
+  title: DRIFT platform API
+  version: 0.1.0
+  summary: Ingestion and read API of the DRIFT platform.
+  description: >-
+    Written in M4, before the implementation, as the design of the M5 ingestion API (PLAN §6 M4, spec-first).
+    DRIFT's own CI runs DRIFT on this file for every pull request (the dogfood job). In M5, contract tests check
+    the real handlers' requests and responses against it with the engine's own validators.
+
+
+    Status: design. No endpoint here is implemented yet (NOT BUILT until M5).
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: http://localhost:3000
+    description: Local development (docker compose)
+security:
+  - apiKey: []
+  - session: []
+tags:
+  - name: runs
+    description: Upload and read comparison runs.
+  - name: health
+    description: Liveness and readiness.
+
+paths:
+  /api/v1/runs:
+    post:
+      tags: [runs]
+      operationId: createRun
+      summary: Create a run from a drift-report/v1 report
+      description: >-
+        Idempotent: repeating the request with the same `Idempotency-Key` and the same body returns the same run
+        (200). The report is validated against drift-report/v1. Each announced artifact gets a short-lived
+        pre-signed PUT URL; call `complete` once they are uploaded.
+      security:
+        - apiKey: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunCreate"
+      responses:
+        "201":
+          description: Run created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunCreated"
+        "200":
+          description: The same request was made before with this idempotency key; the original run is returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: The idempotency key was already used with a different body.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "413":
+          description: The body is larger than the limit.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "422":
+          description: The report is not a valid drift-report/v1 document.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /api/v1/runs/{runId}:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    get:
+      tags: [runs]
+      operationId: getRun
+      summary: Read a run
+      responses:
+        "200":
+          description: The run.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/runs/{runId}/complete:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    post:
+      tags: [runs]
+      operationId: completeRun
+      summary: Mark the uploads of a run as done
+      description: The server checks that every announced artifact exists with its SHA-256 before completing.
+      security:
+        - apiKey: []
+      responses:
+        "200":
+          description: The run, now complete.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: An announced artifact is missing or does not match its SHA-256.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+
+  /api/v1/runs/{runId}/artifacts/{kind}:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+      - name: kind
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/ArtifactKind"
+    get:
+      tags: [runs]
+      operationId: getArtifactUrl
+      summary: A short-lived signed URL to read one artifact of a run
+      responses:
+        "200":
+          description: The signed URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignedUrl"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/projects/{project}/runs:
+    parameters:
+      - name: project
+        in: path
+        required: true
+        description: The project's slug within the caller's organisation.
+        schema:
+          $ref: "#/components/schemas/Slug"
+    get:
+      tags: [runs]
+      operationId: listRuns
+      summary: List a project's runs, newest first
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+            maxLength: 200
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: One page of runs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /healthz:
+    get:
+      tags: [health]
+      operationId: liveness
+      summary: Liveness
+      security: []
+      responses:
+        "200":
+          description: The process is up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /readyz:
+    get:
+      tags: [health]
+      operationId: readiness
+      summary: Readiness (database, Redis and object storage reachable)
+      security: []
+      responses:
+        "200":
+          description: Ready.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: A dependency is not reachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: drift_…
+      description: An organisation API key (prefix `drift_`), scoped to projects and permissions.
+    session:
+      type: apiKey
+      in: cookie
+      name: authjs.session-token
+      description: A signed-in user's session (the web app).
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Chosen by the client, e.g. repository + pull request + head commit + spec hashes.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 255
+        pattern: "^[A-Za-z0-9._:/-]+$"
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/RunId"
+
+  responses:
+    BadRequest:
+      description: The request is malformed.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: No valid API key or session.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: The key or user may not do this.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Not found in the caller's organisation (also returned for other organisations' resources).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    RunId:
+      type: string
+      pattern: "^run_[0-9a-z]{20,32}$"
+    Slug:
+      type: string
+      pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
+    Sha:
+      type: string
+      pattern: "^[0-9a-f]{40}([0-9a-f]{24})?$"
+    Sha256:
+      type: string
+      pattern: "^[0-9a-f]{64}$"
+
+    Trigger:
+      type: string
+      enum: [ci, manual, app]
+    RunStatus:
+      type: string
+      enum: [uploading, complete, failed]
+    ArtifactKind:
+      type: string
+      enum: [report-json, report-md, report-html, report-sarif, report-junit, stage-output]
+
+    ArtifactIntent:
+      type: object
+      additionalProperties: false
+      required: [kind, sha256, size, contentType]
+      properties:
+        kind:
+          $ref: "#/components/schemas/ArtifactKind"
+        sha256:
+          $ref: "#/components/schemas/Sha256"
+        size:
+          type: integer
+          minimum: 1
+          maximum: 52428800
+        contentType:
+          type: string
+          maxLength: 100
+
+    RunCreate:
+      type: object
+      additionalProperties: false
+      required: [project, trigger, commit, report]
+      properties:
+        project:
+          $ref: "#/components/schemas/Slug"
+        trigger:
+          $ref: "#/components/schemas/Trigger"
+        commit:
+          $ref: "#/components/schemas/Sha"
+        branch:
+          type: string
+          maxLength: 255
+        pullRequest:
+          type: integer
+          minimum: 1
+        report:
+          $ref: "#/components/schemas/DriftReport"
+        artifacts:
+          type: array
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/ArtifactIntent"
+
+    DriftReport:
+      type: object
+      description: >-
+        A drift-report/v1 document. The server validates it against the published JSON Schema
+        (packages/report-schema/schemas/drift-report-v1.schema.json); only the fields the API relies on are
+        listed here.
+      required: [format, gate, summary, semver]
+      properties:
+        format:
+          const: drift-report/v1
+        gate:
+          $ref: "#/components/schemas/Gate"
+        summary:
+          $ref: "#/components/schemas/Counts"
+        semver:
+          $ref: "#/components/schemas/Semver"
+
+    Gate:
+      type: object
+      required: [passed, failOn]
+      properties:
+        passed:
+          type: boolean
+        failOn:
+          type: string
+          enum: [breaking, risky]
+    Counts:
+      type: object
+      required: [breaking, risky, safe, suppressed]
+      properties:
+        breaking:
+          type: integer
+          minimum: 0
+        risky:
+          type: integer
+          minimum: 0
+        safe:
+          type: integer
+          minimum: 0
+        suppressed:
+          type: integer
+          minimum: 0
+    Semver:
+      type: string
+      enum: [major, minor, patch]
+
+    Run:
+      type: object
+      additionalProperties: false
+      required: [id, project, status, trigger, commit, gate, summary, semver, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/RunId"
+        project:
+          $ref: "#/components/schemas/Slug"
+        status:
+          $ref: "#/components/schemas/RunStatus"
+        trigger:
+          $ref: "#/components/schemas/Trigger"
+        commit:
+          $ref: "#/components/schemas/Sha"
+        branch:
+          type: string
+        pullRequest:
+          type: integer
+          minimum: 1
+        gate:
+          $ref: "#/components/schemas/Gate"
+        summary:
+          $ref: "#/components/schemas/Counts"
+        semver:
+          $ref: "#/components/schemas/Semver"
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    UploadUrl:
+      type: object
+      additionalProperties: false
+      required: [kind, sha256, url, expiresAt]
+      properties:
+        kind:
+          $ref: "#/components/schemas/ArtifactKind"
+        sha256:
+          $ref: "#/components/schemas/Sha256"
+        url:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+
+    RunCreated:
+      type: object
+      additionalProperties: false
+      required: [run, uploads]
+      properties:
+        run:
+          $ref: "#/components/schemas/Run"
+        uploads:
+          type: array
+          items:
+            $ref: "#/components/schemas/UploadUrl"
+
+    RunPage:
+      type: object
+      additionalProperties: false
+      required: [runs]
+      properties:
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Run"
+        nextCursor:
+          type: string
+
+    SignedUrl:
+      type: object
+      additionalProperties: false
+      required: [url, expiresAt]
+      properties:
+        url:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [ok, down]
+
+    Problem:
+      type: object
+      description: An RFC 9457 problem document.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string

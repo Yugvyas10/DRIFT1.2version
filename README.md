@@ -40,7 +40,7 @@ packages/core           engine (pure; I/O only through injected adapters)
 packages/report-schema  drift-report/v1 contract
 packages/rules          classification rules as versioned data
 packages/cli            the `drift` command
-packages/github-action  GitHub Action (M4)
+packages/github-action  GitHub Action (M4): runs the gate in a pull request
 packages/db             Prisma schema and client (M5)
 packages/bench          benchmarks that produce every published number (M1, M3, M8)
 apps/web                Next.js dashboard and REST API
