@@ -1,0 +1,61 @@
+# Local development services for DRIFT (PLAN §3.1).
+#   Start:  docker compose -f infra/docker-compose.yml up -d --wait
+#   Stop:   docker compose -f infra/docker-compose.yml down      (add -v to delete all data)
+#
+# Every port binds to 127.0.0.1 only. The default credentials are for local development and
+# can be overridden through infra/.env (see infra/.env.example). Never reuse them anywhere else.
+name: drift
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-drift}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-drift-local-only}
+      POSTGRES_DB: ${POSTGRES_DB:-drift}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8.8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # S3-compatible object storage for run artifacts. SeaweedFS replaces MinIO, whose community
+  # images are no longer published (PLAN risk R8). The code only uses the S3 API, so this is swappable.
+  object-store:
+    image: chrislusf/seaweedfs:4.47
+    command: ["mini", "-dir=/data", "-bucket=${S3_BUCKET:-drift-artifacts}"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-drift}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-drift-local-only}
+    ports:
+      - "127.0.0.1:${S3_PORT:-8333}:8333"
+    volumes:
+      - object-store-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  postgres-data:
+  redis-data:
+  object-store-data:

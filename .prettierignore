@@ -1,0 +1,9 @@
+pnpm-lock.yaml
+dist/
+.next/
+coverage/
+.turbo/
+docs/reference/
+docs/MASTER_PROMPT.md
+.changeset/*.md
+.claude/

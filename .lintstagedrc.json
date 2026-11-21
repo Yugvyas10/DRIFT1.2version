@@ -1,4 +1,7 @@
 {
-  "*.{ts,tsx}": ["prettier --write", "eslint --fix"],
-  "*.{json,md,css}": ["prettier --write"]
+  "*.{ts,tsx,js,mjs,cjs}": [
+    "prettier --write",
+    "eslint --flag v10_config_lookup_from_file --fix --max-warnings=0 --no-warn-ignored"
+  ],
+  "*.{json,md,yml,yaml,css}": ["prettier --write"]
 }

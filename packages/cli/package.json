@@ -1,0 +1,39 @@
+{
+  "name": "@drift/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The `drift` command-line interface.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run --coverage"
+  },
+  "bin": {
+    "drift": "./dist/bin.js"
+  },
+  "dependencies": {
+    "@drift/core": "workspace:*",
+    "@drift/report-schema": "workspace:*",
+    "commander": "15.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

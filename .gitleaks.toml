@@ -1,0 +1,7 @@
+# gitleaks configuration (docs/SECURITY.md T1): the default rules, plus one narrow allowlist.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Redaction canary: fake secrets planted in example traffic to prove they reach no output (SECURITY.md T9)"
+paths = ['''^examples/petstore/traffic\.jsonl$''']
