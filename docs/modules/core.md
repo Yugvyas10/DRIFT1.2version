@@ -5,7 +5,7 @@
 - Stage 1 Ingest, 3 Corpus, 4 Verify: P3 (Tanishq Chavan).
 - Stage 2 Diff, 5 Classify, 6 Report & Gate: P4 (Pruthvi Gangapure).
 
-**Status:** M2 — **Ingest**, **Diff**, **Corpus**, **Verify** and **Classify** are implemented, with `compare` running them in order and producing a `drift-report/v1` report. The other report formats (Stage 6) arrive in M3.
+**Status:** M3 — all six stages are implemented. `compare` runs them in order, reuses cached stage outputs, and produces a `drift-report/v1` report that `renderReport` turns into console, Markdown, HTML, SARIF or JUnit.
 
 ## Purpose
 
@@ -115,10 +115,12 @@ rules + policy ─────────────▶ classify ──▶ BRE
 
 **Synthetic samples** use no randomness. Every schema node offers a short list of variants: each enum value, the typical value and both bounds of a number, the shortest and longest strings, format examples, all properties or only the required ones or one extra, each `oneOf`/`anyOf` branch, and so on. A _plan_ picks one variant per node. For each group (an operation's requests, or one response status and media type), plans run in this order:
 
-1. a baseline;
+1. a baseline, and, when it misses a node a change touches, one plan **steered** there: `SchemaGenerator.routes` walks the schema graph back from the changed nodes and picks, at each decision on the way, the first variant that leads there (for example the object branch of Stripe's expandable `anyOf: [id, object]` fields);
 2. every variant of each node a change touches (the "focus" points, from the change anchors);
 3. sweeps;
-4. a fill, so that every variant of every node reached is generated at least once, within a cap of 48 per group.
+4. a fill, so that every variant of every node reached is generated at least once.
+
+Steps 1–2 stop at 48 per group. Steps 3–4 stop at the group's share of the **synthetic budget**: 4,096 samples per comparison, divided evenly between the groups before any sample is generated (at most 48 each). It is counted in samples, not time, so a report is still a function of its inputs. A change to a component shared by hundreds of operations therefore costs a few samples per operation instead of 48, and the report says so (`SYNTHETIC_BUDGET`).
 
 This makes samples change-directed without per-change code. For a removed enum value, the old schema offers that value; for a tightened bound, it offers the old bound. Every sample is validated against the contract it was generated from and discarded if that contract rejects it, so the generator's shortcuts (for example with `pattern`) can never produce false evidence.
 
@@ -135,6 +137,7 @@ This makes samples change-directed without per-change code. For a removed enum v
     Failures no change explains are reported as `unattributed` instead of being hidden.
 - **Redaction and evidence:** a failure at a redacted value or inside one is _unknown_, never failing (risk R6). So is a failure above one, for keywords that look at nested values (`oneOf`, `enum`, `uniqueItems`, …).
 - **Validators** (`validators.ts`): Ajv 2020, compiled once per (operation, direction, part, media type) per contract and cached, with a counter so tests can assert this. Components are added once per direction. `readOnly` properties are not required in requests and `writeOnly` ones not in responses. A schema that cannot be compiled is noted in the report, not fatal.
+- **Examples in reports:** up to three failing samples per change. A body over 8 KiB is left out and replaced by `bodyOmitted`: its size and the value at each error pointer (values up to 1 KiB). Without this, one change to Stripe's `account` put three full generated responses per operation, for 612 operations, into the report.
 - **Wire values** (`wire.ts`): query, path, header and cookie values are text on the wire. Each contract decodes them with its own schema (numbers, booleans, arrays from repeated keys or commas), as its server would.
 
 ## Stage 5 — Classify (`src/classify/`)
@@ -149,6 +152,19 @@ This makes samples change-directed without per-change code. For a removed enum v
 - **Policy:** escalations (SAFE → RISKY), suppressions with reason and expiry (ignored and reported when expired, reported when unused), `failOn`.
 - **Semver:** major if anything is BREAKING (or RISKY, unless `riskyIsMajor: false`), minor if any rule is additive, patch otherwise.
 
+## Stage 6 — Report (`src/report/`)
+
+| Format    | Notes                                                                                                                                                                                                                                                                                                                                                      |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `console` | Grouped by label; each change with its rule, `file:line:col`, evidence and first failing sample. ANSI colour only when the caller asks for it.                                                                                                                                                                                                             |
+| `json`    | The `drift-report/v1` document itself.                                                                                                                                                                                                                                                                                                                     |
+| `md`      | PR comment or job summary. Starts with the hidden marker `<!-- drift-report -->` so the Action (M4) updates one comment. BREAKING changes are shown in full; the rest are in collapsed tables. Every untrusted value is escaped; code values go in `<code>` elements with escaped content; payloads go in fences longer than any backtick run inside them. |
+| `html`    | One self-contained file: no scripts and no external assets. CSP `default-src 'none'` plus the page's own stylesheet by SHA-256; every value escaped. Visual design: P1.                                                                                                                                                                                    |
+| `sarif`   | SARIF 2.1.0 for code scanning. BREAKING → error and RISKY → warning, at the line of the spec that changed (`%SRCROOT%`-relative). The change id is a partial fingerprint, and suppressions map to SARIF suppressions. SAFE changes are left out. Tests validate the output against the official OASIS schema.                                              |
+| `junit`   | One test suite per operation, one test case per change. A change that fails the gate is a failure; a suppressed change is skipped. XML-escaped, with forbidden control characters removed.                                                                                                                                                                 |
+
+**Positions:** `IngestedSpec.locate(location)` finds a change's `file:line:col` with the lazy position index (ADR-0003). Every change in the report carries it as `position`.
+
 ## Stage keys (ADR-0006)
 
 `compare` records a content-addressed key for every stage: `sha256(JCS({ stage, engine, inputs }))`. The inputs are:
@@ -161,7 +177,15 @@ This makes samples change-directed without per-change code. For a removed enum v
 | Verify   | The diff and corpus keys, and the options.                                               |
 | Classify | The verify key, the rules and policy hashes, the date and `failOn`.                      |
 
-A test checks that changing the seed changes the Corpus key but not the Diff key, and that changing `failOn` changes only Classify. The local cache that uses these keys arrives in M3.
+A test checks that changing the seed changes the Corpus key but not the Diff key, and that changing `failOn` changes only Classify.
+
+**Cache.** `compare({ cache })` takes a `StageCache` adapter (`get(hash)`, `put(hash, value)`):
+
+- Before running Diff, Corpus, Verify or Classify, it looks the stage up by its key. A hit is reused and marked `cached: true` in `stages`.
+- Traffic is an `open()` function, called only on a Corpus miss, so a cached re-run does not read the traffic file at all.
+- A damaged entry is a miss, and is recomputed and overwritten.
+- The CLI's adapter is `.drift/cache/` (see cli.md); object storage follows in M5.
+- Ingest is not cached: its key (the hash of the parsed documents) is only known after parsing, which is most of its cost.
 
 ## Tests
 
@@ -179,13 +203,20 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 - **Generator:** the variants of every schema form, allOf merging, readOnly/writeOnly, endless required recursion.
 - **Verify:** one case per kind of provable change, from synthetic samples and from recorded ones; unknown at redacted values; non-conformance; unattributed failures; compile-once counter.
 - **Classify:** the confidence formula, escalation, suppressions (id, glob, expired, unused), semver, gate, and the property "a dangerous change without failing evidence is never SAFE".
+- **Report formats (`report/render.test.ts`):**
+  - SARIF, with and without traffic, is valid against the official schema, and so is the CLI's golden `examples/petstore/expected.sarif`.
+  - The HTML has no scripts or external URLs, and its CSP hash matches its stylesheet.
+  - A report whose every string is hostile (script tags, Markdown links, backtick fences, control characters) is neutralised in every format.
+- **Cache:** a second run reuses Diff, Corpus, Verify and Classify without opening the traffic; a new policy re-runs only Classify; damaged entries are recomputed.
 - **Pipeline (`compare.test.ts`):** the M2 acceptance runs on `examples/petstore` (BREAKING with a redacted recorded payload; synthetic evidence without traffic; an additive change passes), the redaction canary (no planted secret reaches the report), determinism, stage keys and HAR input.
 
 ## Known limitations
 
 - Not in the IR yet: 3.1 `webhooks`, callbacks, links and response headers. Only the root `servers` are used for routing; path- and operation-level `servers` are not.
 - Verify runs on the main thread. The worker pool of PLAN §4.4 moves to M3, where the performance benchmark can show whether it pays off.
-- Bodies are validated for JSON and `text/*` media types only; form, XML and binary bodies are not checked.
+- Bodies are validated for JSON and `text/*` media types only; form, XML and binary bodies are not checked. Stripe sends every request body as `application/x-www-form-urlencoded`, so request-body changes there stay RISKY (found by the first benchmark run).
+- Generated long strings stop at 1,024 characters, so a `maxLength` tightened from 5,000 to 2,000 cannot be proven.
+- Below depth 8 the generator takes the first variant everywhere, so a steered plan cannot reach a changed node deeper than that; such a change stays RISKY unless recorded traffic reaches it.
 - A change of `items` to a referenced component attributes failures only when they are reported under `…/items` of the node; failures elsewhere show up as unattributed.
 - Response evidence is always synthetic, because recorded responses come from the old server.
 - `$ref` to `#anchor` fragments and `$id`-based references are rejected (`REF_UNSUPPORTED`).
@@ -195,6 +226,10 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 - A `$ref` inside a property literally named `example` is followed only because property names are recognised as names. Other literal-data positions are skipped by key.
 
 ## Questions an examiner might ask
+
+- **A pull request controls the spec. Could it inject script into the HTML report or the PR comment?** Every value is escaped for its format. The HTML page has no scripts, and its CSP (`default-src 'none'` plus one hashed stylesheet) would block injected ones anyway. In Markdown, links, HTML and emphasis are escaped, and payloads sit in fences that are always longer than any backtick run inside them. A test builds a report whose every string is hostile and checks each format.
+- **Why is SAFE left out of SARIF?** Code scanning is a list of problems to fix. SAFE changes stay in every other format.
+- **Can the cache return a stale result?** Only if the engine code changes without its version changing. Keys hash every input, the engine version, and the rules and policy hashes. The CLI docs tell developers to use `--no-cache` while editing the engine.
 
 - **How do you know which change a failing sample proves?** The diff records the pair of schema nodes each change was found at. Ajv reports the node that rejected the value, and attribution checks that node, the part of the message and the keyword (for a removed enum value, also the value itself). Anything that fails without a matching change is reported as unattributed, so the mechanism cannot silently blame the wrong change.
 - **Can redaction create a false BREAKING?** No. A failure at, inside, or (for value-dependent keywords) above a redacted value is unknown, never failing. A test changes an email format and sends a redacted email: the result is unknown, not failing.
@@ -206,6 +241,7 @@ A test checks that changing the seed changes the Corpus key but not the Diff key
 - **Renaming `/users/{id}` to `/users/{userId}` — is that breaking?** No. The operation key erases parameter names, and path parameters are matched by position, so it is one SAFE `path.param.renamed`.
 - **Why is adding an enum value RISKY in a response but SAFE in a request?** A server accepting a new value cannot break a client, but a client that validates responses strictly can reject a value it has never seen. The table is in `@drift/rules` and is checked for this request/response symmetry by a test.
 - **What if the same component is used in five operations?** It is compared once per direction (memoised), and the change is reported once per operation that reaches it, with that operation in the change id. So the impact index is exact.
+- **What if one change reaches hundreds of operations?** The first benchmark run found this: adding an enum value to Stripe's `account` touches all 612 operations, and generating 48 responses for each of 964 response groups made the benchmark hit its 60-minute limit. Synthetic samples now share a fixed budget (counted in samples, so reports stay deterministic). The samples aimed at the change always run, and a steered plan reaches the changed node through fields that would otherwise generate an id string. All 612 changes of that mutant are now proven (timings in `docs/EVALUATION.md`), and a regression test builds a smaller spec of the same shape.
 - **How do you avoid infinite recursion on `Node.children: Node[]`?** Components stay references in the IR. The differ tracks the reference pairs it has open and stops when it meets one again.
 - **And how do you avoid exponential time on specs like Stripe's, where hundreds of components refer to each other?** That was a real bug, found by the fixtures job: the first version cached only results that no cycle had cut short, and in a dense cycle almost nothing qualified. Now the differ finds strongly connected components as it goes (Tarjan). Every pair in a cycle reaches every other, so they share one complete result, cached when the cycle's first pair finishes. A regression test with 40 components linked five ways each runs in well under a second.
 - **Why does `allOf` merging not change behaviour?** It only merges when it is provably equivalent: object-only keywords, no conflicting property definitions, and a non-empty type intersection. Anything else keeps the `allOf`, and the differ compares it member by member.

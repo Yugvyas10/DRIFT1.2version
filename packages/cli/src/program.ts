@@ -1,7 +1,10 @@
-import { ENGINE_VERSION } from "@drift/core";
+import { ENGINE_VERSION, REPORT_FORMATS } from "@drift/core";
 import { ExitCode } from "@drift/report-schema";
 import { Command, CommanderError, Option } from "commander";
-import { compareCommand, type CompareOptions } from "./commands/compare.ts";
+import { compareCommand, type CompareFlags } from "./commands/compare.ts";
+import { corpusInspectCommand } from "./commands/corpus.ts";
+import { explainCommand, type ExplainFlags } from "./commands/explain.ts";
+import { rulesListCommand } from "./commands/rules.ts";
 import { diffCommand } from "./commands/diff.ts";
 import { validateCommand } from "./commands/validate.ts";
 import { CLI_VERSION } from "./version.ts";
@@ -10,6 +13,8 @@ import { CLI_VERSION } from "./version.ts";
 export interface CliIo {
   stdout: (text: string) => void;
   stderr: (text: string) => void;
+  /** Whether stdout may use ANSI colours (decided by the binary: a terminal, and no NO_COLOR). */
+  color?: boolean;
 }
 
 const formatOption = () => new Option("--format <format>", "output format").choices(["text", "json"]).default("text");
@@ -18,7 +23,7 @@ const refRootOption = () =>
 
 /**
  * Builds the `drift` command tree. Commands are added milestone by milestone (PLAN §6):
- * `validate` and `diff` in M1, `compare` in M2, the full surface in M3.
+ * `validate` and `diff` in M1, `compare` in M2, `explain`, `rules list` and `corpus inspect` in M3.
  * Each command stores its exit code in `result`; `runCli` returns it.
  */
 export function createProgram(io: CliIo, result: { exitCode: ExitCode }, cwd: string): Command {
@@ -51,26 +56,70 @@ export function createProgram(io: CliIo, result: { exitCode: ExitCode }, cwd: st
       result.exitCode = await diffCommand(options, io, cwd);
     });
 
-  program
-    .command("compare")
-    .description("compare two specs with evidence and gate the result (exit 1 when the gate fails)")
-    .requiredOption("--base <spec>", "the old contract")
-    .requiredOption("--head <spec>", "the new contract")
-    .option("--traffic <file>", "recorded traffic: drift-traffic/v1 JSONL, or a .har file")
-    .option("--rules <file>", "a complete ruleset (drift-rules/v1, YAML or JSON) instead of the default one")
-    .option("--policy <file>", "project policy: fail-on, escalations and suppressions (drift-policy/v1)")
+  const compareOptions = (command: Command) =>
+    command
+      .option("--base <spec>", "the old contract: a file, or <git-ref>:<path> such as origin/main:openapi.yaml")
+      .option("--head <spec>", "the new contract (a file or <git-ref>:<path>)")
+      .option("--traffic <file>", "recorded traffic: drift-traffic/v1 JSONL, or a .har file")
+      .option("--rules <file>", "a complete ruleset (drift-rules/v1, YAML or JSON) instead of the default one")
+      .option("--policy <file>", "project policy: fail-on, escalations and suppressions (drift-policy/v1)")
+      .addOption(
+        new Option("--fail-on <level>", "fail the gate on BREAKING (default) or on RISKY too").choices([
+          "breaking",
+          "risky",
+        ])
+      )
+      .option("--seed <n>", "seed for sampling and synthetic samples (deterministic; default 0)")
+      .option("--as-of <date>", "date suppressions are checked against (default: today, UTC)")
+      .option(
+        "--config <file>",
+        "config file (default: drift.config.json or drift.config.yaml in the working directory)"
+      )
+      .option("--cache <dir>", "stage cache directory (default: .drift/cache)")
+      .option("--no-cache", "compute every stage, reading and writing no cache")
+      .addOption(refRootOption());
+
+  compareOptions(
+    program
+      .command("compare")
+      .description("compare two specs with evidence and gate the result (exit 1 when the gate fails)")
+      .option("--format <list>", `report formats, comma-separated: ${REPORT_FORMATS.join(", ")} (default: console)`)
+      .option("--out <dir>", "write every format to <dir>/drift-report.* (needed for more than one format)")
+  ).action(async (options: CompareFlags) => {
+    result.exitCode = await compareCommand(options, io, cwd);
+  });
+
+  compareOptions(
+    program
+      .command("explain")
+      .description("show everything about one change: rule, rationale, evidence and failing samples")
+      .argument("<change-id>", "the id shown in brackets by drift compare (a unique prefix is enough)")
+      .option("--report <file>", "read a saved drift compare --format json report instead of comparing again")
+      .addOption(formatOption())
+  ).action(async (id: string, options: ExplainFlags) => {
+    result.exitCode = await explainCommand(id, options, io, cwd);
+  });
+
+  const rules = program.command("rules").description("inspect classification rules");
+  rules
+    .command("list")
+    .description("list the rules in use: structural judgement, whether samples can prove it, rationale")
+    .option("--rules <file>", "a ruleset file instead of the default rules")
     .addOption(formatOption())
-    .addOption(
-      new Option("--fail-on <level>", "fail the gate on BREAKING (default) or on RISKY too").choices([
-        "breaking",
-        "risky",
-      ])
-    )
-    .option("--seed <n>", "seed for sampling and synthetic samples (deterministic)", "0")
-    .option("--as-of <date>", "date suppressions are checked against (default: today, UTC)")
+    .action(async (options: { rules?: string; format: "text" | "json" }) => {
+      result.exitCode = await rulesListCommand(options, io, cwd);
+    });
+
+  const corpus = program.command("corpus").description("inspect recorded traffic");
+  corpus
+    .command("inspect")
+    .description("count, route and redact a traffic file without comparing contracts (prints no traffic values)")
+    .argument("<file>", "drift-traffic/v1 JSONL or a .har file")
+    .option("--spec <spec>", "route records against this contract")
     .addOption(refRootOption())
-    .action(async (options: CompareOptions) => {
-      result.exitCode = await compareCommand(options, io, cwd);
+    .addOption(formatOption())
+    .action(async (file: string, options: { spec?: string; refRoot?: string; format: "text" | "json" }) => {
+      result.exitCode = await corpusInspectCommand(file, options, io, cwd);
     });
 
   program.action(() => {

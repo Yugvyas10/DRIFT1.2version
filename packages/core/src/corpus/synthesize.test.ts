@@ -176,6 +176,46 @@ describe("SchemaGenerator", () => {
   });
 });
 
+describe("SchemaGenerator.routes", () => {
+  it("finds the variants that lead to a target, through branches, arrays, extra properties and recursion", async () => {
+    const leaf = { type: "object", required: ["kind"], properties: { kind: { type: "string", enum: ["a"] } } };
+    const node = {
+      type: "object",
+      required: ["name"],
+      properties: {
+        name: { type: "string" },
+        // Expandable, as in Stripe: the id string comes first.
+        leaf: { anyOf: [{ type: "string" }, { $ref: "#/components/schemas/Leaf" }] },
+        children: { type: "array", items: { $ref: "#/components/schemas/Node" } },
+        meta: { type: "object", additionalProperties: { $ref: "#/components/schemas/Leaf" } },
+        hidden: { readOnly: true, allOf: [{ $ref: "#/components/schemas/Leaf" }] },
+      },
+    };
+    const body = { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/Node" } } } };
+    const paths = { "/nodes": { post: { requestBody: body, responses: { "200": { description: "ok" } } } } };
+    const spec = (await ingestObject(openapi(paths, { schemas: { Node: node, Leaf: leaf } }, "3.1.0"))).ir;
+    const source = (schema: unknown) => (schema as JsonObject).$source as string;
+    const root = spec.schemas["#/components/schemas/Node"];
+    if (!root) throw new Error("Node is not in the IR");
+    const properties = root.properties as Record<string, JsonObject>;
+    const target = "#/components/schemas/Leaf/properties/kind";
+    const generator = new SchemaGenerator(spec, "request", at(0));
+
+    const routes = generator.routes(root, new Set([target]));
+    expect(routes.get(source(properties.leaf))).toBe(1); // the object branch
+    expect(routes.get(source(properties.meta))).toBe(2); // the "extra" variant, which adds a property
+    expect(routes.get(source(root))).toBe(0); // all properties
+    expect(routes.has(source(properties.children))).toBe(true);
+    const steered = new SchemaGenerator(spec, "request", new RecordingPlan((point) => routes.get(point) ?? 0));
+    expect(steered.generate(root)).toMatchObject({ leaf: { kind: "a" }, meta: { driftExtra: { kind: "a" } } });
+    // A plan that takes the first variant everywhere returns the id string instead.
+    expect(generate(root, 0, spec)).toMatchObject({ leaf: "drift" });
+
+    expect(generator.routes(root, new Set(["#/nowhere"])).size).toBe(0);
+    expect(generator.routes(undefined, new Set([target])).size).toBe(0);
+  });
+});
+
 describe("synthesizeRequest", () => {
   const document = openapi({
     "/pets/{id}": {

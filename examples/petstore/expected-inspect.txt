@@ -1,0 +1,18 @@
+12 records read, 2 malformed, 1 match no operation
+  line 7: record: unknown field
+  line 8: not valid JSON
+
+requests by operation
+       1  DELETE /pets/{}
+       3  GET /pets
+       2  GET /pets/{}
+       3  POST /pets
+
+response statuses: 200 ×4, 201 ×3, 204 ×1, 400 ×1, 404 ×1
+
+redaction: 5 values in 4 records would be redacted
+       1  /body/note
+       1  /body/ownerEmail
+       1  /headers/authorization
+       1  /headers/x-api-key
+       1  /query/token

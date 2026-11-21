@@ -1,6 +1,6 @@
 # @drift/cli — the `drift` command
 
-**Owner:** P4 (Pruthvi Gangapure). Reviewer P3. **Status:** M2 — `validate`, `diff` and `compare`. The remaining commands and report formats arrive in M3.
+**Owner:** P4 (Pruthvi Gangapure). Reviewer P3. **Status:** M3 — the full surface: `validate`, `diff`, `compare` (every report format, `--out`, cache, git revisions, config file), `explain`, `rules list` and `corpus inspect`.
 
 ## Usage
 
@@ -13,8 +13,23 @@ drift diff --base <old> --head <new> --format json         # drift-diff/v1, vali
 drift compare --base examples/petstore/v1.yaml --head examples/petstore/v2-breaking.yaml \
   --traffic examples/petstore/traffic.jsonl                # labels with evidence; exit 1 (gate failed)
 drift compare --base <old> --head <new> [--traffic <file.jsonl|file.har>] [--rules <file>] [--policy <file>]
-  [--format text|json] [--fail-on breaking|risky] [--seed <n>] [--as-of <YYYY-MM-DD>] [--ref-root <dir>]
+  [--format console,json,html,md,sarif,junit] [--out <dir>] [--fail-on breaking|risky] [--seed <n>]
+  [--as-of <YYYY-MM-DD>] [--config <file>] [--cache <dir> | --no-cache] [--ref-root <dir>]
+drift compare --base origin/main:openapi.yaml --head openapi.yaml    # the old contract from git
+drift explain <change-id> [--report drift-report.json | compare options] [--format text|json]
+drift rules list [--rules <file>] [--format text|json]
+drift corpus inspect <traffic> [--spec <openapi>] [--format text|json]
 ```
+
+- **Formats:** one format prints to stdout; several need `--out <dir>`, which writes `drift-report.{txt,json,html,md,sarif,junit.xml}` and still prints the console report. Colour is used only on a terminal and never with `NO_COLOR` (`FORCE_COLOR` turns it on).
+- **Git revisions:** a spec argument `<ref>:<path>` that is not an existing file is read with `git cat-file` (no dependency), local `$ref`s included. The path is relative to the working directory. Refs starting with `-` are refused (no option injection), and `execFile` is used without a shell.
+- **Config:** `drift.config.json` or `drift.config.yaml` in the working directory, or `--config <file>`:
+  - `format: drift-config/v1` plus any of `base`, `head`, `traffic`, `rules`, `policy`, `formats`, `out`, `failOn`, `seed`, `refRoot`, `cache` (a directory, or `false`);
+  - paths are relative to the config file, and flags win;
+  - JSON Schema: `packages/cli/schemas/drift-config-v1.schema.json`.
+- **Cache:** stage outputs go to `.drift/cache/` (git-ignored) by default. A re-run with unchanged inputs prints `cache  reused diff, corpus, verify, classify`. Entries are keyed by content hash, so they never go stale, but the key includes the engine _version_: when changing engine code locally without bumping it, use `--no-cache`.
+- `explain` accepts a unique id prefix (4+ characters). It shows the rule, the rationale, evidence counts, confidence and every failing sample with its redacted pointers.
+- `corpus inspect` prints counts, routing and which pointers would be redacted, never a value from the traffic.
 
 `diff` always exits 0 when both specs are valid: it describes changes and does not gate. `compare` is the gate: exit 0 when it passes, 1 when a change at or above `--fail-on` is found, 2 for invalid specs, rules, policy or traffic files. `--as-of` sets the date suppressions are checked against (default: today, UTC); the goldens pin it. `--ref-root` widens where local `$ref`s may point (default: each spec's own directory).
 
@@ -38,20 +53,37 @@ pnpm --filter @drift/cli exec drift             # help on stderr, exit 2 (no com
 
 ## Exit codes
 
-`0` pass · `1` gate failed · `2` usage, config or invalid-spec error · `3` internal error. Commander's parse errors map to 2; any other thrown error maps to 3 with a one-line message.
+| Code | Meaning                                                                                                                                       |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | The gate passed (`compare`), or the command succeeded.                                                                                        |
+| 1    | The gate failed: a change at or above `--fail-on` that is not suppressed.                                                                     |
+| 2    | Usage error: bad flags, an invalid spec, rules, policy, config, traffic or report file, a missing file, an unknown git revision or change id. |
+| 3    | Internal error: a bug. One line on stderr.                                                                                                    |
+
+Commander's parse errors map to 2. The tests cover every code.
 
 ## Implementation
 
 - `src/commands/validate.ts`, `src/commands/diff.ts`, `src/commands/compare.ts`: thin wrappers over core (`ingestSpec`, `diffSpecs`, `compare`). The CLI only reads files, parses flags and prints; all logic is in core. Rules and policy files are parsed with core's safe YAML/JSON parser and validated with the schemas core re-exports from `@drift/rules`.
+- `src/inputs.ts`: loading specs (file or git), traffic, rules and policy, with every failure as a usage error.
+- `src/git.ts`: git revisions as specs. `src/config.ts`: `drift.config`. `src/cache.ts`: the file-system stage cache, with atomic writes (temporary file, then rename).
+- `src/commands/explain.ts`, `rules.ts`, `corpus.ts`: the M3 commands.
 - `src/fs-reader.ts`: the file-system `SpecReader`; diagnostic paths are shown relative to the working directory.
 - `src/render.ts`: text rendering of diagnostics, changes and reports (labels, rule, evidence and the first failing sample).
 - Golden tests:
   - `examples/invalid/*.expected.txt`: exact `validate` output;
   - `examples/diff/*/expected.json`: exact `diff` changes;
-  - `examples/petstore/expected.json`, `expected.txt`, `expected-synthetic.txt`: exact `compare` output with and without traffic.
+  - `examples/petstore/expected.{json,txt,md,html,sarif,junit.xml}`: exact `compare` output in every format (the M3 acceptance run with `--out`), plus `expected-synthetic.txt` (no traffic), `expected-explain.txt` and `expected-inspect.txt`.
+- `surface.test.ts` covers:
+  - config files (JSON, YAML, invalid, precedence);
+  - git revisions, in a temporary repository: missing files, unknown refs, and a ref that tries to look like an option;
+  - cache hits, colour, `explain`, `rules list` and `corpus inspect` (which must not print any planted secret).
 - Usage-error tests cover invalid and incomplete rulesets, invalid policies, YAML syntax errors, bad HAR files, missing files, and bad `--seed` and `--as-of` values.
 
 ## Questions an examiner might ask
+
+- **Why read git revisions with `git cat-file` instead of a library?** Git is already on every CI runner. `execFile` with an argument array means no shell, and refs starting with `-` are refused, so nothing in a ref can become an option. Local `$ref`s in the old revision are read from the same revision, confined to the repository.
+- **Why must several formats use `--out`?** Mixing HTML, SARIF and a console report on one stdout would be unusable. With `--out`, each format is its own file and the console summary still goes to the log.
 
 - **Why does `drift diff` not fail when it finds RISKY changes?** Diff is structural only. Failing needs evidence and a policy (`--fail-on`), which is the job of `compare`.
 - **Why does `compare` need `--as-of` in tests?** Suppressions expire, so the result depends on the date. Passing the date in keeps the engine pure and the goldens reproducible.

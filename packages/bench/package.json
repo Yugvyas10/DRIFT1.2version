@@ -2,7 +2,7 @@
   "name": "@drift/bench",
   "version": "0.0.0",
   "private": true,
-  "description": "Evaluation harness: pinned real-world fixtures, fixture checks, and (from M3) the performance and mutation benchmarks.",
+  "description": "Evaluation harness: pinned real-world fixtures, the fixture check, the performance benchmark and the labelled-mutation benchmark; renders docs/EVALUATION.md.",
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -13,7 +13,12 @@
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run --coverage",
     "fixtures:fetch": "node src/fetch-fixtures.ts",
-    "fixtures:check": "node src/check-fixtures.ts"
+    "fixtures:check": "node src/check-fixtures.ts",
+    "perf": "node src/run-perf.ts",
+    "mutations": "node src/run-mutations.ts",
+    "evaluation": "node src/run-evaluation.ts",
+    "evaluation:check": "node src/run-evaluation.ts --check",
+    "all": "pnpm run fixtures:fetch && pnpm run fixtures:check && pnpm run perf && pnpm run mutations --fixtures"
   },
   "dependencies": {
     "@drift/core": "workspace:*"

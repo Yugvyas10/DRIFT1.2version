@@ -111,6 +111,11 @@
             ]
           }
         ]
+      },
+      "position": {
+        "file": "examples/petstore/v1.yaml",
+        "line": 65,
+        "column": 7
       }
     },
     {
@@ -141,6 +146,11 @@
         },
         "unknown": 0,
         "examples": []
+      },
+      "position": {
+        "file": "examples/petstore/v2-breaking.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -171,6 +181,11 @@
         },
         "unknown": 0,
         "examples": []
+      },
+      "position": {
+        "file": "examples/petstore/v1.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -246,6 +261,11 @@
             ]
           }
         ]
+      },
+      "position": {
+        "file": "examples/petstore/v2-breaking.yaml",
+        "line": 17,
+        "column": 22
       }
     },
     {
@@ -354,6 +374,11 @@
             ]
           }
         ]
+      },
+      "position": {
+        "file": "examples/petstore/v2-breaking.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -384,6 +409,11 @@
         },
         "unknown": 0,
         "examples": []
+      },
+      "position": {
+        "file": "examples/petstore/v1.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -413,6 +443,11 @@
         },
         "unknown": 0,
         "examples": []
+      },
+      "position": {
+        "file": "examples/petstore/v2-breaking.yaml",
+        "line": 56,
+        "column": 11
       }
     },
     {
@@ -493,6 +528,11 @@
             ]
           }
         ]
+      },
+      "position": {
+        "file": "examples/petstore/v2-breaking.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -523,6 +563,11 @@
         },
         "unknown": 0,
         "examples": []
+      },
+      "position": {
+        "file": "examples/petstore/v1.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -583,6 +628,11 @@
             ]
           }
         ]
+      },
+      "position": {
+        "file": "examples/petstore/v2-breaking.yaml",
+        "line": 93,
+        "column": 11
       }
     },
     {
@@ -613,6 +663,11 @@
         },
         "unknown": 0,
         "examples": []
+      },
+      "position": {
+        "file": "examples/petstore/v2-breaking.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -674,6 +729,11 @@
             ]
           }
         ]
+      },
+      "position": {
+        "file": "examples/petstore/v1.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -754,6 +814,11 @@
             ]
           }
         ]
+      },
+      "position": {
+        "file": "examples/petstore/v2-breaking.yaml",
+        "line": 77,
+        "column": 13
       }
     },
     {
@@ -784,6 +849,11 @@
         },
         "unknown": 0,
         "examples": []
+      },
+      "position": {
+        "file": "examples/petstore/v1.yaml",
+        "line": 77,
+        "column": 13
       }
     }
   ],
@@ -806,27 +876,33 @@
   "stages": [
     {
       "stage": "ingest.base",
-      "hash": "f793b939b0c48bed67b496768ef4a947aa7c5b7ee0f432a81f111fed9a0de2ef"
+      "hash": "f793b939b0c48bed67b496768ef4a947aa7c5b7ee0f432a81f111fed9a0de2ef",
+      "cached": false
     },
     {
       "stage": "ingest.head",
-      "hash": "4d9f624cebaa91732aebb468ef20f70ed6ab7ad814c353cd8edf4d0b43fdcd53"
+      "hash": "4d9f624cebaa91732aebb468ef20f70ed6ab7ad814c353cd8edf4d0b43fdcd53",
+      "cached": false
     },
     {
       "stage": "diff",
-      "hash": "3bfaac3381fe28fcd8d7a5f71c3776d1cba154d032c43ed5e09bd2bc2641d992"
+      "hash": "3bfaac3381fe28fcd8d7a5f71c3776d1cba154d032c43ed5e09bd2bc2641d992",
+      "cached": false
     },
     {
       "stage": "corpus",
-      "hash": "10c7da2bc927530070208bd1b9866ed170da5322bfa275b0db097671d159b090"
+      "hash": "10c7da2bc927530070208bd1b9866ed170da5322bfa275b0db097671d159b090",
+      "cached": false
     },
     {
       "stage": "verify",
-      "hash": "9e06050fe91df923a8eee4962a249b236f364bab41018b3410f947b2befe2552"
+      "hash": "4d365caeddb8a41af87d764a922be6709b1c9358593bbedec9c8a82d23d2e0a4",
+      "cached": false
     },
     {
       "stage": "classify",
-      "hash": "9b0bc43cd80d560da2199d80f28d94c080c2ae35a6611e6498102e6feba037ce"
+      "hash": "408ad4227021e575251b87537218b3c52b377bf3894fd620319ca91dd8b16ce3",
+      "cached": false
     }
   ],
   "diagnostics": [

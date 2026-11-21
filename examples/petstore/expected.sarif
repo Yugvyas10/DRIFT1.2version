@@ -1,0 +1,404 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "DRIFT",
+          "semanticVersion": "0.0.0",
+          "informationUri": "https://github.com/Yugvyas10/DRIFT1.2version",
+          "rules": [
+            {
+              "id": "DRIFT-REQ-OPERATION-REMOVED",
+              "name": "DRIFT-REQ-OPERATION-REMOVED",
+              "shortDescription": {
+                "text": "operation.removed"
+              },
+              "fullDescription": {
+                "text": "Clients still calling the operation will get an error; a recorded call to it proves the break."
+              },
+              "properties": {
+                "kind": "operation.removed",
+                "direction": "request"
+              }
+            },
+            {
+              "id": "DRIFT-REQ-SCHEMA-BOUND-TIGHTENED",
+              "name": "DRIFT-REQ-SCHEMA-BOUND-TIGHTENED",
+              "shortDescription": {
+                "text": "schema.bound.tightened"
+              },
+              "fullDescription": {
+                "text": "Values that used to be accepted may now be rejected."
+              },
+              "properties": {
+                "kind": "schema.bound.tightened",
+                "direction": "request"
+              }
+            },
+            {
+              "id": "DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED",
+              "name": "DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED",
+              "shortDescription": {
+                "text": "schema.enum.value_removed"
+              },
+              "fullDescription": {
+                "text": "Clients still sending the removed value will be rejected."
+              },
+              "properties": {
+                "kind": "schema.enum.value_removed",
+                "direction": "request"
+              }
+            },
+            {
+              "id": "DRIFT-REQ-SCHEMA-PROPERTY-ADDED-REQUIRED",
+              "name": "DRIFT-REQ-SCHEMA-PROPERTY-ADDED-REQUIRED",
+              "shortDescription": {
+                "text": "schema.property.added.required"
+              },
+              "fullDescription": {
+                "text": "Existing clients do not send the new property, so the server will reject their requests."
+              },
+              "properties": {
+                "kind": "schema.property.added.required",
+                "direction": "request"
+              }
+            },
+            {
+              "id": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+              "name": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+              "shortDescription": {
+                "text": "schema.enum.value_added"
+              },
+              "fullDescription": {
+                "text": "Clients that validate responses strictly may reject a value they have never seen."
+              },
+              "properties": {
+                "kind": "schema.enum.value_added",
+                "direction": "response"
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "DRIFT-REQ-OPERATION-REMOVED",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "BREAKING: Operation DELETE /pets/{} was removed (DELETE /pets/{}). Evidence: 1 of 1 sample fails (recorded); confidence 1.00."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/petstore/v1.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 65,
+                  "startColumn": 7
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "DELETE /pets/{}",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "driftChangeId/v1": "5d252af03800fea0"
+          },
+          "properties": {
+            "severity": "BREAKING",
+            "confidence": 1,
+            "unverified": false,
+            "evidence": "failing",
+            "synthetic": false
+          }
+        },
+        {
+          "ruleId": "DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED",
+          "ruleIndex": 2,
+          "level": "warning",
+          "message": {
+            "text": "RISKY: Request query parameter \"status\": Enum value \"pending\" was removed (GET /pets). Evidence: 1 sample reached it, none fail (1 recorded); confidence 0.00."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/petstore/v1.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 77,
+                  "startColumn": 13
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "GET /pets",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "driftChangeId/v1": "644bf2ac60adabd6"
+          },
+          "properties": {
+            "severity": "RISKY",
+            "confidence": 0,
+            "unverified": false,
+            "evidence": "passing",
+            "synthetic": false
+          }
+        },
+        {
+          "ruleId": "DRIFT-REQ-SCHEMA-BOUND-TIGHTENED",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "BREAKING: Request query parameter \"limit\": \"maximum\" tightened: 100 → 50 (GET /pets). Evidence: 2 of 3 samples fail (recorded); confidence 1.00."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/petstore/v2-breaking.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 17,
+                  "startColumn": 22
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "GET /pets",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "driftChangeId/v1": "760d32eee71daae3"
+          },
+          "properties": {
+            "severity": "BREAKING",
+            "confidence": 1,
+            "unverified": false,
+            "evidence": "failing",
+            "synthetic": false
+          }
+        },
+        {
+          "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+          "ruleIndex": 4,
+          "level": "error",
+          "message": {
+            "text": "BREAKING: Response 200 body (application/json): Enum value \"adopted\" was added (GET /pets). Evidence: 2 of 8 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/petstore/v2-breaking.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 77,
+                  "startColumn": 13
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "GET /pets",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "driftChangeId/v1": "a37def3c7de93e01"
+          },
+          "properties": {
+            "severity": "BREAKING",
+            "confidence": 0.8,
+            "unverified": true,
+            "evidence": "failing",
+            "synthetic": true
+          }
+        },
+        {
+          "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+          "ruleIndex": 4,
+          "level": "error",
+          "message": {
+            "text": "BREAKING: Response 200 body (application/json): Enum value \"adopted\" was added (GET /pets/{}). Evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/petstore/v2-breaking.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 77,
+                  "startColumn": 13
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "GET /pets/{}",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "driftChangeId/v1": "2e23389f89244d4f"
+          },
+          "properties": {
+            "severity": "BREAKING",
+            "confidence": 0.8,
+            "unverified": true,
+            "evidence": "failing",
+            "synthetic": true
+          }
+        },
+        {
+          "ruleId": "DRIFT-REQ-SCHEMA-PROPERTY-ADDED-REQUIRED",
+          "ruleIndex": 3,
+          "level": "error",
+          "message": {
+            "text": "BREAKING: Request body (application/json): Property \"category\" was added as required (POST /pets). Evidence: 1 of 3 samples fails (recorded); confidence 1.00."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/petstore/v2-breaking.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 93,
+                  "startColumn": 11
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "POST /pets",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "driftChangeId/v1": "bb412def2697a713"
+          },
+          "properties": {
+            "severity": "BREAKING",
+            "confidence": 1,
+            "unverified": false,
+            "evidence": "failing",
+            "synthetic": false
+          }
+        },
+        {
+          "ruleId": "DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED",
+          "ruleIndex": 2,
+          "level": "error",
+          "message": {
+            "text": "BREAKING: Request body (application/json): Enum value \"pending\" was removed (POST /pets). Evidence: 1 of 3 samples fails (recorded); confidence 1.00."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/petstore/v1.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 77,
+                  "startColumn": 13
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "POST /pets",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "driftChangeId/v1": "306b396f638281e8"
+          },
+          "properties": {
+            "severity": "BREAKING",
+            "confidence": 1,
+            "unverified": false,
+            "evidence": "failing",
+            "synthetic": false
+          }
+        },
+        {
+          "ruleId": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+          "ruleIndex": 4,
+          "level": "error",
+          "message": {
+            "text": "BREAKING: Response 201 body (application/json): Enum value \"adopted\" was added (POST /pets). Evidence: 2 of 6 samples fail (synthetic); confidence 0.80; unverified (no recorded traffic)."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/petstore/v2-breaking.yaml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 77,
+                  "startColumn": 13
+                }
+              },
+              "logicalLocations": [
+                {
+                  "name": "POST /pets",
+                  "kind": "function"
+                }
+              ]
+            }
+          ],
+          "partialFingerprints": {
+            "driftChangeId/v1": "db8893be5ad2c107"
+          },
+          "properties": {
+            "severity": "BREAKING",
+            "confidence": 0.8,
+            "unverified": true,
+            "evidence": "failing",
+            "synthetic": true
+          }
+        }
+      ],
+      "properties": {
+        "gate": {
+          "failOn": "breaking",
+          "passed": false
+        },
+        "semver": "major",
+        "rules": {
+          "version": "1.0.0",
+          "hash": "974d64381f225d146bab8821ddac23a7dd924618ae02e3748438e83e566c0bbe"
+        }
+      }
+    }
+  ]
+}

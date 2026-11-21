@@ -69,7 +69,7 @@ const report = {
   summary: { breaking: 1, risky: 0, safe: 0, suppressed: 0 },
   semver: "major",
   gate: { failOn: "breaking", passed: false },
-  stages: [{ stage: "diff", hash }],
+  stages: [{ stage: "diff", hash, cached: false }],
   diagnostics: [],
 } as const;
 

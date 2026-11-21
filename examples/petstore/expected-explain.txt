@@ -1,0 +1,28 @@
+BREAKING  Request body (application/json): Enum value "pending" was removed
+
+  change            306b396f638281e8 (schema.enum.value_removed, request)
+  operation         POST /pets
+  where             examples/petstore/v1.yaml:77:13
+  rule              DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED
+  why               Clients still sending the removed value will be rejected.
+  evidence          failing; checked 3 recorded + 0 synthetic, failed 1 recorded + 0 synthetic, 0 unknown (redacted)
+  confidence        1.0000
+  recorded traffic  reached this change
+  before            "pending"
+
+failing sample 1 (recorded, line 1; redacted: /body/ownerEmail, /headers/authorization)
+{
+  "method": "POST",
+  "path": "/v1/pets",
+  "headers": {
+    "authorization": "[REDACTED:header]",
+    "content-type": "application/json"
+  },
+  "body": {
+    "name": "Rex",
+    "status": "pending",
+    "tag": "dog",
+    "ownerEmail": "[REDACTED:email]"
+  }
+}
+  ✖ /body/status  enum: must be equal to one of the allowed values

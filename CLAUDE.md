@@ -46,12 +46,12 @@ Setup (once): Node 24+, `npm install -g pnpm@12.6.0`, Docker. Then:
 - Format: `pnpm format` (CI runs `pnpm format:check`)
 - Web dev server: `pnpm --filter @drift/web dev` → http://localhost:3000
 - Worker: `pnpm --filter @drift/worker dev`
-- CLI: `pnpm --filter @drift/cli exec drift validate <spec>` · `... drift diff --base <old> --head <new> [--format json]` · `... drift compare --base <old> --head <new> [--traffic <file>] [--policy <file>] [--format json]` (paths relative to `packages/cli`; the acceptance example is `examples/petstore`).
+- CLI (paths relative to `packages/cli`): `pnpm --filter @drift/cli exec drift validate <spec>` · `... drift diff --base <old> --head <new>` · `... drift compare --base <old|ref:path> --head <new> [--traffic <file>] [--policy <file>] [--format console,json,html,md,sarif,junit --out <dir>] [--no-cache]` · `... drift explain <id> --report <json>` · `... drift rules list` · `... drift corpus inspect <traffic>`. Use `--no-cache` while changing engine code.
 - Golden files: `UPDATE_GOLDEN=1 pnpm --filter @drift/core test` (and `--filter @drift/cli`, `@drift/report-schema`, `@drift/rules` for the published JSON Schemas), then review the diff.
 - Real-world fixtures: `pnpm --filter @drift/bench run fixtures:fetch && pnpm --filter @drift/bench run fixtures:check`
 - Secret scan: `sh scripts/secret-scan.sh` (full history; the pre-commit hook scans staged changes)
 - Version bump: `pnpm changeset`
-- Benchmarks: `pnpm --filter @drift/bench run all` (from M3)
+- Benchmarks: `pnpm --filter @drift/bench run all` (fixtures, perf, mutations; heavy: ask first), `... run perf --sizes 1000,10000 --no-fixtures` (quick, results/ only), `... run evaluation` (re-render `docs/EVALUATION.md` from `docs/evaluation/*.json`; CI checks it).
 
 ## Ownership (for docs and review)
 

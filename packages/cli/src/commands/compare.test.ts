@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,10 +11,13 @@ const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const update = process.env.UPDATE_GOLDEN === "1";
 const scratch = mkdtempSync(join(tmpdir(), "drift-compare-"));
 
+/** Runs the CLI. Tests never read or write a stage cache unless they ask for one. */
 async function drift(...args: string[]) {
   const out: string[] = [];
   const err: string[] = [];
-  const code = await runCli(args, { stdout: (t) => out.push(t), stderr: (t) => err.push(t) }, repo);
+  const cached = args.some((arg) => arg.startsWith("--cache"));
+  const full = args[0] === "compare" && !cached ? [...args, "--no-cache"] : args;
+  const code = await runCli(full, { stdout: (t) => out.push(t), stderr: (t) => err.push(t) }, repo);
   return { code, stdout: out.join(""), stderr: err.join("") };
 }
 
@@ -41,6 +44,57 @@ describe("drift compare (golden, examples/petstore)", () => {
     if (update) writeFileSync(path, result.stdout);
     expect(result.stdout).toBe(readFileSync(path, "utf8"));
     if (golden.endsWith(".json")) expect(Report.safeParse(JSON.parse(result.stdout)).success).toBe(true);
+  });
+
+  // M3 acceptance: every format at once, written to a directory; exit 1 because the gate fails.
+  it("writes every report format with --out (goldens), and still prints the console report", async () => {
+    const out = join(scratch, "out");
+    const result = await drift(
+      "compare",
+      ...pets,
+      ...traffic,
+      ...asOf,
+      "--format",
+      "console,json,html,md,sarif,junit",
+      "--out",
+      out
+    );
+    expect(result.code).toBe(ExitCode.GateFailed);
+    expect(result.stdout).toContain("✖ gate failed");
+    expect(result.stdout).toMatch(/wrote .*drift-report\.txt, .*drift-report\.junit\.xml\n$/);
+    expect(readdirSync(out).sort()).toEqual([
+      "drift-report.html",
+      "drift-report.json",
+      "drift-report.junit.xml",
+      "drift-report.md",
+      "drift-report.sarif",
+      "drift-report.txt",
+    ]);
+    expect(readFileSync(join(out, "drift-report.json"), "utf8")).toBe(
+      readFileSync(`${repo}examples/petstore/expected.json`, "utf8")
+    );
+    for (const [written, golden] of [
+      ["drift-report.txt", "expected.txt"],
+      ["drift-report.md", "expected.md"],
+      ["drift-report.html", "expected.html"],
+      ["drift-report.sarif", "expected.sarif"],
+      ["drift-report.junit.xml", "expected.junit.xml"],
+    ] as const) {
+      const text = readFileSync(join(out, written), "utf8");
+      const path = `${repo}examples/petstore/${golden}`;
+      if (update && golden !== "expected.txt") writeFileSync(path, text);
+      expect(text, golden).toBe(readFileSync(path, "utf8"));
+    }
+    expect(readFileSync(join(out, "drift-report.html"), "utf8")).not.toMatch(/(?:src|href)=|https?:\/\//);
+  });
+
+  it("prints one format to stdout, and refuses several without --out or an unknown one", async () => {
+    const md = await drift("compare", ...pets, ...traffic, ...asOf, "--format", "md");
+    expect(md.stdout).toBe(readFileSync(`${repo}examples/petstore/expected.md`, "utf8"));
+    const several = await drift("compare", ...pets, "--format", "json,md");
+    expect(several).toMatchObject({ code: ExitCode.UsageError, stderr: "drift: several formats need --out <dir>\n" });
+    const unknown = await drift("compare", ...pets, "--format", "pdf");
+    expect(unknown.stderr).toMatch(/unknown format "pdf"/);
   });
 
   it("exits 0 for an additive change, and 1 for it only with --fail-on risky when something is RISKY", async () => {

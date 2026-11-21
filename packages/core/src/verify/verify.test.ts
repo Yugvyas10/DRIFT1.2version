@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { buildCorpus } from "../corpus/corpus.ts";
 import { diffSpecs, type DiffResult } from "../diff/diff.ts";
 import type { SpecIR } from "../ingest/ir.ts";
-import { ingestObject, openapi } from "../testing/specs.ts";
-import { isUnknown, matchMedia, verify, type Evidence } from "./verify.ts";
+import { ingestObject, openapi, sharedComponentPair } from "../testing/specs.ts";
+import { DEFAULT_VERIFY_OPTIONS, isUnknown, matchMedia, verify, type Evidence } from "./verify.ts";
 
 type Doc = ReturnType<typeof openapi>;
 
@@ -292,6 +292,31 @@ describe("verify: reporting what it cannot explain or check", () => {
   });
 });
 
+describe("verify: synthetic budget", () => {
+  // Regression (M3 benchmark): one enum value added to a component used by all 612 Stripe operations ran for
+  // over an hour, because every response got the full 48 samples.
+  it("shares the budget between groups but always runs the samples aimed at the change", async () => {
+    const pair = sharedComponentPair(40);
+    const [b, h] = await Promise.all([ingestObject(pair.base), ingestObject(pair.head)]);
+    const diff = diffSpecs(b.ir, h.ir);
+    expect(diff.changes).toHaveLength(40);
+    const total = (result: ReturnType<typeof verify>) => result.synthetic.generated + result.synthetic.discarded;
+
+    const full = verify(b.ir, h.ir, diff, [], DEFAULT_VERIFY_OPTIONS);
+    expect(full.budget).toEqual({ groups: 40, perGroup: 48, trimmed: 0 });
+
+    const tight = verify(b.ir, h.ir, diff, [], { ...DEFAULT_VERIFY_OPTIONS, syntheticBudget: 80 });
+    expect(tight.budget).toEqual({ groups: 40, perGroup: 2, trimmed: 40 });
+    // For each of the 40 responses: the baseline (which returns the account as an id string), a plan steered into
+    // the expanded account, and the other two variants of the changed enum; no sweeps.
+    expect(total(tight)).toBeLessThanOrEqual(40 * 4);
+    expect(total(tight)).toBeLessThan(total(full));
+    for (const change of diff.changes) {
+      expect(tight.evidence[change.id]?.failed.synthetic).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("helpers", () => {
   it("matches media types exactly, then by type, then any", () => {
     expect(matchMedia("application/json", ["application/*", "application/json"])).toBe("application/json");
@@ -307,5 +332,32 @@ describe("helpers", () => {
     expect(isUnknown(failure("/body/owner", "oneOf"), redacted)).toBe(true);
     expect(isUnknown(failure("/body/owner", "required"), redacted)).toBe(false);
     expect(isUnknown(failure("/cookies/sid", "type"), ["/headers/cookie"])).toBe(true);
+  });
+});
+
+describe("verify: examples in reports", () => {
+  it("leaves a large body out of an example, keeping its size and the values at the failing pointers", async () => {
+    const pet = (values: string[]) => ({
+      type: "object",
+      required: ["status", "blob"],
+      properties: {
+        status: { type: "string", enum: values },
+        blob: { type: "string", minLength: 9000, maxLength: 9000 },
+      },
+    });
+    const { byKind } = await run(reply(pet(["a"])), reply(pet(["a", "b"])));
+    const [example] = byKind("schema.enum.value_added").examples;
+    expect(example?.payload).not.toHaveProperty("body");
+    expect(example?.payload).toMatchObject({ method: "GET", path: "/pets", status: 200 });
+    expect(example?.bodyOmitted?.bytes).toBeGreaterThan(9000);
+    expect(example?.bodyOmitted?.values).toEqual({ "/body/status": "b" });
+  });
+
+  it("keeps a small body", async () => {
+    const pet = (values: string[]) => ({ type: "object", properties: { status: { type: "string", enum: values } } });
+    const { byKind } = await run(reply(pet(["a"])), reply(pet(["a", "b"])));
+    const [example] = byKind("schema.enum.value_added").examples;
+    expect(example?.payload).toHaveProperty("body");
+    expect(example?.bodyOmitted).toBeUndefined();
   });
 });
