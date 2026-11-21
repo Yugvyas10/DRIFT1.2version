@@ -59,6 +59,7 @@ The legacy app was removed from product paths in M0 and is preserved at tag **`l
 | Email (invitations, password reset, verification) | web module doc; members page       | "DRIFT does not send email yet. Pass the token on yourself"                                          | M8 or later (owner's call)                    |
 | GitHub sign-in, end to end                        | web module doc                     | "not exercised end to end: that needs a GitHub OAuth app" (the code and its account rule are tested) | when the team registers an OAuth app          |
 | Contract diff of uploaded runs                    | diff page; web module doc          | "An uploaded run has only its report: the contracts stay in the repository that ran the CLI."        | when uploads include contracts (owner's call) |
+| Public deployment (Fly.io, Neon, R2)              | ADR-0008                           | "Accepted"; no Dockerfile, `fly.toml` or deploy workflow yet                                         | the deploy PR, before M8's GitHub App         |
 | Browser uploads over 25 MiB in a re-run           | re-run form; web module doc        | "up to 25 MiB" (larger files: `drift rerun` from the CLI)                                            | not planned                                   |
 
 ### 1.4 Open items carried over
