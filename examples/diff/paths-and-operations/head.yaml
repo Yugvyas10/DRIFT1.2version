@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info: { title: Paths and operations, version: "2" }
+paths:
+  /pets:
+    get:
+      summary: List all pets
+      deprecated: true
+      responses: { "200": { description: ok } }
+    put:
+      responses: { "200": { description: ok } }
+  /owners:
+    get:
+      responses: { "200": { description: ok } }

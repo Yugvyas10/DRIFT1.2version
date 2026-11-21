@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: Missing reference
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: Points to a schema that does not exist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+components:
+  schemas: {}

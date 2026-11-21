@@ -46,7 +46,9 @@ Setup (once): Node 24+, `npm install -g pnpm@12.6.0`, Docker. Then:
 - Format: `pnpm format` (CI runs `pnpm format:check`)
 - Web dev server: `pnpm --filter @drift/web dev` → http://localhost:3000
 - Worker: `pnpm --filter @drift/worker dev`
-- CLI: `pnpm --filter @drift/cli exec drift --help`. `validate`/`diff` arrive in M1; `compare --base <old> --head <new>` in M2.
+- CLI: `pnpm --filter @drift/cli exec drift validate <spec>` · `... drift diff --base <old> --head <new> [--format json]`. `compare` (evidence + gate) arrives in M2.
+- Golden files: `UPDATE_GOLDEN=1 pnpm --filter @drift/core test` (and `--filter @drift/cli`), then review the diff of `examples/`.
+- Real-world fixtures: `pnpm --filter @drift/bench run fixtures:fetch && pnpm --filter @drift/bench run fixtures:check`
 - Secret scan: `sh scripts/secret-scan.sh` (full history; the pre-commit hook scans staged changes)
 - Version bump: `pnpm changeset`
 - Benchmarks: `pnpm --filter @drift/bench run all` (from M3)

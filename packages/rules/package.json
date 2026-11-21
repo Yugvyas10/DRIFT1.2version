@@ -23,6 +23,7 @@
     "test": "vitest run --coverage"
   },
   "dependencies": {
+    "@drift/report-schema": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

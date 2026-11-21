@@ -1,0 +1,11 @@
+openapi: 3.0.3
+info: { title: Responses, version: "1" }
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json: { schema: { type: array, items: { type: string } } }
+        "204": { description: nothing }

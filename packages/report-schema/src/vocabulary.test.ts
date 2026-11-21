@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Direction, ExitCode, FailOn, REPORT_SCHEMA_ID, Severity } from "./index.ts";
+import { Direction, ExitCode, FailOn, REPORT_SCHEMA_ID, Severity } from "./vocabulary.ts";
 
 describe("report vocabulary", () => {
   it("identifies the report format", () => {

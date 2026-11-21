@@ -1,6 +1,6 @@
 # @drift/rules — classification rules as data
 
-**Owner:** P4 (Pruthvi Gangapure). Reviewer P2. **Status:** M0 — format id and rule id grammar. The default ruleset and loader land in M2 (ADR-0005).
+**Owner:** P4 (Pruthvi Gangapure). Reviewer P2. **Status:** M1 — format id, rule id grammar and the structural direction table. The full ruleset (evidence conditions, rationale, policy) and its loader land in M2 (ADR-0005).
 
 ## Public API (M0)
 
@@ -8,6 +8,11 @@
 | -------------- | --------------------------------------------------------------------------------------------------- |
 | `RULES_FORMAT` | `"drift-rules/v1"`.                                                                                 |
 | `RuleId`       | zod schema for ids such as `DRIFT-REQ-ENUM-REMOVED`: `DRIFT` plus uppercase segments joined by `-`. |
+
+| `STRUCTURAL_DEFAULTS` | For every change kind: `{ request, response }`, each "dangerous" or "safe". |
+| `candidateSeverity(kind, direction)` | RISKY for dangerous, SAFE for safe. Used by the diff for every change. |
+
+A test checks that the table covers every kind in `CHANGE_KINDS`, and that each narrowing/widening pair is a mirror image across directions.
 
 ## Planned (M2)
 

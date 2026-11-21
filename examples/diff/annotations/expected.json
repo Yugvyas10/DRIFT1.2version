@@ -1,0 +1,35 @@
+[
+  {
+    "id": "112cf65239d68ec3",
+    "kind": "schema.default.changed",
+    "direction": "request",
+    "operation": "POST /reports",
+    "location": "#/paths/~1reports/post/requestBody/content/application~1json/schema/properties/format/default",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Default changed from \"pdf\" to \"html\"",
+    "before": "pdf",
+    "after": "html"
+  },
+  {
+    "id": "51619c4fb21b18c1",
+    "kind": "schema.deprecated",
+    "direction": "request",
+    "operation": "POST /reports",
+    "location": "#/paths/~1reports/post/requestBody/content/application~1json/schema/properties/legacy/deprecated",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): Schema was marked deprecated"
+  },
+  {
+    "id": "e4f4d0f3f97bcc0e",
+    "kind": "doc.changed",
+    "direction": "request",
+    "operation": "POST /reports",
+    "location": "#/paths/~1reports/post/requestBody/content/application~1json/schema/properties/pages/description",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): Schema description changed",
+    "subject": "description"
+  }
+]

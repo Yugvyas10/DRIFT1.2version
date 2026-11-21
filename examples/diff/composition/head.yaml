@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info: { title: Composition, version: "2" }
+paths:
+  /pets:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/Cat"
+                - $ref: "#/components/schemas/Dog"
+              discriminator:
+                propertyName: type
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Base"
+                  - { type: object, properties: { a: { type: string } } }
+                  - { type: object, properties: { b: { type: string } } }
+components:
+  schemas:
+    Cat: { type: object, properties: { kind: { type: string }, meows: { type: boolean } } }
+    Dog: { type: object, properties: { kind: { type: string }, barks: { type: boolean } } }
+    Base: { type: object, properties: { id: { type: string } }, additionalProperties: false }

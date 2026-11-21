@@ -28,5 +28,13 @@
     "fast-check": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@drift/report-schema": "workspace:*",
+    "@drift/rules": "workspace:*",
+    "ajv": "8.20.0",
+    "ajv-draft-04": "1.0.0",
+    "ajv-formats": "3.0.1",
+    "yaml": "2.9.1"
   }
 }

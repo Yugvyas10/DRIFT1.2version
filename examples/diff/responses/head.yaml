@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info: { title: Responses, version: "2" }
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: The pets
+          content:
+            application/json: { schema: { type: array, items: { type: string } } }
+            text/csv: { schema: { type: string } }
+        "201": { description: created }
+        "404": { description: not found }

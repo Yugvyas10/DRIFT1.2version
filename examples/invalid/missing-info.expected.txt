@@ -1,0 +1,2 @@
+examples/invalid/missing-info.yaml:1:1  error  OAS_SCHEMA  Missing required property "info"
+✖ 1 error, 0 warnings

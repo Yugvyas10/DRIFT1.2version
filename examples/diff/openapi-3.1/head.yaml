@@ -1,0 +1,24 @@
+openapi: 3.1.0
+info: { title: OpenAPI 3.1, version: "2" }
+paths:
+  /events:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Event" }
+      responses: { "202": { description: accepted } }
+components:
+  schemas:
+    Event:
+      type: object
+      required: [kind, severity]
+      properties:
+        kind: { const: tap }
+        severity: { type: integer, exclusiveMinimum: 1 }
+        note: { type: string }
+        actor:
+          $ref: "#/components/schemas/Actor"
+          required: [id]
+    Actor: { type: object, properties: { id: { type: string } } }

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "5f3a59462ca4af51",
+    "kind": "path.added",
+    "direction": "request",
+    "operation": "GET /owners",
+    "location": "#/paths/~1owners/get",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Path /owners was added"
+  },
+  {
+    "id": "948b8b9a5803f8f6",
+    "kind": "operation.deprecated",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/deprecated",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "GET /pets is now deprecated"
+  },
+  {
+    "id": "8198da361ec769fd",
+    "kind": "doc.changed",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/summary",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Operation summary changed",
+    "subject": "summary"
+  },
+  {
+    "id": "6221cd9674743c73",
+    "kind": "path.removed",
+    "direction": "request",
+    "operation": "GET /stores",
+    "location": "#/paths/~1stores/get",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Path /stores was removed"
+  },
+  {
+    "id": "cc293366850748a3",
+    "kind": "operation.removed",
+    "direction": "request",
+    "operation": "POST /pets",
+    "location": "#/paths/~1pets/post",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Operation POST /pets was removed"
+  },
+  {
+    "id": "5643ca3d992b4f1d",
+    "kind": "operation.added",
+    "direction": "request",
+    "operation": "PUT /pets",
+    "location": "#/paths/~1pets/put",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Operation PUT /pets was added"
+  }
+]

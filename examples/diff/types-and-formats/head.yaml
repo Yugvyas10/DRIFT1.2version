@@ -1,0 +1,27 @@
+openapi: 3.0.3
+info: { title: Types and formats, version: "2" }
+paths:
+  /measurements:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string }
+                count: { type: number }
+                code: { type: string }
+                reading: { type: number }
+                takenAt: { type: string, format: date }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: number }
+                  unit: { type: string, nullable: true }

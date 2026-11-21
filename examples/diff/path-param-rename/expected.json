@@ -1,0 +1,15 @@
+[
+  {
+    "id": "a461c0e6d2d144bd",
+    "kind": "path.param.renamed",
+    "direction": "request",
+    "operation": "GET /pets/{}",
+    "location": "#/paths/~1pets~1{petId}/get",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Path parameter {id} renamed to {petId} (names are not sent on the wire)",
+    "subject": "0",
+    "before": "id",
+    "after": "petId"
+  }
+]

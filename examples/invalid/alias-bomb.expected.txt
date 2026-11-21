@@ -1,0 +1,2 @@
+examples/invalid/alias-bomb.yaml  error  ALIAS_LIMIT  More than 100 YAML alias expansions
+✖ 1 error, 0 warnings

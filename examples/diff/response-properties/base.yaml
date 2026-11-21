@@ -1,0 +1,20 @@
+openapi: 3.0.3
+info: { title: Response properties, version: "1" }
+paths:
+  /users/{id}:
+    get:
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, name]
+                properties:
+                  id: { type: string }
+                  name: { type: string }
+                  email: { type: string }
+                  avatar: { type: string }
+                  password: { type: string, writeOnly: true }

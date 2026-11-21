@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: Reference outside the ref root
+  version: 1.0.0
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: This file points above its own directory
+          content:
+            application/json:
+              schema:
+                $ref: "../valid/multi-file/schemas/order.yaml"

@@ -1,0 +1,92 @@
+[
+  {
+    "id": "9aa735b45da1cde6",
+    "kind": "schema.bound.tightened",
+    "direction": "request",
+    "operation": "POST /items",
+    "location": "#/paths/~1items/post/requestBody/content/application~1json/schema/properties/name/maxLength",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): \"maxLength\" tightened: 100 → 50",
+    "subject": "maxLength",
+    "before": 100,
+    "after": 50
+  },
+  {
+    "id": "6fee01920cdc82d6",
+    "kind": "schema.bound.relaxed",
+    "direction": "request",
+    "operation": "POST /items",
+    "location": "#/paths/~1items/post/requestBody/content/application~1json/schema/properties/price/minimum",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): \"minimum\" relaxed: 1 → 0",
+    "subject": "minimum",
+    "before": 1,
+    "after": 0
+  },
+  {
+    "id": "878e7551c2e29a78",
+    "kind": "schema.bound.tightened",
+    "direction": "request",
+    "operation": "POST /items",
+    "location": "#/paths/~1items/post/requestBody/content/application~1json/schema/properties/quantity/multipleOf",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): \"multipleOf\" tightened: 2 → 3",
+    "subject": "multipleOf",
+    "before": 2,
+    "after": 3
+  },
+  {
+    "id": "a9ba5ab5f4d7b7d4",
+    "kind": "schema.bound.tightened",
+    "direction": "request",
+    "operation": "POST /items",
+    "location": "#/paths/~1items/post/requestBody/content/application~1json/schema/properties/sku/pattern",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): \"pattern\" tightened: none → \"^[A-Z]{3}-[0-9]+$\"",
+    "subject": "pattern",
+    "after": "^[A-Z]{3}-[0-9]+$"
+  },
+  {
+    "id": "6f48f6e96d262ad4",
+    "kind": "schema.bound.relaxed",
+    "direction": "request",
+    "operation": "POST /items",
+    "location": "#/paths/~1items/post/requestBody/content/application~1json/schema/properties/step/multipleOf",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): \"multipleOf\" relaxed: 10 → 5",
+    "subject": "multipleOf",
+    "before": 10,
+    "after": 5
+  },
+  {
+    "id": "ae90c87bb4895d07",
+    "kind": "schema.bound.tightened",
+    "direction": "request",
+    "operation": "POST /items",
+    "location": "#/paths/~1items/post/requestBody/content/application~1json/schema/properties/tags/uniqueItems",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): \"uniqueItems\" tightened: false → true",
+    "subject": "uniqueItems",
+    "before": false,
+    "after": true
+  },
+  {
+    "id": "b4cfb2774dddca22",
+    "kind": "schema.bound.relaxed",
+    "direction": "response",
+    "operation": "POST /items",
+    "location": "#/paths/~1items/post/responses/200/content/application~1json/schema/properties/title/maxLength",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): \"maxLength\" relaxed: 50 → 200",
+    "subject": "maxLength",
+    "before": 50,
+    "after": 200
+  }
+]

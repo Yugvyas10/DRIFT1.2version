@@ -1,0 +1,57 @@
+[
+  {
+    "id": "421394a3c277fe55",
+    "kind": "media_type.added",
+    "direction": "response",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/responses/200/content/text~1csv",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body: media type text/csv was added",
+    "subject": "text/csv"
+  },
+  {
+    "id": "5ec8185dcc70bbb3",
+    "kind": "doc.changed",
+    "direction": "response",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/responses/200/description",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Description of response 200 changed",
+    "subject": "200"
+  },
+  {
+    "id": "54c116c8b9158d41",
+    "kind": "response.status.added",
+    "direction": "response",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/responses/201",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response status 201 was added",
+    "subject": "201"
+  },
+  {
+    "id": "c1b36577e00e796b",
+    "kind": "response.status.removed",
+    "direction": "response",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/responses/204",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Response status 204 was removed",
+    "subject": "204"
+  },
+  {
+    "id": "d678c3807aade968",
+    "kind": "response.error_status.added",
+    "direction": "response",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/responses/404",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Response status 404 was added",
+    "subject": "404"
+  }
+]

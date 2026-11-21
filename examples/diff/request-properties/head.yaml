@@ -1,0 +1,21 @@
+openapi: 3.0.3
+info: { title: Request properties, version: "2" }
+paths:
+  /users:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, country, createdAt]
+              properties:
+                name: { type: string }
+                nickname: { type: string }
+                email: { type: string }
+                country: { type: string }
+                referrer: { type: string }
+                id: { type: string, readOnly: true }
+                createdAt: { type: string, readOnly: true }
+      responses: { "204": { description: ok } }

@@ -1,0 +1,46 @@
+[
+  {
+    "id": "98c68ac75c66579c",
+    "kind": "schema.variant.removed",
+    "direction": "request",
+    "operation": "POST /payments",
+    "location": "#/paths/~1payments/post/requestBody/content/application~1json/schema/oneOf/1",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): A \"oneOf\" alternative was removed",
+    "subject": "oneOf"
+  },
+  {
+    "id": "05962e5c6fc9d276",
+    "kind": "schema.variant.removed",
+    "direction": "request",
+    "operation": "POST /payments",
+    "location": "#/paths/~1payments/post/requestBody/content/application~1json/schema/oneOf/2",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): A \"oneOf\" alternative was removed",
+    "subject": "oneOf"
+  },
+  {
+    "id": "cbe83a1f30e777f3",
+    "kind": "schema.variant.added",
+    "direction": "response",
+    "operation": "POST /payments",
+    "location": "#/paths/~1payments/post/responses/200/content/application~1json/schema/anyOf/2",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): A \"anyOf\" alternative was added",
+    "subject": "anyOf"
+  },
+  {
+    "id": "cc8b4db76e59f94a",
+    "kind": "schema.variant.added",
+    "direction": "response",
+    "operation": "POST /payments",
+    "location": "#/paths/~1payments/post/responses/200/content/application~1json/schema/anyOf/3",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): A \"anyOf\" alternative was added",
+    "subject": "anyOf"
+  }
+]

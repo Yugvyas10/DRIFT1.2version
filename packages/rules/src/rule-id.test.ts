@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RULES_FORMAT, RuleId } from "./index.ts";
+import { RULES_FORMAT, RuleId } from "./rule-id.ts";
 
 describe("rules vocabulary", () => {
   it("identifies the rules document format", () => {

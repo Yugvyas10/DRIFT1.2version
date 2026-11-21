@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info: { title: Request bodies, version: "1" }
+paths:
+  /made-required:
+    post:
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses: { "204": { description: ok } }
+  /made-optional:
+    post:
+      requestBody: { required: true, content: { application/json: { schema: { type: object } } } }
+      responses: { "204": { description: ok } }
+  /added-required:
+    post:
+      responses: { "204": { description: ok } }
+  /added-optional:
+    post:
+      responses: { "204": { description: ok } }
+  /removed:
+    post:
+      requestBody: { content: { application/json: { schema: { type: object } } } }
+      responses: { "204": { description: ok } }
+  /media-types:
+    post:
+      requestBody:
+        content:
+          application/json: { schema: { type: object } }
+          application/xml: { schema: { type: object } }
+      responses: { "204": { description: ok } }

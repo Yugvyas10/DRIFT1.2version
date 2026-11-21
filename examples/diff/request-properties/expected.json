@@ -1,0 +1,57 @@
+[
+  {
+    "id": "58b0d72447a4b0a7",
+    "kind": "schema.property.made_optional",
+    "direction": "request",
+    "operation": "POST /users",
+    "location": "#/paths/~1users/post/requestBody/content/application~1json/schema",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): Property \"nickname\" is no longer required",
+    "subject": "nickname"
+  },
+  {
+    "id": "8f4d27c9aef81f66",
+    "kind": "schema.property.added.required",
+    "direction": "request",
+    "operation": "POST /users",
+    "location": "#/paths/~1users/post/requestBody/content/application~1json/schema/properties/country",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Property \"country\" was added as required",
+    "subject": "country"
+  },
+  {
+    "id": "fceb82b1aeb8a525",
+    "kind": "schema.property.removed",
+    "direction": "request",
+    "operation": "POST /users",
+    "location": "#/paths/~1users/post/requestBody/content/application~1json/schema/properties/legacyId",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Property \"legacyId\" was removed",
+    "subject": "legacyId"
+  },
+  {
+    "id": "fa06b2bcb9deee86",
+    "kind": "schema.property.added.optional",
+    "direction": "request",
+    "operation": "POST /users",
+    "location": "#/paths/~1users/post/requestBody/content/application~1json/schema/properties/referrer",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Request body (application/json): Property \"referrer\" was added as optional",
+    "subject": "referrer"
+  },
+  {
+    "id": "f7eb429cd9c28407",
+    "kind": "schema.property.made_required",
+    "direction": "request",
+    "operation": "POST /users",
+    "location": "#/paths/~1users/post/requestBody/content/application~1json/schema/required",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Property \"email\" is now required",
+    "subject": "email"
+  }
+]

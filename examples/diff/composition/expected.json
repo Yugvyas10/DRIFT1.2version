@@ -1,0 +1,40 @@
+[
+  {
+    "id": "b57bfc9ac51fcac4",
+    "kind": "schema.discriminator.changed",
+    "direction": "request",
+    "operation": "POST /pets",
+    "location": "#/paths/~1pets/post/requestBody/content/application~1json/schema/discriminator",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Request body (application/json): Discriminator changed",
+    "before": {
+      "propertyName": "kind"
+    },
+    "after": {
+      "propertyName": "type"
+    }
+  },
+  {
+    "id": "0bb834661fb5700a",
+    "kind": "schema.composition.changed",
+    "direction": "response",
+    "operation": "POST /pets",
+    "location": "#/paths/~1pets/post/responses/200/content/application~1json/schema",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): \"allOf\" composition changed",
+    "subject": "allOf"
+  },
+  {
+    "id": "d4c2c1a422f603c8",
+    "kind": "schema.composition.changed",
+    "direction": "response",
+    "operation": "POST /pets",
+    "location": "#/paths/~1pets/post/responses/200/content/application~1json/schema",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Response 200 body (application/json): \"not\" changed",
+    "subject": "not"
+  }
+]

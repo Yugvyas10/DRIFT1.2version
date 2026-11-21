@@ -1,0 +1,92 @@
+[
+  {
+    "id": "df5a3000c8a9a429",
+    "kind": "param.made_required",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/parameters/1",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Query parameter \"offset\" is now required",
+    "subject": "query:offset"
+  },
+  {
+    "id": "bfac2cf818266c13",
+    "kind": "param.made_optional",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/parameters/2",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Query parameter \"sort\" is no longer required",
+    "subject": "query:sort"
+  },
+  {
+    "id": "5a0059cda5a8758f",
+    "kind": "param.location_changed",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/parameters/3",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Parameter \"status\" moved from query to header",
+    "subject": "status",
+    "before": "query",
+    "after": "header"
+  },
+  {
+    "id": "dd8fecdab09c9c86",
+    "kind": "param.removed",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/parameters/3",
+    "side": "base",
+    "candidateSeverity": "RISKY",
+    "message": "Header parameter \"X-Trace\" was removed",
+    "subject": "header:x-trace"
+  },
+  {
+    "id": "de9d318628c8f79a",
+    "kind": "param.deprecated",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/parameters/4",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Query parameter \"fields\" is now deprecated",
+    "subject": "query:fields"
+  },
+  {
+    "id": "3beb606a9fa21a37",
+    "kind": "doc.changed",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/parameters/4/description",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Description of query parameter \"fields\" changed",
+    "subject": "query:fields"
+  },
+  {
+    "id": "2c9f3dfe0bf8d762",
+    "kind": "param.added.required",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/parameters/5",
+    "side": "head",
+    "candidateSeverity": "RISKY",
+    "message": "Required query parameter \"tenant\" was added",
+    "subject": "query:tenant"
+  },
+  {
+    "id": "342819874c968268",
+    "kind": "param.added.optional",
+    "direction": "request",
+    "operation": "GET /pets",
+    "location": "#/paths/~1pets/get/parameters/6",
+    "side": "head",
+    "candidateSeverity": "SAFE",
+    "message": "Optional query parameter \"q\" was added",
+    "subject": "query:q"
+  }
+]

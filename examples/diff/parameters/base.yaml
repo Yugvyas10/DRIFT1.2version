@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info: { title: Parameters, version: "1" }
+paths:
+  /pets:
+    get:
+      parameters:
+        - { name: limit, in: query, schema: { type: integer } }
+        - { name: offset, in: query, schema: { type: integer } }
+        - { name: sort, in: query, required: true, schema: { type: string } }
+        - { name: X-Trace, in: header, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: fields, in: query, description: Fields to return, schema: { type: string } }
+      responses: { "200": { description: ok } }
