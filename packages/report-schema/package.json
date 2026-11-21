@@ -8,10 +8,12 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./schemas/*": "./schemas/*"
   },
   "files": [
-    "dist"
+    "dist",
+    "schemas"
   ],
   "engines": {
     "node": ">=24"

@@ -11,3 +11,5 @@ docs/MASTER_PROMPT.md
 examples/invalid/
 # Written by the golden tests (UPDATE_GOLDEN=1).
 examples/**/expected.json
+packages/report-schema/schemas/
+packages/rules/schemas/

@@ -2,7 +2,7 @@ import { stringify } from "yaml";
 import { describe, expect, it } from "vitest";
 import { memoryReader } from "../testing/memory-reader.ts";
 import { ingestObject, openapi } from "../testing/specs.ts";
-import { normalizeMediaType, normalizeSecurity, pathTemplate } from "./build-ir.ts";
+import { basePaths, normalizeMediaType, normalizeSecurity, pathTemplate } from "./build-ir.ts";
 import { ingestSpec } from "./ingest.ts";
 
 const ok = { "200": { description: "ok" } };
@@ -187,5 +187,22 @@ describe("helpers", () => {
       { b: [] },
     ]);
     expect(normalizeSecurity(undefined)).toEqual([]);
+  });
+});
+
+describe("basePaths", () => {
+  it("takes the path of each server URL, with variable defaults, and defaults to the root", () => {
+    expect(basePaths(undefined)).toEqual([""]);
+    expect(
+      basePaths([
+        { url: "https://api.example.com/v1/" },
+        { url: "//cdn.example.com/static?x=1" },
+        { url: "/{version}/api", variables: { version: { default: "v2" } } },
+        { url: "relative/{unknown}" },
+        { url: "https://example.com" },
+        { description: "no url" },
+        "junk",
+      ])
+    ).toEqual(["", "/relative/{unknown}", "/static", "/v1", "/v2/api"]);
   });
 });

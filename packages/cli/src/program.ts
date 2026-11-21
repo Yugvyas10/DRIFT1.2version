@@ -1,6 +1,7 @@
 import { ENGINE_VERSION } from "@drift/core";
 import { ExitCode } from "@drift/report-schema";
 import { Command, CommanderError, Option } from "commander";
+import { compareCommand, type CompareOptions } from "./commands/compare.ts";
 import { diffCommand } from "./commands/diff.ts";
 import { validateCommand } from "./commands/validate.ts";
 import { CLI_VERSION } from "./version.ts";
@@ -41,13 +42,35 @@ export function createProgram(io: CliIo, result: { exitCode: ExitCode }, cwd: st
 
   program
     .command("diff")
-    .description("list the structural changes between two specs (no evidence; see `compare` from M2)")
+    .description("list the structural changes between two specs (no evidence or gate; see `compare`)")
     .requiredOption("--base <spec>", "the old contract")
     .requiredOption("--head <spec>", "the new contract")
     .addOption(formatOption())
     .addOption(refRootOption())
     .action(async (options: { base: string; head: string; format: "text" | "json"; refRoot?: string }) => {
       result.exitCode = await diffCommand(options, io, cwd);
+    });
+
+  program
+    .command("compare")
+    .description("compare two specs with evidence and gate the result (exit 1 when the gate fails)")
+    .requiredOption("--base <spec>", "the old contract")
+    .requiredOption("--head <spec>", "the new contract")
+    .option("--traffic <file>", "recorded traffic: drift-traffic/v1 JSONL, or a .har file")
+    .option("--rules <file>", "a complete ruleset (drift-rules/v1, YAML or JSON) instead of the default one")
+    .option("--policy <file>", "project policy: fail-on, escalations and suppressions (drift-policy/v1)")
+    .addOption(formatOption())
+    .addOption(
+      new Option("--fail-on <level>", "fail the gate on BREAKING (default) or on RISKY too").choices([
+        "breaking",
+        "risky",
+      ])
+    )
+    .option("--seed <n>", "seed for sampling and synthetic samples (deterministic)", "0")
+    .option("--as-of <date>", "date suppressions are checked against (default: today, UTC)")
+    .addOption(refRootOption())
+    .action(async (options: CompareOptions) => {
+      result.exitCode = await compareCommand(options, io, cwd);
     });
 
   program.action(() => {

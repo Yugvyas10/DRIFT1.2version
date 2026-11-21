@@ -71,6 +71,8 @@ export interface SpecIR {
   irVersion: 1;
   oasVersion: string;
   info: { title: string; version: string };
+  /** Path prefixes from `servers` (`""` for the root), used to route recorded requests. */
+  basePaths: string[];
   operations: Record<string, OperationIR>;
   /** Normalised component schemas reachable from operations, keyed by component id. */
   schemas: Record<string, NormalizedSchema>;

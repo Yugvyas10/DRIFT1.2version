@@ -1,6 +1,6 @@
 # ADR-0005: Classification rules as versioned data
 
-Status: Accepted (2026-09-26)
+Status: Accepted (2026-09-26); amended in M2 (2026-09-28), see the end
 Date: 2026-09-26
 Owner: P4
 
@@ -30,3 +30,15 @@ The legacy classifier hardcoded six change kinds in a `Set`. Rules scattered thr
 
 - _How do I know which rule produced a label?_ Every change in the report carries `ruleId` and `rationale`, and `drift explain` prints them.
 - _Can a project silence a real break forever?_ No. Suppressions expire, need a reason, and are audited in platform mode.
+
+## Amendment (M2, 2026-09-28): what a rule holds
+
+Built in M2, with two changes from the decision above:
+
+1. **No `when` condition language.** Every condition we needed was already part of the change kind (required vs optional, success vs error status) or was the evidence policy itself. That policy (failing evidence → BREAKING; otherwise dangerous → RISKY, safe → SAFE) must not be overridable by a data file, so it stays in core. A rule now holds `structural` (dangerous/safe), `verifiable` (can a sample prove it?), `additive` and `rationale`. Grow a condition grammar only when a rule needs one.
+2. **The default ruleset is JSON, not YAML compiled to JSON.** It is imported directly with an import attribute, with no build step. Project rules and policy files may be YAML or JSON.
+
+Projects change classification in two ways:
+
+- **A policy** (`drift-policy/v1`): `failOn`, escalations (SAFE → RISKY only), and suppressions with a reason and an expiry date.
+- **A complete ruleset of their own**, which must still cover every (kind, direction) pair. Its hash appears in every report.

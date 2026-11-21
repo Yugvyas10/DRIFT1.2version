@@ -13,6 +13,7 @@ import type {
   SpecIR,
 } from "../ingest/ir.ts";
 import type { JsonValue } from "../util/json.ts";
+import type { Anchor, Slot } from "./anchors.ts";
 import { SchemaDiffer, type SchemaChange } from "./schema-diff.ts";
 
 /** Stage 2 output: every structural change, and which operations each change affects. */
@@ -20,6 +21,8 @@ export interface DiffResult {
   changes: Change[];
   /** Impact index: operation key → ids of the changes that affect it. Later stages only touch these operations. */
   impact: Record<string, string[]>;
+  /** Change id → where the change sits in its operation (internal to the engine; see anchors.ts). */
+  anchors: Record<string, Anchor[]>;
 }
 
 interface ChangeInput {
@@ -32,6 +35,7 @@ interface ChangeInput {
   before?: JsonValue | undefined;
   after?: JsonValue | undefined;
   message: string;
+  anchor: Anchor;
 }
 
 /** Stable change id: the first 16 hex digits of SHA-256 over what identifies the change. */
@@ -73,9 +77,13 @@ function makeChange(input: ChangeInput): Change {
 export function diffSpecs(base: SpecIR, head: SpecIR): DiffResult {
   const differ = new SchemaDiffer(base, head);
   const changes = new Map<string, Change>();
+  const anchors = new Map<string, Map<string, Anchor>>();
   const add = (input: ChangeInput) => {
     const change = makeChange(input);
     if (!changes.has(change.id)) changes.set(change.id, change);
+    const list = anchors.get(change.id) ?? new Map<string, Anchor>();
+    list.set(canonicalJson(input.anchor), input.anchor);
+    anchors.set(change.id, list);
   };
 
   const baseTemplates = new Set(Object.values(base.operations).map((operation) => operation.template));
@@ -95,6 +103,7 @@ export function diffSpecs(base: SpecIR, head: SpecIR): DiffResult {
         location: before.source,
         side: "base",
         message: wholePath ? `Path ${before.path} was removed` : `Operation ${key} was removed`,
+        anchor: { at: "operation" },
       });
     } else if (after) {
       const wholePath = !baseTemplates.has(after.template);
@@ -105,6 +114,7 @@ export function diffSpecs(base: SpecIR, head: SpecIR): DiffResult {
         location: after.source,
         side: "head",
         message: wholePath ? `Path ${after.path} was added` : `Operation ${key} was added`,
+        anchor: { at: "operation" },
       });
     }
   }
@@ -118,8 +128,15 @@ export function diffSpecs(base: SpecIR, head: SpecIR): DiffResult {
       compare(a.subject ?? "", b.subject ?? "")
   );
   const impact: Record<string, string[]> = {};
-  for (const change of sorted) (impact[change.operation] ??= []).push(change.id);
-  return { changes: sorted, impact };
+  const anchorIndex: Record<string, Anchor[]> = {};
+  for (const change of sorted) {
+    (impact[change.operation] ??= []).push(change.id);
+    const list = anchors.get(change.id);
+    if (list) {
+      anchorIndex[change.id] = [...list.entries()].sort(([a], [b]) => compare(a, b)).map(([, anchor]) => anchor);
+    }
+  }
+  return { changes: sorted, impact, anchors: anchorIndex };
 }
 
 function compare(a: string, b: string): number {
@@ -185,23 +202,31 @@ class OperationDiff {
     direction: Direction,
     location: string,
     side: "base" | "head",
-    extra: { message: string; subject?: string; before?: JsonValue; after?: JsonValue }
+    extra: { message: string; subject?: string; before?: JsonValue; after?: JsonValue },
+    anchor: Anchor = { at: "operation" }
   ): void {
-    this.#add({ kind, direction, operation: this.#key, location, side, ...extra });
+    this.#add({ kind, direction, operation: this.#key, location, side, ...extra, anchor });
   }
 
-  #schemas(b: NormalizedSchema, h: NormalizedSchema, direction: Direction, context: string): void {
-    for (const change of this.#differ.diff(b, h, direction)) this.#emitSchema(change, direction, context);
+  #schemas(b: NormalizedSchema, h: NormalizedSchema, direction: Direction, context: string, slot: Slot): void {
+    for (const change of this.#differ.diff(b, h, direction)) this.#emitSchema(change, direction, context, slot);
   }
 
-  #emitSchema(change: SchemaChange, direction: Direction, context: string): void {
+  #emitSchema(change: SchemaChange, direction: Direction, context: string, slot: Slot): void {
     const side = direction === "request" ? "Request" : "Response";
-    this.#emit(change.kind, direction, change.location, change.side, {
-      message: `${side} ${context}: ${change.message}`,
-      ...(change.subject === undefined ? {} : { subject: change.subject }),
-      ...(change.before === undefined ? {} : { before: change.before }),
-      ...(change.after === undefined ? {} : { after: change.after }),
-    });
+    this.#emit(
+      change.kind,
+      direction,
+      change.location,
+      change.side,
+      {
+        message: `${side} ${context}: ${change.message}`,
+        ...(change.subject === undefined ? {} : { subject: change.subject }),
+        ...(change.before === undefined ? {} : { before: change.before }),
+        ...(change.after === undefined ? {} : { after: change.after }),
+      },
+      { at: "schema", slot, nodes: change.nodes }
+    );
   }
 
   /** Security alternatives: the change is tightening if some way of calling that used to work no longer does. */
@@ -239,53 +264,100 @@ class OperationDiff {
       if (moved) {
         const [movedKey, after] = moved;
         added.delete(movedKey);
-        this.#emit("param.location_changed", "request", after.source, "head", {
-          subject: before.name,
-          before: before.in,
-          after: after.in,
-          message: `Parameter "${before.name}" moved from ${before.in} to ${after.in}`,
-        });
+        this.#emit(
+          "param.location_changed",
+          "request",
+          after.source,
+          "head",
+          {
+            subject: before.name,
+            before: before.in,
+            after: after.in,
+            message: `Parameter "${before.name}" moved from ${before.in} to ${after.in}`,
+          },
+          { at: "param", key: movedKey }
+        );
         continue;
       }
-      this.#emit("param.removed", "request", before.source, "base", {
-        subject: key,
-        message: `${capitalise(before.in)} parameter "${before.name}" was removed`,
-      });
+      this.#emit(
+        "param.removed",
+        "request",
+        before.source,
+        "base",
+        { subject: key, message: `${capitalise(before.in)} parameter "${before.name}" was removed` },
+        { at: "param", key }
+      );
     }
     for (const [key, after] of added) {
-      this.#emit(after.required ? "param.added.required" : "param.added.optional", "request", after.source, "head", {
-        subject: key,
-        message: `${after.required ? "Required" : "Optional"} ${after.in} parameter "${after.name}" was added`,
-      });
+      this.#emit(
+        after.required ? "param.added.required" : "param.added.optional",
+        "request",
+        after.source,
+        "head",
+        {
+          subject: key,
+          message: `${after.required ? "Required" : "Optional"} ${after.in} parameter "${after.name}" was added`,
+        },
+        { at: "param", key }
+      );
     }
     for (const [key, before] of Object.entries(b)) {
       const after = h[key];
       if (!after) continue;
       const label = `${after.in} parameter "${after.name}"`;
+      const anchor: Anchor = { at: "param", key };
       if (!before.required && after.required) {
-        this.#emit("param.made_required", "request", after.source, "head", {
-          subject: key,
-          message: `${capitalise(label)} is now required`,
-        });
+        this.#emit(
+          "param.made_required",
+          "request",
+          after.source,
+          "head",
+          {
+            subject: key,
+            message: `${capitalise(label)} is now required`,
+          },
+          anchor
+        );
       } else if (before.required && !after.required) {
-        this.#emit("param.made_optional", "request", after.source, "head", {
-          subject: key,
-          message: `${capitalise(label)} is no longer required`,
-        });
+        this.#emit(
+          "param.made_optional",
+          "request",
+          after.source,
+          "head",
+          {
+            subject: key,
+            message: `${capitalise(label)} is no longer required`,
+          },
+          anchor
+        );
       }
       if (!before.deprecated && after.deprecated) {
-        this.#emit("param.deprecated", "request", after.source, "head", {
-          subject: key,
-          message: `${capitalise(label)} is now deprecated`,
-        });
+        this.#emit(
+          "param.deprecated",
+          "request",
+          after.source,
+          "head",
+          {
+            subject: key,
+            message: `${capitalise(label)} is now deprecated`,
+          },
+          anchor
+        );
       }
       if (before.description !== after.description) {
-        this.#emit("doc.changed", "request", `${after.source}/description`, "head", {
-          subject: key,
-          message: `Description of ${label} changed`,
-        });
+        this.#emit(
+          "doc.changed",
+          "request",
+          `${after.source}/description`,
+          "head",
+          {
+            subject: key,
+            message: `Description of ${label} changed`,
+          },
+          anchor
+        );
       }
-      this.#schemas(before.schema, after.schema, "request", label);
+      this.#schemas(before.schema, after.schema, "request", label, { part: "param", key });
     }
   }
 
@@ -297,26 +369,48 @@ class OperationDiff {
         "request",
         h.source,
         "head",
-        {
-          message: `${h.required ? "Required" : "Optional"} request body was added`,
-        }
+        { message: `${h.required ? "Required" : "Optional"} request body was added` },
+        { at: "body" }
       );
       return;
     }
     if (b && !h) {
-      this.#emit("request.body.removed", "request", b.source, "base", { message: "Request body was removed" });
+      this.#emit(
+        "request.body.removed",
+        "request",
+        b.source,
+        "base",
+        { message: "Request body was removed" },
+        {
+          at: "body",
+        }
+      );
       return;
     }
     if (!b || !h) return;
     if (!b.required && h.required)
-      this.#emit("request.body.made_required", "request", h.source, "head", {
-        message: "Request body is now required",
-      });
+      this.#emit(
+        "request.body.made_required",
+        "request",
+        h.source,
+        "head",
+        {
+          message: "Request body is now required",
+        },
+        { at: "body" }
+      );
     if (b.required && !h.required)
-      this.#emit("request.body.made_optional", "request", h.source, "head", {
-        message: "Request body is no longer required",
-      });
-    this.#content(b.content, h.content, "request", "body");
+      this.#emit(
+        "request.body.made_optional",
+        "request",
+        h.source,
+        "head",
+        {
+          message: "Request body is no longer required",
+        },
+        { at: "body" }
+      );
+    this.#content(b.content, h.content, "request", "body", undefined);
   }
 
   #responses(b: Record<string, ResponseIR>, h: Record<string, ResponseIR>): void {
@@ -331,49 +425,83 @@ class OperationDiff {
           "response",
           after.source,
           "head",
-          {
-            subject: status,
-            message: `Response status ${status} was added`,
-          }
+          { subject: status, message: `Response status ${status} was added` },
+          { at: "status", status }
         );
       } else if (before && !after) {
-        this.#emit("response.status.removed", "response", before.source, "base", {
-          subject: status,
-          message: `Response status ${status} was removed`,
-        });
+        this.#emit(
+          "response.status.removed",
+          "response",
+          before.source,
+          "base",
+          { subject: status, message: `Response status ${status} was removed` },
+          { at: "status", status }
+        );
       } else if (before && after) {
         if (before.description !== after.description) {
-          this.#emit("doc.changed", "response", `${after.source}/description`, "head", {
-            subject: status,
-            message: `Description of response ${status} changed`,
-          });
+          this.#emit(
+            "doc.changed",
+            "response",
+            `${after.source}/description`,
+            "head",
+            {
+              subject: status,
+              message: `Description of response ${status} changed`,
+            },
+            { at: "status", status }
+          );
         }
-        this.#content(before.content, after.content, "response", `${status} body`);
+        this.#content(before.content, after.content, "response", `${status} body`, status);
       }
     }
   }
 
-  #content(b: Record<string, MediaTypeIR>, h: Record<string, MediaTypeIR>, direction: Direction, label: string): void {
+  #content(
+    b: Record<string, MediaTypeIR>,
+    h: Record<string, MediaTypeIR>,
+    direction: Direction,
+    label: string,
+    status: string | undefined
+  ): void {
     const mediaTypes = [...new Set([...Object.keys(b), ...Object.keys(h)])].sort();
     for (const mediaType of mediaTypes) {
       const before = b[mediaType];
       const after = h[mediaType];
       const side = direction === "request" ? "Request" : "Response";
+      const slot: Slot = status === undefined ? { part: "body", mediaType } : { part: "response", status, mediaType };
+      const anchor: Anchor =
+        status === undefined
+          ? { at: "media", part: "body", mediaType }
+          : { at: "media", part: "response", status, mediaType };
       if (!before && after) {
-        this.#emit("media_type.added", direction, after.source, "head", {
-          subject: mediaType,
-          message: `${side} ${label}: media type ${mediaType} was added`,
-        });
+        this.#emit(
+          "media_type.added",
+          direction,
+          after.source,
+          "head",
+          {
+            subject: mediaType,
+            message: `${side} ${label}: media type ${mediaType} was added`,
+          },
+          anchor
+        );
       } else if (before && !after) {
-        this.#emit("media_type.removed", direction, before.source, "base", {
-          subject: mediaType,
-          message: `${side} ${label}: media type ${mediaType} was removed`,
-        });
+        this.#emit(
+          "media_type.removed",
+          direction,
+          before.source,
+          "base",
+          {
+            subject: mediaType,
+            message: `${side} ${label}: media type ${mediaType} was removed`,
+          },
+          anchor
+        );
       } else if (before && after) {
         // No schema means any content is allowed, which is the empty schema.
         const bSchema = before.schema ?? { $source: `${before.source}/schema` };
         const hSchema = after.schema ?? { $source: `${after.source}/schema` };
-        this.#schemas(bSchema, hSchema, direction, `${label} (${mediaType})`);
+        this.#schemas(bSchema, hSchema, direction, `${label} (${mediaType})`, slot);
       }
     }
   }

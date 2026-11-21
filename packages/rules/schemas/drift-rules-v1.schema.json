@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/drift-rules-v1",
+  "$defs": {
+    "drift-rules-v1": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "const": "drift-rules/v1"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "confidence": {
+          "type": "object",
+          "properties": {
+            "syntheticFailing": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "exclusiveMaximum": 1
+            },
+            "syntheticHalfLife": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "ruleOfThree": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "syntheticFailing",
+            "syntheticHalfLife",
+            "ruleOfThree"
+          ],
+          "additionalProperties": false
+        },
+        "rules": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^DRIFT(?:-[A-Z0-9]+)+$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "path.added",
+                  "path.removed",
+                  "operation.added",
+                  "operation.removed",
+                  "operation.deprecated",
+                  "path.param.renamed",
+                  "param.added.required",
+                  "param.added.optional",
+                  "param.removed",
+                  "param.made_required",
+                  "param.made_optional",
+                  "param.location_changed",
+                  "param.deprecated",
+                  "request.body.added.required",
+                  "request.body.added.optional",
+                  "request.body.removed",
+                  "request.body.made_required",
+                  "request.body.made_optional",
+                  "media_type.added",
+                  "media_type.removed",
+                  "response.status.added",
+                  "response.error_status.added",
+                  "response.status.removed",
+                  "schema.property.added.required",
+                  "schema.property.added.optional",
+                  "schema.property.removed",
+                  "schema.property.made_required",
+                  "schema.property.made_optional",
+                  "schema.type.narrowed",
+                  "schema.type.widened",
+                  "schema.type.changed",
+                  "schema.format.changed",
+                  "schema.enum.value_added",
+                  "schema.enum.value_removed",
+                  "schema.bound.tightened",
+                  "schema.bound.relaxed",
+                  "schema.additional_properties.tightened",
+                  "schema.additional_properties.relaxed",
+                  "schema.variant.added",
+                  "schema.variant.removed",
+                  "schema.composition.changed",
+                  "schema.discriminator.changed",
+                  "schema.default.changed",
+                  "schema.deprecated",
+                  "security.requirement.added",
+                  "security.requirement.removed",
+                  "doc.changed"
+                ]
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "request",
+                  "response"
+                ]
+              },
+              "structural": {
+                "type": "string",
+                "enum": [
+                  "dangerous",
+                  "safe"
+                ]
+              },
+              "verifiable": {
+                "type": "boolean"
+              },
+              "additive": {
+                "type": "boolean"
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 1
+              },
+              "docsUrl": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "direction",
+              "structural",
+              "verifiable",
+              "additive",
+              "rationale"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "format",
+        "version",
+        "confidence",
+        "rules"
+      ],
+      "additionalProperties": false,
+      "title": "DRIFT classification rules (drift-rules/v1)"
+    }
+  }
+}

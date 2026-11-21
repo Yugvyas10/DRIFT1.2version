@@ -1,0 +1,651 @@
+{
+  "$schema": "../schemas/drift-rules-v1.schema.json",
+  "format": "drift-rules/v1",
+  "version": "1.0.0",
+  "confidence": {
+    "syntheticFailing": 0.8,
+    "syntheticHalfLife": 20,
+    "ruleOfThree": 3
+  },
+  "rules": [
+    {
+      "id": "DRIFT-REQ-PATH-ADDED",
+      "kind": "path.added",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "A new path adds functionality; existing clients do not call it."
+    },
+    {
+      "id": "DRIFT-REQ-PATH-REMOVED",
+      "kind": "path.removed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients still calling the path will get an error; a recorded call to it proves the break."
+    },
+    {
+      "id": "DRIFT-REQ-OPERATION-ADDED",
+      "kind": "operation.added",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "A new operation adds functionality; existing clients do not call it."
+    },
+    {
+      "id": "DRIFT-REQ-OPERATION-REMOVED",
+      "kind": "operation.removed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients still calling the operation will get an error; a recorded call to it proves the break."
+    },
+    {
+      "id": "DRIFT-REQ-OPERATION-DEPRECATED",
+      "kind": "operation.deprecated",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "Deprecation announces a future removal but does not change behaviour."
+    },
+    {
+      "id": "DRIFT-REQ-PATH-PARAM-RENAMED",
+      "kind": "path.param.renamed",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Path parameter names are not sent on the wire; only the position matters."
+    },
+    {
+      "id": "DRIFT-REQ-PARAM-ADDED-REQUIRED",
+      "kind": "param.added.required",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Existing clients do not send the new parameter, so the server will reject their requests."
+    },
+    {
+      "id": "DRIFT-REQ-PARAM-ADDED-OPTIONAL",
+      "kind": "param.added.optional",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "Existing clients can keep omitting an optional parameter."
+    },
+    {
+      "id": "DRIFT-REQ-PARAM-REMOVED",
+      "kind": "param.removed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients may rely on the parameter's effect; servers usually ignore unknown parameters, so no sample can prove the break."
+    },
+    {
+      "id": "DRIFT-REQ-PARAM-MADE-REQUIRED",
+      "kind": "param.made_required",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients that omit the parameter will be rejected."
+    },
+    {
+      "id": "DRIFT-REQ-PARAM-MADE-OPTIONAL",
+      "kind": "param.made_optional",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "Every request that was valid still is."
+    },
+    {
+      "id": "DRIFT-REQ-PARAM-LOCATION-CHANGED",
+      "kind": "param.location_changed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients still send the parameter in its old location, where the server no longer reads it."
+    },
+    {
+      "id": "DRIFT-REQ-PARAM-DEPRECATED",
+      "kind": "param.deprecated",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "Deprecation announces a future removal but does not change behaviour."
+    },
+    {
+      "id": "DRIFT-REQ-REQUEST-BODY-ADDED-REQUIRED",
+      "kind": "request.body.added.required",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Existing clients send no body, so the server will reject their requests."
+    },
+    {
+      "id": "DRIFT-REQ-REQUEST-BODY-ADDED-OPTIONAL",
+      "kind": "request.body.added.optional",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "Existing clients can keep sending no body."
+    },
+    {
+      "id": "DRIFT-REQ-REQUEST-BODY-REMOVED",
+      "kind": "request.body.removed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients still send a body the server no longer reads; its effect is lost, which validation cannot show."
+    },
+    {
+      "id": "DRIFT-REQ-REQUEST-BODY-MADE-REQUIRED",
+      "kind": "request.body.made_required",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients that send no body will be rejected."
+    },
+    {
+      "id": "DRIFT-REQ-REQUEST-BODY-MADE-OPTIONAL",
+      "kind": "request.body.made_optional",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "Every request that was valid still is."
+    },
+    {
+      "id": "DRIFT-REQ-SECURITY-REQUIREMENT-ADDED",
+      "kind": "security.requirement.added",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients without the new credentials or scopes will be refused; recorded credentials are redacted, so this is not proven by samples."
+    },
+    {
+      "id": "DRIFT-REQ-SECURITY-REQUIREMENT-REMOVED",
+      "kind": "security.requirement.removed",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Every way of calling that worked still works."
+    },
+    {
+      "id": "DRIFT-RES-RESPONSE-STATUS-ADDED",
+      "kind": "response.status.added",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients may not handle a success status they have never seen; this is behavioural and not provable by validation."
+    },
+    {
+      "id": "DRIFT-RES-RESPONSE-ERROR-STATUS-ADDED",
+      "kind": "response.error_status.added",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients already have to handle error statuses in general."
+    },
+    {
+      "id": "DRIFT-RES-RESPONSE-STATUS-REMOVED",
+      "kind": "response.status.removed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients waiting for this status will not get it; this is behavioural and not provable by validation."
+    },
+    {
+      "id": "DRIFT-REQ-MEDIA-TYPE-ADDED",
+      "kind": "media_type.added",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "The server accepts an additional format; existing clients are unaffected."
+    },
+    {
+      "id": "DRIFT-RES-MEDIA-TYPE-ADDED",
+      "kind": "media_type.added",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "The server may answer in a format existing clients cannot parse."
+    },
+    {
+      "id": "DRIFT-REQ-MEDIA-TYPE-REMOVED",
+      "kind": "media_type.removed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients still sending this format will be rejected; a recorded request in it proves the break."
+    },
+    {
+      "id": "DRIFT-RES-MEDIA-TYPE-REMOVED",
+      "kind": "media_type.removed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients asking for this format will no longer get it."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-PROPERTY-ADDED-REQUIRED",
+      "kind": "schema.property.added.required",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Existing clients do not send the new property, so the server will reject their requests."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-PROPERTY-ADDED-REQUIRED",
+      "kind": "schema.property.added.required",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients receive one more property. It is proven breaking only if the old schema forbade additional properties."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-PROPERTY-ADDED-OPTIONAL",
+      "kind": "schema.property.added.optional",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": true,
+      "rationale": "Existing clients can keep omitting an optional property."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-PROPERTY-ADDED-OPTIONAL",
+      "kind": "schema.property.added.optional",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients receive one more property. It is proven breaking only if the old schema forbade additional properties."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-PROPERTY-REMOVED",
+      "kind": "schema.property.removed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients still send the property; if the new schema forbids unknown properties they are rejected, otherwise the value is silently ignored."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-PROPERTY-REMOVED",
+      "kind": "schema.property.removed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients that read the property will no longer find it."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-PROPERTY-MADE-REQUIRED",
+      "kind": "schema.property.made_required",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients that omit the property will be rejected."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-PROPERTY-MADE-REQUIRED",
+      "kind": "schema.property.made_required",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients receive the property more often than before."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-PROPERTY-MADE-OPTIONAL",
+      "kind": "schema.property.made_optional",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": true,
+      "rationale": "Every request that was valid still is."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-PROPERTY-MADE-OPTIONAL",
+      "kind": "schema.property.made_optional",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients that rely on the property may not receive it."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-TYPE-NARROWED",
+      "kind": "schema.type.narrowed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients sending a value of a removed type will be rejected."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-TYPE-NARROWED",
+      "kind": "schema.type.narrowed",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "The server returns fewer kinds of values than before."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-TYPE-WIDENED",
+      "kind": "schema.type.widened",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": true,
+      "rationale": "The server accepts more kinds of values than before."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-TYPE-WIDENED",
+      "kind": "schema.type.widened",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients may receive a value of a type they do not expect."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-TYPE-CHANGED",
+      "kind": "schema.type.changed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients sending the old type will be rejected."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-TYPE-CHANGED",
+      "kind": "schema.type.changed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients will receive values of a type they do not expect."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-FORMAT-CHANGED",
+      "kind": "schema.format.changed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Values in the old format may be rejected."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-FORMAT-CHANGED",
+      "kind": "schema.format.changed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients may receive values in a format they do not expect."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-ENUM-VALUE-ADDED",
+      "kind": "schema.enum.value_added",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": true,
+      "rationale": "The server accepts one more value."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-ENUM-VALUE-ADDED",
+      "kind": "schema.enum.value_added",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients that validate responses strictly may reject a value they have never seen."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-ENUM-VALUE-REMOVED",
+      "kind": "schema.enum.value_removed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients still sending the removed value will be rejected."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-ENUM-VALUE-REMOVED",
+      "kind": "schema.enum.value_removed",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "The server returns fewer values than before."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-BOUND-TIGHTENED",
+      "kind": "schema.bound.tightened",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Values that used to be accepted may now be rejected."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-BOUND-TIGHTENED",
+      "kind": "schema.bound.tightened",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "The server returns a narrower range of values than before."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-BOUND-RELAXED",
+      "kind": "schema.bound.relaxed",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": true,
+      "rationale": "The server accepts a wider range of values than before."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-BOUND-RELAXED",
+      "kind": "schema.bound.relaxed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients may receive values outside the range they were built for."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-ADDITIONAL-PROPERTIES-TIGHTENED",
+      "kind": "schema.additional_properties.tightened",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients sending extra properties will be rejected."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-ADDITIONAL-PROPERTIES-TIGHTENED",
+      "kind": "schema.additional_properties.tightened",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "The server returns fewer extra properties than before."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-ADDITIONAL-PROPERTIES-RELAXED",
+      "kind": "schema.additional_properties.relaxed",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": true,
+      "rationale": "The server accepts extra properties it used to reject."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-ADDITIONAL-PROPERTIES-RELAXED",
+      "kind": "schema.additional_properties.relaxed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients may receive properties the old contract forbade."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-VARIANT-ADDED",
+      "kind": "schema.variant.added",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": true,
+      "rationale": "The server accepts one more alternative."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-VARIANT-ADDED",
+      "kind": "schema.variant.added",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients may receive an alternative they cannot handle."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-VARIANT-REMOVED",
+      "kind": "schema.variant.removed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "Clients sending the removed alternative will be rejected."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-VARIANT-REMOVED",
+      "kind": "schema.variant.removed",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "The server returns fewer alternatives than before."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-COMPOSITION-CHANGED",
+      "kind": "schema.composition.changed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "The combination of schemas changed; requests that were valid may no longer be."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-COMPOSITION-CHANGED",
+      "kind": "schema.composition.changed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": true,
+      "additive": false,
+      "rationale": "The combination of schemas changed; clients may receive values they do not expect."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-DISCRIMINATOR-CHANGED",
+      "kind": "schema.discriminator.changed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "The server may pick a different alternative for the same payload; this is behavioural."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-DISCRIMINATOR-CHANGED",
+      "kind": "schema.discriminator.changed",
+      "direction": "response",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients may pick a different alternative for the same payload; this is behavioural."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-DEFAULT-CHANGED",
+      "kind": "schema.default.changed",
+      "direction": "request",
+      "structural": "dangerous",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Clients that omit the value get different behaviour; this cannot be proven by validation, so it stays RISKY."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-DEFAULT-CHANGED",
+      "kind": "schema.default.changed",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Defaults describe what the server assumes, not what it returns."
+    },
+    {
+      "id": "DRIFT-REQ-SCHEMA-DEPRECATED",
+      "kind": "schema.deprecated",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "Deprecation announces a future removal but does not change behaviour."
+    },
+    {
+      "id": "DRIFT-RES-SCHEMA-DEPRECATED",
+      "kind": "schema.deprecated",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": true,
+      "rationale": "Deprecation announces a future removal but does not change behaviour."
+    },
+    {
+      "id": "DRIFT-REQ-DOC-CHANGED",
+      "kind": "doc.changed",
+      "direction": "request",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Documentation does not change behaviour."
+    },
+    {
+      "id": "DRIFT-RES-DOC-CHANGED",
+      "kind": "doc.changed",
+      "direction": "response",
+      "structural": "safe",
+      "verifiable": false,
+      "additive": false,
+      "rationale": "Documentation does not change behaviour."
+    }
+  ]
+}
