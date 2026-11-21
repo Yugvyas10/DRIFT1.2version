@@ -21,6 +21,9 @@ overrides:
   deepmerge-ts: 8.0.2
   # Via the prisma CLI (GHSA-3f6p-5ww8-9rcr and a zlib advisory). DRIFT uses Postgres and never loads it.
   mysql2: 3.24.5
+  # Via prisma > @prisma/config, which pins 3.20.0 even in 7.10.1 (GHSA-7589-6fvf-x4pw, a ReDoS in
+  # Schema.TemplateLiteral). Same major version; Prisma uses it to load prisma.config.ts.
+  effect: 3.22.4
 
 # Lifecycle scripts are blocked unless listed here (supply-chain hardening).
 allowBuilds:
