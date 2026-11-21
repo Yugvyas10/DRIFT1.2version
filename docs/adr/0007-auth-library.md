@@ -25,6 +25,13 @@ Use **next-auth v4** for _identity only_: the credentials provider (bcrypt) and 
 - Orgs, RBAC, invitations, API keys and audit are our own code in `packages/db` + `apps/web`. The library choice affects only sign-in.
 - No development-only login fallback exists in any build (the legacy one is deleted).
 
+## As built (M5)
+
+- There is no `Session` table: with JWT sessions there is nothing to store. `User.tokenVersion` is in the token and compared with the database on every request, in `authenticate` (`apps/web/src/server/auth/require-auth.ts`).
+- Sessions last 8 hours. "Sign out everywhere" raises `tokenVersion`.
+- The session is read from next-auth's cookie only, never from an `Authorization` header (that header is for API keys).
+- A GitHub sign-in never attaches itself to an existing password account with the same email address: it is refused, because merging would let whoever controls that GitHub account take the account over.
+
 ## Alternatives considered
 
 - **Auth.js v5 beta.** Better App Router ergonomics, but running a beta for security-critical code needs its own justification.

@@ -15,8 +15,16 @@ concurrency:
 
 env:
   TURBO_TELEMETRY_DISABLED: "1"
-  # apps/web refuses to build or typecheck without it (fail-fast environment validation).
+  # apps/web refuses to build or typecheck without a valid environment (fail-fast validation). These are
+  # placeholders for the build: nothing connects to them. The integration and end-to-end jobs start their own
+  # Postgres and S3 in containers and pass the real values to the app.
   APP_URL: http://localhost:3000
+  DATABASE_URL: postgresql://build:build@localhost:5432/build
+  AUTH_SECRET: ci-build-placeholder-not-a-secret-0000000
+  S3_ENDPOINT: http://localhost:8333
+  S3_BUCKET: build
+  S3_ACCESS_KEY_ID: build
+  S3_SECRET_ACCESS_KEY: build
 
 jobs:
   check:
@@ -83,6 +91,53 @@ jobs:
       - name: Stop services
         if: always()
         run: docker compose -f infra/docker-compose.yml down -v
+
+  integration:
+    name: API integration tests (Postgres + S3 in containers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --filter=@drift/web^...
+      - name: Migrations apply and match the schema; API follows drift-api.yaml; coverage thresholds
+        run: pnpm --filter @drift/web run test:integration
+
+  e2e:
+    name: End-to-end (browser + drift compare --upload)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --filter=@drift/web --filter=@drift/cli
+      - name: Install the browser
+        run: pnpm --filter @drift/web exec playwright install --with-deps chromium
+      - name: Register, create a key, upload a run with the CLI, see it in the run list
+        run: pnpm --filter @drift/web run test:e2e
+      - name: Keep the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          if-no-files-found: ignore
 
   fixtures:
     name: Real-world fixtures (ingest + self-diff)

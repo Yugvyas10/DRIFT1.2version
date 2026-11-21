@@ -1,12 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { compare, REPORT_FILES, REPORT_FORMATS, renderReport, type CompareInput, type ReportFormat } from "@drift/core";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { ExitCode, type FailOn, type Report } from "@drift/report-schema";
 import { createFsCache } from "../cache.ts";
 import { ConfigError, loadConfig } from "../config.ts";
 import { displayPath } from "../fs-reader.ts";
 import { loadPolicy, loadRuleset, loadSpecs, loadTraffic, UsageError } from "../inputs.ts";
 import type { CliIo } from "../program.ts";
+import { uploadReport, UploadError } from "../upload.ts";
 
 /** Flags shared by `compare` and `explain`. Anything left unset comes from drift.config, then from defaults. */
 export interface CompareFlags {
@@ -24,6 +27,12 @@ export interface CompareFlags {
   config?: string;
   /** A directory, or false for `--no-cache`. */
   cache?: string | false;
+  upload?: boolean;
+  project?: string;
+  apiUrl?: string;
+  commit?: string;
+  branch?: string;
+  pr?: string;
 }
 
 export const DEFAULT_CACHE_DIR = ".drift/cache";
@@ -127,5 +136,61 @@ export async function compareCommand(flags: CompareFlags, io: CliIo, cwd: string
     io.stdout(cacheLine(report));
     io.stdout(`wrote ${written.join(", ")}\n`);
   }
+  if (flags.upload === true) {
+    try {
+      const done = await upload(report, flags, io, cwd);
+      io.stdout(`uploaded  run ${done.runId}${done.replayed ? " (already uploaded: same run)" : ""}\n`);
+    } catch (error) {
+      if (!(error instanceof UsageError) && !(error instanceof UploadError)) throw error;
+      // The report above stands; a failed upload is reported and fails the command.
+      io.stderr(`${error.message}\n`);
+      return ExitCode.UsageError;
+    }
+  }
   return report.gate.passed ? ExitCode.Pass : ExitCode.GateFailed;
+}
+
+const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
+
+/** The commit a run is for: `--commit`, the CI's commit, or the repository's HEAD. */
+async function commitOf(
+  flags: CompareFlags,
+  env: Readonly<Record<string, string | undefined>>,
+  cwd: string
+): Promise<string> {
+  let commit = flags.commit ?? env.GITHUB_SHA;
+  if (commit === undefined) {
+    try {
+      commit = (await promisify(execFile)("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" })).stdout.trim();
+    } catch {
+      throw new UsageError("drift: --upload needs --commit <sha> outside a git repository");
+    }
+  }
+  if (!SHA.test(commit)) throw new UsageError("drift: --commit must be a full commit SHA");
+  return commit;
+}
+
+/** `--upload`: sends the run to the platform. The API key comes from DRIFT_API_KEY only, never from a flag. */
+async function upload(report: Report, flags: CompareFlags, io: CliIo, cwd: string) {
+  const env = io.env ?? {};
+  const apiKey = env.DRIFT_API_KEY;
+  if (apiKey === undefined || apiKey === "") throw new UsageError("drift: --upload needs an API key in DRIFT_API_KEY");
+  const apiUrl = flags.apiUrl ?? env.DRIFT_API_URL;
+  if (apiUrl === undefined || apiUrl === "")
+    throw new UsageError("drift: --upload needs --api-url <url> or DRIFT_API_URL");
+  if (flags.project === undefined) throw new UsageError("drift: --upload needs --project <slug>");
+  if (flags.pr !== undefined && !/^[1-9][0-9]*$/.test(flags.pr))
+    throw new UsageError("drift: --pr must be a pull request number");
+  if (!io.fetch) throw new UsageError("drift: uploading is not available here");
+  const branch = flags.branch ?? env.GITHUB_HEAD_REF ?? env.GITHUB_REF_NAME;
+  return uploadReport(report, {
+    apiUrl,
+    apiKey,
+    project: flags.project,
+    commit: await commitOf(flags, env, cwd),
+    ...(branch === undefined || branch === "" ? {} : { branch }),
+    ...(flags.pr === undefined ? {} : { pullRequest: Number(flags.pr) }),
+    trigger: env.CI === undefined || env.CI === "" || env.CI === "false" ? "manual" : "ci",
+    fetch: io.fetch,
+  });
 }

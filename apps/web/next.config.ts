@@ -10,17 +10,22 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
-  // Script and style sources need per-request nonces; the full CSP lands with auth in M5 (docs/SECURITY.md).
-  {
-    key: "Content-Security-Policy",
-    value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
-  },
 ];
+
+// Pages get their Content-Security-Policy, with a per-request nonce, from src/proxy.ts. The API serves JSON only,
+// so it gets the strictest policy there is.
+const apiHeaders = [{ key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'" }];
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  headers: () => Promise.resolve([{ source: "/:path*", headers: securityHeaders }]),
+  // Prisma's driver and the AWS SDK are loaded from node_modules at run time, not bundled.
+  serverExternalPackages: ["pg", "@prisma/adapter-pg"],
+  headers: () =>
+    Promise.resolve([
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/api/:path*", headers: apiHeaders },
+    ]),
 };
 
 export default nextConfig;

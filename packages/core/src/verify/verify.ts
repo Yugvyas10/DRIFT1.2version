@@ -144,7 +144,7 @@ function schemaFailures(errors: ErrorObject[], slot: Slot, prefix: string): Fail
 }
 
 /** Checks requests and responses against one contract. */
-class Checker {
+export class Checker {
   readonly validators: Validators;
   readonly #spec: SpecIR;
 
@@ -704,4 +704,4 @@ function runPlans(
   return trimmed;
 }
 
-export { isUnknown, matchMedia };
+export { isUnknown, matchMedia, responseKey };

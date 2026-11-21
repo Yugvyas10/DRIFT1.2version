@@ -2,7 +2,7 @@
 
 **Status: APPROVED 2026-09-26** (roles assigned; all other recommendations in §10 accepted as written). This file wins over `MASTER_PROMPT.md` wherever they differ. Decisions are recorded in §10.
 
-**Current milestone: M4 — GitHub Action + dogfooding: complete, awaiting review (2026-09-30). M0–M3: approved (M3 on 2026-09-30).**
+**Current milestone: M5 — DB, auth, orgs/RBAC, API keys, ingestion API, object storage: complete, awaiting review (2026-10-02). M0–M4: approved (M4 on 2026-10-01).**
 
 Related: [`INVENTORY.md`](INVENTORY.md) (current state) · [`adr/`](adr/) (decisions) · [`MASTER_PROMPT.md`](MASTER_PROMPT.md) (full specification).
 
@@ -382,6 +382,22 @@ Owners: P3 (db, ingestion API, storage), P2 (auth, RBAC, invitations, API keys, 
   - oversize and invalid reports are rejected;
   - audit entries exist for key create/revoke, membership change and suppression create;
   - contract tests pass against `drift-api.yaml`.
+
+- **Status: complete, awaiting review (2026-10-02),** on branch `rebuild/m5-platform` (stacked on M4).
+  - **Acceptance:**
+    - the end-to-end test (`apps/web/e2e/upload-flow.spec.ts`, Playwright against the built app with Postgres and S3 in containers) registers, creates an organisation, a project and an API key (shown once), runs the real `drift compare --upload`, and finds the run through the API and in the run list. It then revokes the key (the next upload gets 401) and checks the audit log;
+    - the integration tests (`apps/web/src/server/**/*.int.test.ts`, Testcontainers) cover the rest: cross-organisation access is 404 on every organisation-scoped route; VIEWER and MEMBER cannot create keys (403); a revoked or expired key gets 401; the same idempotency key returns the same run, also when requests race; oversize (413) and invalid (422) reports are rejected; audit entries exist for key create and revoke, membership change and suppression create;
+    - contract tests: every request and response in those tests is checked against `drift-api.yaml` with the engine's own validators (core `ContractChecker`), and a unit test checks that the route table and the contract list the same operations.
+  - Built as planned: the Prisma data model with one migration; next-auth v4 for identity (password with bcrypt cost 12, GitHub OAuth when configured); one `requireAuth` path for routes, pages and server actions, with roles read from the database on every request; API keys (`drift_`, shown once, SHA-256, scoped, revocable); idempotent run upload with pre-signed PUT URLs, `complete`, and short-lived signed GET URLs; `drift compare --upload` with `DRIFT_API_KEY`; the nonce-based CSP (SECURITY T6); a minimal run list and the auth, key, member and audit screens.
+  - Also: the Action's `upload` input is real (it was "not built yet" in M4); `drift-api.yaml` grew from 7 to 23 operations (accounts, organisations, projects, keys, members, invitations, suppressions, audit), all additive.
+  - Deviations:
+    - **No `Session` table:** sessions are encrypted JWTs (ADR-0007), revoked through `User.tokenVersion`.
+    - **Server-side verification of uploads:** on `complete` the server reads each artifact and checks its SHA-256, instead of trusting the client.
+    - **One catch-all API route** dispatching through a route table, instead of one file per route, so tests run exactly what production serves.
+    - **No email:** an invitation's token is shown once to the inviter. Password reset and email verification are not built.
+    - **Rate limiting stays in M6** (Redis): sign-in and registration are not rate limited yet (SECURITY T16).
+    - **GitHub sign-in is not exercised end to end,** because that needs a GitHub OAuth app (an owner action); its account rule is tested.
+    - Stored suppressions are not yet applied to uploaded runs (that belongs with server-side runs, M6).
 
 ### M6 — Worker/queue, SSE live runs, stage re-runs, observability (size 1.1)
 

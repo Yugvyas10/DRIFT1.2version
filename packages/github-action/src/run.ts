@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
-import { prepareCompare, UsageError, type CompareFlags } from "@drift/cli";
+import { prepareCompare, UsageError, type CompareFlags, type UploadOptions } from "@drift/cli";
 import { compare, escapeMarkdown, MARKDOWN_MARKER, REPORT_FILES, renderMarkdown, renderReport } from "@drift/core";
 import type { Report } from "@drift/report-schema";
 import { COMMENT_LIMIT, keyMarker, upsertComment, type GitHubApi } from "./comment.ts";
@@ -14,7 +14,9 @@ export interface EventContext {
   /** The commit and ref being checked (for a pull request: the merge commit and `refs/pull/N/merge`). */
   sha: string;
   ref: string;
-  pullRequest?: { number: number; baseSha: string };
+  pullRequest?: { number: number; baseSha: string; headSha?: string };
+  /** The branch being checked (a pull request's head branch, or the pushed branch). */
+  branch?: string;
   /** For a push: the commit before it (all zeros for a new branch). */
   before?: string;
 }
@@ -37,6 +39,8 @@ export interface ActionDeps {
   log: Log;
   summary(markdown: string): Promise<void>;
   setOutput(name: string, value: string): void;
+  /** Sends a run to the DRIFT platform (`uploadReport` of @drift/cli); undefined where uploading is unavailable. */
+  upload?: (report: Report, options: Omit<UploadOptions, "fetch">) => Promise<{ runId: string; replayed: boolean }>;
   /** The date for suppression expiry (defaults to today). */
   asOf?: string;
 }
@@ -122,9 +126,7 @@ export async function runAction(deps: ActionDeps): Promise<ActionResult> {
 
   if (inputs.comment) await comment(deps, report);
   if (inputs.sarif) await uploadSarif(deps, report);
-  if (inputs.upload) {
-    log.warning("upload: not built yet. The DRIFT platform's ingestion API arrives in M5; nothing was sent anywhere.");
-  }
+  if (inputs.upload) await uploadRun(deps, report);
   deps.setOutput("passed", String(report.gate.passed));
   if (report.gate.passed) return { passed: true };
   const s = report.summary;
@@ -177,5 +179,34 @@ async function uploadSarif(deps: ActionDeps, report: Report): Promise<void> {
     deps.log.warning(
       `sarif: the upload failed (${error instanceof Error ? error.message : String(error)}). It needs "security-events: write" and code scanning enabled for the repository.`
     );
+  }
+}
+
+/**
+ * Sends the run to the DRIFT platform. Like the comment and SARIF, a failed upload is a warning: the gate result
+ * does not depend on the platform being reachable.
+ */
+async function uploadRun(deps: ActionDeps, report: Report): Promise<void> {
+  const { project, apiUrl, apiKey } = deps.inputs;
+  if (!deps.upload || project === undefined || apiUrl === undefined || apiKey === undefined) {
+    deps.log.warning("upload: not configured, so nothing was sent");
+    return;
+  }
+  const pr = deps.event.pullRequest;
+  try {
+    const done = await deps.upload(report, {
+      apiUrl,
+      apiKey,
+      project,
+      // The commit that was written, not the temporary merge commit GitHub checks out for a pull request.
+      commit: pr?.headSha ?? deps.event.sha,
+      ...(deps.event.branch === undefined ? {} : { branch: deps.event.branch }),
+      ...(pr ? { pullRequest: pr.number } : {}),
+      trigger: "ci",
+    });
+    deps.setOutput("run-id", done.runId);
+    deps.log.info(`Uploaded run ${done.runId}${done.replayed ? " (already uploaded: same run)" : ""}`);
+  } catch (error) {
+    deps.log.warning(`upload: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

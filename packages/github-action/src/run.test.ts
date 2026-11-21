@@ -181,14 +181,70 @@ describe("runAction on a pull request", () => {
     expect(h.logs).toContain("warning sarif: no token, so the SARIF report was not uploaded");
   });
 
-  it("says plainly that platform upload is not built yet, and sends nothing", async () => {
+  it("uploads the run to the platform for the pull request's head commit, and sets run-id", async () => {
     const { dir, base } = repository("v2-additive.yaml");
-    const h = harness(dir, pr(base), { spec: "openapi.yaml", upload: "true", comment: "false" });
+    const sent: unknown[] = [];
+    const inputs = {
+      spec: "openapi.yaml",
+      upload: "true",
+      project: "orders",
+      "api-url": "https://drift.example",
+      "api-key": "drift_test",
+      comment: "false",
+    };
+    const event = {
+      ...pr(base),
+      pullRequest: { number: 7, baseSha: base, headSha: "9".repeat(40) },
+      branch: "feature/x",
+    };
+    const h = harness(dir, event, inputs, {
+      upload: (report, options) => {
+        sent.push({ format: report.format, ...options });
+        return Promise.resolve({ runId: "run_abc", replayed: false });
+      },
+    });
     expect((await runAction(h.deps)).passed).toBe(true);
-    expect(h.logs).toContain(
-      "warning upload: not built yet. The DRIFT platform's ingestion API arrives in M5; nothing was sent anywhere."
-    );
-    expect(h.calls).toEqual([]);
+    expect(sent).toEqual([
+      {
+        format: "drift-report/v1",
+        apiUrl: "https://drift.example",
+        apiKey: "drift_test",
+        project: "orders",
+        commit: "9".repeat(40), // not the merge commit GitHub checks out
+        branch: "feature/x",
+        pullRequest: 7,
+        trigger: "ci",
+      },
+    ]);
+    expect(h.outputs["run-id"]).toBe("run_abc");
+    expect(h.logs).toContain("info Uploaded run run_abc");
+    expect(h.logs.join("\n")).not.toContain("drift_test");
+  });
+
+  it("warns, and still gates, when the platform refuses the upload or uploading is unavailable", async () => {
+    const { dir, base } = repository("v2-breaking.yaml");
+    const inputs = {
+      spec: "openapi.yaml",
+      upload: "true",
+      project: "orders",
+      "api-url": "https://drift.example",
+      "api-key": "drift_test",
+      comment: "false",
+    };
+    const refused = harness(dir, pr(base), inputs, {
+      upload: () => Promise.reject(new Error("drift: upload refused by https://drift.example: 401 Unauthorized")),
+    });
+    expect((await runAction(refused.deps)).passed).toBe(false);
+    expect(refused.logs).toContain("warning upload: drift: upload refused by https://drift.example: 401 Unauthorized");
+    const push = { eventName: "push", sha: "e".repeat(40), ref: "refs/heads/main", before: base };
+    const replayed = harness(dir, push, inputs, {
+      upload: () => Promise.resolve({ runId: "run_abc", replayed: true }),
+    });
+    await runAction(replayed.deps);
+    expect(replayed.logs).toContain("info Uploaded run run_abc (already uploaded: same run)");
+    const unavailable = harness(dir, pr(base), inputs);
+    await runAction(unavailable.deps);
+    expect(unavailable.logs).toContain("warning upload: not configured, so nothing was sent");
   });
 });
 

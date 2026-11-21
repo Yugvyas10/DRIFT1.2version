@@ -43,9 +43,18 @@ inputs:
     required: false
     default: "false"
   upload:
-    description: "Upload the run to the DRIFT platform. NOT BUILT YET: arrives in M5; until then it only logs a warning."
+    description: Upload the run to the DRIFT platform. Needs `project`, `api-url` and `api-key`.
     required: false
     default: "false"
+  project:
+    description: The platform project (its slug) to upload to.
+    required: false
+  api-url:
+    description: Base URL of the DRIFT platform (https).
+    required: false
+  api-key:
+    description: A DRIFT API key with `runs:write`. Pass it from a repository secret, never as plain text.
+    required: false
   base-missing:
     description: "`pass` (default) or `fail` when the contract does not exist at the base commit (a new API)."
     required: false
@@ -73,6 +82,8 @@ outputs:
     description: Number of SAFE changes.
   semver:
     description: Recommended version bump (major, minor or patch).
+  run-id:
+    description: The id of the uploaded run (with `upload`).
   report-dir:
     description: Directory with drift-report.json, .md, .html and .sarif (upload it with actions/upload-artifact).
 

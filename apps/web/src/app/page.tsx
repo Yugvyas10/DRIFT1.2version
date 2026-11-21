@@ -1,8 +1,8 @@
 import { Logo } from "@/components/logo";
 
 /*
- * Marketing landing page. It describes the design only: no run results, numbers or customer
- * claims appear here, because none exist yet (CLAUDE.md: never present a stub as working).
+ * Marketing landing page. It describes what DRIFT does and what exists so far. No run results, numbers or
+ * customer claims appear here (CLAUDE.md: numbers come from packages/bench only; never present a stub as working).
  */
 
 const LABELS = [
@@ -88,6 +88,11 @@ export default function HomePage() {
                 In development
               </span>
             </li>
+            <li>
+              <a className="hover:text-foreground" href="/login">
+                Sign in
+              </a>
+            </li>
           </ul>
         </nav>
       </header>
@@ -111,11 +116,12 @@ export default function HomePage() {
               aria-label="Project status"
               className="glass-panel mt-10 max-w-2xl rounded-lg p-5 text-sm leading-relaxed"
             >
-              <p className="font-medium text-risky">DRIFT is being rebuilt.</p>
+              <p className="font-medium text-risky">DRIFT is in development.</p>
               <p className="mt-1 text-muted-foreground">
-                The engine is not available yet. This page describes the design, and nothing on it comes from a real
-                run. Progress is tracked milestone by milestone in{" "}
-                <code className="font-mono text-foreground">docs/PLAN.md</code>.
+                The engine, the <code className="font-mono text-foreground">drift</code> command and the GitHub Action
+                work today, and runs can be uploaded to this dashboard. The run canvas and live runs are still being
+                built. This page shows no results or numbers; measured ones are in{" "}
+                <code className="font-mono text-foreground">docs/EVALUATION.md</code>.
               </p>
             </aside>
           </div>

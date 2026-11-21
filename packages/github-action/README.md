@@ -35,23 +35,26 @@ jobs:
 
 The base is the same path at the pull request's base commit. A shallow checkout lacks that commit, so the Action fetches it (`git fetch --depth=1 origin <sha>`). In a private repository keep checkout's default `persist-credentials: true`, or use `fetch-depth: 0`.
 
-| Input               | Default               | Meaning                                                                           |
-| ------------------- | --------------------- | --------------------------------------------------------------------------------- |
-| `spec`              |                       | The contract's path. Head: this file. Base: the same path at the base commit.     |
-| `base`, `head`      |                       | Overrides: a file, or `<ref>:<path>` for the base.                                |
-| `traffic`           |                       | drift-traffic/v1 JSONL or HAR. Redacted before use.                               |
-| `rules`, `policy`   |                       | A ruleset or a policy file (escalations, expiring suppressions).                  |
-| `config`            | `drift.config.*`      | A config file; inputs win over it.                                                |
-| `fail-on`           | `breaking`            | Which label fails the step.                                                       |
-| `comment`           | `true`                | One pull-request comment (needs `pull-requests: write`).                          |
-| `sarif`             | `false`               | Upload to code scanning (needs `security-events: write`).                         |
-| `upload`            | `false`               | **Not built yet** (the platform arrives in M5): logs a warning and sends nothing. |
-| `base-missing`      | `pass`                | The contract is new (absent at the base): `pass` with a notice, or `fail`.        |
-| `comment-key`       | the head path         | Keeps comments of several DRIFT steps in one pull request apart.                  |
-| `working-directory` | `.`                   | Where to run.                                                                     |
-| `token`             | `${{ github.token }}` | For the comment and the SARIF upload.                                             |
+| Input               | Default               | Meaning                                                                                      |
+| ------------------- | --------------------- | -------------------------------------------------------------------------------------------- |
+| `spec`              |                       | The contract's path. Head: this file. Base: the same path at the base commit.                |
+| `base`, `head`      |                       | Overrides: a file, or `<ref>:<path>` for the base.                                           |
+| `traffic`           |                       | drift-traffic/v1 JSONL or HAR. Redacted before use.                                          |
+| `rules`, `policy`   |                       | A ruleset or a policy file (escalations, expiring suppressions).                             |
+| `config`            | `drift.config.*`      | A config file; inputs win over it.                                                           |
+| `fail-on`           | `breaking`            | Which label fails the step.                                                                  |
+| `comment`           | `true`                | One pull-request comment (needs `pull-requests: write`).                                     |
+| `sarif`             | `false`               | Upload to code scanning (needs `security-events: write`).                                    |
+| `upload`            | `false`               | Upload the run to the DRIFT platform. Needs `project`, `api-url` and `api-key`.              |
+| `project`           |                       | The platform project (its slug).                                                             |
+| `api-url`           |                       | Base URL of the platform (https).                                                            |
+| `api-key`           |                       | A DRIFT API key with `runs:write`, from a repository secret: `${{ secrets.DRIFT_API_KEY }}`. |
+| `base-missing`      | `pass`                | The contract is new (absent at the base): `pass` with a notice, or `fail`.                   |
+| `comment-key`       | the head path         | Keeps comments of several DRIFT steps in one pull request apart.                             |
+| `working-directory` | `.`                   | Where to run.                                                                                |
+| `token`             | `${{ github.token }}` | For the comment and the SARIF upload.                                                        |
 
-Outputs: `passed`, `breaking`, `risky`, `safe`, `semver`, and `report-dir` (JSON, Markdown, HTML and SARIF reports, for `actions/upload-artifact`).
+Outputs: `passed`, `breaking`, `risky`, `safe`, `semver`, `run-id` (with `upload`), and `report-dir` (JSON, Markdown, HTML and SARIF reports, for `actions/upload-artifact`).
 
 ## Permissions
 
