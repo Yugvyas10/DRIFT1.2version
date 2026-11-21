@@ -12,7 +12,7 @@ catalog:
   fast-check: 4.10.2
   typescript: 6.0.3
   vitest: 5.0.2
-  zod: 4.6.5
+  zod: 4.6.7
 
 # Lifecycle scripts are blocked unless listed here (supply-chain hardening).
 allowBuilds:
