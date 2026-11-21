@@ -1,0 +1,49 @@
+name: Images
+
+# Publishes the platform and Redis images to GitHub's container registry (ADR-0009), tagged with the full commit
+# SHA, which infra/azure/deploy.sh deploys. Runs on every push to master, and for any commit when a tag named
+# `images-*` is pushed to it (the way to publish a branch before it is merged). The images are the ones CI's
+# `images` job builds and smoke-tests on every pull request; nothing is deployed from here.
+
+on:
+  push:
+    branches: [master]
+    tags: ["images-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish the images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Sign in to ghcr.io with this run's token
+        run: echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push, tagged with the commit SHA
+        run: |
+          prefix="ghcr.io/$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          # The source label links each package to this repository, so the repository's collaborators can pull it.
+          label="org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          docker build --label "$label" --tag "$prefix/drift-platform:$GITHUB_SHA" .
+          docker build --label "$label" --tag "$prefix/drift-redis:$GITHUB_SHA" infra/container/redis
+          docker push "$prefix/drift-platform:$GITHUB_SHA"
+          docker push "$prefix/drift-redis:$GITHUB_SHA"
+          echo "Published $prefix/drift-platform:$GITHUB_SHA and $prefix/drift-redis:$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Sign out
+        if: always()
+        run: docker logout ghcr.io

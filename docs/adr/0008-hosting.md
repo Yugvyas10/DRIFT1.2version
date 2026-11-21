@@ -1,6 +1,6 @@
 # ADR-0008: Hosting on Fly.io, Neon and Cloudflare R2
 
-Status: Accepted (2026-10-04; the Redis host, Decision 4, on 2026-10-05)
+Status: Accepted (2026-10-04; the Redis host, Decision 4, on 2026-10-05). Decisions 1, 4 and 7 (Fly.io) superseded by [ADR-0009](0009-azure-container-apps.md) on 2026-10-08; Neon, R2 and the rest stand.
 Date: 2026-10-04
 Owner: P4 (decision). Operations owner to be agreed; P3 is suggested, as the owner of the database, storage and worker.
 

@@ -101,6 +101,101 @@ jobs:
         if: always()
         run: docker compose -f infra/docker-compose.yml down -v
 
+  images:
+    name: Container images and Azure template, build and smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # The local services' settings, as in the services job (compose reads S3_* from the environment).
+    env:
+      S3_BUCKET: drift-artifacts
+      S3_ACCESS_KEY_ID: drift
+      S3_SECRET_ACCESS_KEY: drift-local-only
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Plant local env files that must never reach an image (SECURITY T41)
+        run: |
+          for file in .env apps/web/.env.local apps/worker/.env; do
+            printf 'CANARY=drift-dockerignore-canary\n' > "$file"
+          done
+      - name: Build the platform image (as the images workflow does)
+        run: docker build --tag drift-platform .
+      - name: Build the Redis image
+        run: docker build --tag drift-redis infra/container/redis
+      - name: The image runs as a normal user, holds no env file and has Prisma's migration engine
+        run: |
+          docker run --rm drift-platform sh -c '
+            set -eu
+            test "$(id -u)" != 0
+            if grep -rIl drift-dockerignore-canary /app --exclude-dir=node_modules; then exit 1; fi
+            test -z "$(find /app -name ".env*" -not -path "*/node_modules/*")"
+            ls /app/node_modules/.pnpm/@prisma+engines@*/node_modules/@prisma/engines/schema-engine-*'
+          docker image ls drift-platform --format 'platform image: {{.Size}}'
+      - name: Start Postgres, Redis and object storage; wait until healthy
+        run: docker compose -f infra/docker-compose.yml up -d --wait --wait-timeout 180
+      - name: Settings for the containers
+        run: |
+          {
+            echo "DATABASE_URL=postgresql://drift:drift-local-only@localhost:5432/drift"
+            echo "REDIS_URL=redis://localhost:6379"
+            echo "S3_ENDPOINT=http://localhost:8333"
+            echo "S3_BUCKET=$S3_BUCKET"
+            echo "S3_ACCESS_KEY_ID=$S3_ACCESS_KEY_ID"
+            echo "S3_SECRET_ACCESS_KEY=$S3_SECRET_ACCESS_KEY"
+            echo "APP_URL=http://localhost:3000"
+            echo "AUTH_SECRET=$(openssl rand -base64 32)"
+          } > "$RUNNER_TEMP/platform.env"
+      - name: Release command applies the migrations
+        run: docker run --rm --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/container/release.sh
+      - name: Worker process reaches the database, Redis and storage (--check)
+        run: docker run --rm --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/container/worker.sh --check
+      - name: Web process answers /healthz, /readyz and the landing page
+        run: |
+          docker run --detach --name web --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/container/web.sh
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:3000/healthz > /dev/null && break
+            sleep 1
+          done
+          curl --silent --show-error --fail http://localhost:3000/healthz
+          curl --silent --show-error --fail http://localhost:3000/readyz
+          curl --silent --show-error --fail --output /dev/null http://localhost:3000/
+      - name: Redis sidecar refuses to start without a password
+        run: if docker run --rm drift-redis; then echo "started without REDIS_PASSWORD"; exit 1; fi
+      - name: Redis sidecar on the loopback, as in Azure; the worker reaches it with the password
+        run: |
+          docker compose -f infra/docker-compose.yml stop redis
+          password=$(openssl rand -hex 32)
+          docker run --detach --name redis-sidecar --network host --env REDIS_PASSWORD="$password" drift-redis
+          for attempt in $(seq 1 30); do
+            docker exec redis-sidecar redis-cli --no-auth-warning -a "$password" ping 2>/dev/null | grep -q PONG && break
+            sleep 1
+          done
+          docker exec redis-sidecar redis-cli ping 2>&1 | grep -q NOAUTH
+          docker exec redis-sidecar redis-cli --no-auth-warning -a "$password" config get maxmemory-policy | grep -qx noeviction
+          docker exec redis-sidecar redis-cli --no-auth-warning -a "$password" config get appendonly | grep -qx no
+          docker exec redis-sidecar redis-cli --no-auth-warning -a "$password" config get bind | grep -q '^127.0.0.1'
+          # The password is in the config file, not on Redis's command line (PID 1).
+          if docker exec redis-sidecar cat /proc/1/cmdline | tr '\0' ' ' | grep -q "$password"; then exit 1; fi
+          docker exec redis-sidecar cat /proc/1/cmdline | tr '\0' ' ' | grep -q redis-server
+          sed -i "s|^REDIS_URL=.*|REDIS_URL=redis://default:$password@127.0.0.1:6379|" "$RUNNER_TEMP/platform.env"
+          docker run --rm --network host --env-file "$RUNNER_TEMP/platform.env" drift-platform /app/infra/container/worker.sh --check
+      - name: The Azure template compiles without warnings
+        run: |
+          az bicep build --file infra/azure/main.bicep --stdout > /dev/null 2> "$RUNNER_TEMP/bicep.log" || { cat "$RUNNER_TEMP/bicep.log"; exit 1; }
+          if grep -i warning "$RUNNER_TEMP/bicep.log"; then exit 1; fi
+          bash -n infra/azure/deploy.sh
+      - name: Container logs
+        if: always()
+        run: |
+          docker logs web 2>&1 | tail -n 50 || true
+          docker logs redis-sidecar 2>&1 | tail -n 20 || true
+      - name: Stop
+        if: always()
+        run: |
+          docker rm --force web redis-sidecar || true
+          docker compose -f infra/docker-compose.yml down -v
+
   integration:
     name: Integration tests, ${{ matrix.package }} (Postgres, Redis, S3 in containers)
     runs-on: ubuntu-latest
